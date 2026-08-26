@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Download, Eye, FileText, Layers3, Scissors, Tags, Upload } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, CloudUpload, Download, Eye, FileText, Layers3, Minimize, RotateCw, Scissors, Shield, Tags, Upload } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
 import type { SupportingDocument } from "@/types";
 
@@ -230,6 +230,10 @@ export function PacketWorkspace({
       outputsRef.current.forEach((output) => URL.revokeObjectURL(output.url));
     };
   }, []);
+
+  function handleComingSoon(feature: string) {
+    setToolkitMessage(`${feature} UI is ready. The underlying PDF transformation is queued for a follow-up implementation.`);
+  }
 
   async function handleDroppedFiles(files: FileList | null) {
     await handleDocumentUpload(files);
@@ -491,11 +495,75 @@ export function PacketWorkspace({
             void handleDroppedFiles(event.dataTransfer.files);
           }}
           disabled={isProcessingDocuments}
-          className="mt-5 flex w-full items-center justify-center gap-3 rounded-[1.1rem] border border-dashed border-sky-400/25 bg-sky-400/10 px-4 py-6 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-5 flex w-full flex-col items-center justify-center gap-3 rounded-[1.3rem] border-2 border-dashed border-indigo-300/40 bg-indigo-500/10 px-4 py-8 text-center text-sm font-semibold text-indigo-100 transition hover:bg-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Upload className="h-5 w-5" />
-          {isProcessingDocuments ? "Adding supporting documents..." : "Drag and drop files here or click to add supporting PDF"}
+          <span className="inline-flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-indigo-100 text-indigo-600 shadow-sm shadow-indigo-950/20">
+            <CloudUpload className="h-8 w-8" />
+          </span>
+          <span className="text-base font-semibold text-white">Drag & Drop Consular Documents Here</span>
+          <span className="max-w-xl text-sm font-medium leading-6 text-indigo-100/85">
+            {isProcessingDocuments ? "Adding supporting documents..." : "PDF, PNG, JPEG, and WEBP files are supported. Current server upload limits still apply."}
+          </span>
         </button>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => void handleMergeDocuments()}
+            disabled={isProcessingDocuments || documents.length === 0}
+            className="rounded-[1.1rem] border border-blue-200/10 bg-blue-500/10 p-4 text-left transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Layers3 className="mb-3 h-10 w-10 rounded-lg bg-blue-100 p-2 text-blue-600" />
+            <p className="text-sm font-semibold text-white">Merge Stack</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Combine the current PDFs and scans into one embassy-ready file.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSplitDocument()}
+            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+            className="rounded-[1.1rem] border border-red-200/10 bg-red-500/10 p-4 text-left transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Scissors className="mb-3 h-10 w-10 rounded-lg bg-red-100 p-2 text-red-600" />
+            <p className="text-sm font-semibold text-white">Split & Extract</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Pull specific pages from a longer PDF like a bank statement or booking packet.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleComingSoon("Compress Size")}
+            className="rounded-[1.1rem] border border-emerald-200/10 bg-emerald-500/10 p-4 text-left transition hover:bg-emerald-500/15"
+          >
+            <Minimize className="mb-3 h-10 w-10 rounded-lg bg-emerald-100 p-2 text-emerald-600" />
+            <p className="text-sm font-semibold text-white">Compress Size</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Prepare smaller files for VFS, TLS, or BLS portal upload limits.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleComingSoon("Reorder Pages")}
+            className="rounded-[1.1rem] border border-violet-200/10 bg-violet-500/10 p-4 text-left transition hover:bg-violet-500/15"
+          >
+            <ArrowDownUp className="mb-3 h-10 w-10 rounded-lg bg-violet-100 p-2 text-violet-600" />
+            <p className="text-sm font-semibold text-white">Reorder Pages</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Use the list controls below to move files into the checklist order.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleComingSoon("Rotate Scans")}
+            className="rounded-[1.1rem] border border-amber-200/10 bg-amber-500/10 p-4 text-left transition hover:bg-amber-500/15"
+          >
+            <RotateCw className="mb-3 h-10 w-10 rounded-lg bg-amber-100 p-2 text-amber-600" />
+            <p className="text-sm font-semibold text-white">Rotate Scans</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Fix upside-down passport scans and rotated evidence before export.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleComingSoon("Flatten & Sanitize")}
+            className="rounded-[1.1rem] border border-slate-200/10 bg-slate-500/10 p-4 text-left transition hover:bg-slate-500/15"
+          >
+            <Shield className="mb-3 h-10 w-10 rounded-lg bg-slate-100 p-2 text-slate-600" />
+            <p className="text-sm font-semibold text-white">Flatten & Sanitize</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Strip editing metadata before the final embassy submission package is created.</p>
+          </button>
+        </div>
 
         {toolkitMessage ? (
           <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
@@ -505,8 +573,14 @@ export function PacketWorkspace({
 
         <div className="mt-5 space-y-3">
           {documents.length === 0 ? (
-            <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-6 text-sm text-slate-400">
-              No supporting PDFs uploaded yet. Add flights, hotel confirmations, insurance, employment letters, or financial statements here.
+            <div className="rounded-[1.1rem] border border-white/10 bg-black/30 px-4 py-8 text-center text-sm text-slate-400">
+              <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[1rem] bg-white/5 text-slate-300">
+                <FileText className="h-6 w-6" />
+              </div>
+              <p className="mt-4 text-base font-semibold text-white">No supporting documents yet</p>
+              <p className="mx-auto mt-2 max-w-lg leading-6 text-slate-400">
+                Add flights, hotel confirmations, insurance, employment letters, or financial statements to build the final consular stack.
+              </p>
             </div>
           ) : (
             documents.map((document, index) => (
@@ -643,7 +717,7 @@ export function PacketWorkspace({
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[1rem] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Layers3 className="h-4 w-4" />
-          Merge All into Consular Stack
+          Merge All Documents Into Consular Stack
         </button>
       </div>
 
@@ -689,7 +763,7 @@ export function PacketWorkspace({
             </div>
             <div className="mt-3 space-y-2">
               {supportingDocuments.map((document) => (
-                <div key={document.id} className="flex items-center justify-between gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-2">
+                <div key={document.id} className="flex flex-col gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-medium text-white">{document.fileName}</p>
                     <p className="text-xs text-slate-400">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>

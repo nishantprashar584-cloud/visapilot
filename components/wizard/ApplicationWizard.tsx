@@ -22,6 +22,7 @@ import {
 } from "@/lib/applications/schema";
 import { previewWizardApplicant } from "@/lib/mock/applications";
 import { Step5Workspace } from "@/components/wizard/Step5Workspace";
+import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 import type { ApplicantInfo, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
 import { runRiskAudit } from "@/lib/riskAudit";
 
@@ -271,17 +272,24 @@ function TextAreaInput({
 }
 
 function StepPanel({
+  eyebrow,
   title,
   description,
+  icon: Icon,
+  tone,
   children,
 }: {
+  eyebrow: string;
   title: string;
   description: string;
+  icon: typeof UserSquare2;
+  tone: "red" | "blue" | "indigo" | "emerald" | "amber" | "slate";
   children: React.ReactNode;
 }) {
   return (
     <div className="glass-panel p-6 sm:p-8">
       <div className="space-y-2">
+        <TintedIconBadge icon={Icon} tone={tone} label={eyebrow} />
         <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
         <p className="text-sm leading-6 text-slate-300">{description}</p>
       </div>
@@ -572,7 +580,7 @@ export function ApplicationWizard({
   const [bankStatementParseMessage, setBankStatementParseMessage] = useState<string | null>(null);
   const [isStartingCheckout, setIsStartingCheckout] = useState<PricingTier | null>(null);
   const [coverLetterDraft, setCoverLetterDraft] = useState("");
-  const [documentStudioTab, setDocumentStudioTab] = useState<"cover-letter" | "toolkit">("cover-letter");
+  const [documentStudioTab, setDocumentStudioTab] = useState<"cover-letter" | "toolkit">("toolkit");
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
   const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
@@ -1051,7 +1059,7 @@ export function ApplicationWizard({
             })}
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {summaryItems.map((item) => (
               <div key={item.label} className="rounded-[1rem] border border-white/10 bg-[#101010] px-4 py-3">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
@@ -1065,8 +1073,11 @@ export function ApplicationWizard({
 
           {currentStep === 0 ? (
             <StepPanel
+              eyebrow="Identity"
               title="Step 1: Passport & personal details"
               description="Upload a passport bio page for zero-retention OCR or enter the identity manually. Full name and passport number become the application identity anchor."
+              icon={UserSquare2}
+              tone="blue"
             >
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-[1.1rem] border border-cyan-400/20 bg-cyan-400/10 p-5">
@@ -1173,8 +1184,11 @@ export function ApplicationWizard({
 
           {currentStep === 1 ? (
             <StepPanel
+              eyebrow="Travel"
               title="Travel Details"
               description="Enter the route, purpose, and dates exactly as they should appear across bookings, forms, and the final packet."
+              icon={Plane}
+              tone="indigo"
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <TextInput label="Destination country" name="trip.destinationCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.destinationCountry"} />
@@ -1241,8 +1255,11 @@ export function ApplicationWizard({
 
           {currentStep === 2 ? (
             <StepPanel
+              eyebrow="Financials"
               title="Finances and employment"
               description="Add only the financial and employment details needed to prove sufficient funds and strong return ties."
+              icon={Wallet}
+              tone="amber"
             >
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-[1.1rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
@@ -1353,8 +1370,11 @@ export function ApplicationWizard({
 
           {currentStep === 3 ? (
             <StepPanel
+              eyebrow="Accommodations"
               title="Accommodations & home ties"
               description="Finish the remaining form inputs here, then move into the document studio for file preparation and final package generation."
+              icon={Home}
+              tone="emerald"
             >
               <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1404,8 +1424,11 @@ export function ApplicationWizard({
 
           {currentStep === 4 ? (
             <StepPanel
+              eyebrow="Document Studio"
               title="Document Studio"
               description="Prepare supporting files, refine the cover letter, and create the final application package in one focused workspace."
+              icon={FileStack}
+              tone="indigo"
             >
               <Step5Workspace
                 applicant={watchedValues as ApplicantInfo}

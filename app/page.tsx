@@ -132,11 +132,11 @@ export default function Home() {
         <div className="text-center">
           <p className="eyebrow">How It Works</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-            Three clean steps from identity to embassy packet.
+            Three clean phases around a five-step application flow.
           </h2>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {steps.map((step) => {
             const Icon = step.icon;
 
@@ -162,7 +162,7 @@ export default function Home() {
           </h2>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {pricingTiers.map((tier) => (
             <article
               key={tier.name}

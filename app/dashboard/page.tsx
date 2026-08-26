@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FolderOpen } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ApplicationStatusBadge } from "@/components/dashboard/ApplicationStatusBadge";
 import { ConsularDeepLinks } from "@/components/dashboard/ConsularDeepLinks";
@@ -8,6 +9,7 @@ import { ProcessingTimeline } from "@/components/dashboard/ProcessingTimeline";
 import { RecoveryTriggerModal } from "@/components/dashboard/RecoveryTriggerModal";
 import { RiskAuditCard } from "@/components/dashboard/RiskAuditCard";
 import { TrackingReferenceManager } from "@/components/dashboard/TrackingReferenceManager";
+import { CountryFlag } from "@/components/ui/CountryFlag";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
 import { previewApplications } from "@/lib/mock/applications";
 import { canReapplyForFree, getPrivacyCountdownDays, getProcessingProgress, runRiskAudit } from "@/lib/riskAudit";
@@ -86,7 +88,7 @@ export default async function DashboardPage({
   return (
     <section className="mx-auto max-w-6xl space-y-6 pb-10">
       <DashboardAutoRefresh />
-      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-white/10 bg-black/80 p-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-white/10 bg-black/80 p-4 sm:p-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <p className="eyebrow">Dashboard</p>
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
@@ -132,7 +134,7 @@ export default async function DashboardPage({
       ) : null}
 
       <div className="glass-panel p-6 sm:p-8">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="eyebrow">Applications</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Recent application packages</h2>
@@ -142,10 +144,11 @@ export default async function DashboardPage({
 
         <div className="mt-6 space-y-4">
           {visibleApplications.length === 0 ? (
-            <div className="rounded-[1.2rem] border border-white/10 bg-[#0f0f0f] p-6">
+            <div className="rounded-[1.2rem] border border-white/10 bg-[#0f0f0f] p-6 text-center">
+              <FolderOpen className="mx-auto mb-4 h-16 w-16 text-slate-300" />
               <p className="text-lg font-semibold text-white">No applications yet.</p>
               <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
-                Start with one package. After submission, this page will show your applicant name, destination, risk check, privacy countdown, tracking reference, and downloads.
+                Start your first Schengen visa. After submission, this page will show your applicant name, destination, risk check, privacy countdown, tracking reference, and downloads.
               </p>
               <Link
                 href={previewMode ? "/apply?preview=1" : "/apply"}
@@ -174,9 +177,14 @@ export default async function DashboardPage({
                           <ApplicationStatusBadge status={displayStatus} />
                           <PrivacyCountdownBadge daysRemaining={privacyCountdownDays} />
                         </div>
-                        <p className="text-sm text-slate-300">
-                          {application.destination_country} · {application.application_data.trip.purpose.replace(/_/g, " ")} · submitted {new Date(application.created_at).toLocaleDateString()}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+                          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                            <CountryFlag country={application.destination_country} />
+                            {application.destination_country}
+                          </span>
+                          <span>{application.application_data.trip.purpose.replace(/_/g, " ")}</span>
+                          <span>submitted {new Date(application.created_at).toLocaleDateString()}</span>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-3">

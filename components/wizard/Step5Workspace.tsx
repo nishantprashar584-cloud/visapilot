@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, FolderUp, PackageCheck, Sparkles } from "lucide-react";
+import { Download, FileText, FolderUp, PackageCheck, Sparkles } from "lucide-react";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
@@ -37,8 +37,23 @@ export function Step5Workspace({
   coverLetterMessage: string | null;
   onGenerateCoverLetter: (applicant: ApplicantInfo) => void;
 }) {
-  void applicant;
   const hasCredits = availableCredits > 0;
+
+  function handleDownloadDraft() {
+    if (!coverLetterDraft.trim()) {
+      return;
+    }
+
+    const blob = new Blob([coverLetterDraft], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${applicant.personal.firstName || "applicant"}-${applicant.trip.destinationCountry || "schengen"}-cover-letter.md`
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-5">
@@ -52,17 +67,7 @@ export function Step5Workspace({
             </p>
           </div>
 
-          <div className="inline-flex rounded-full border border-white/10 bg-black/40 p-1">
-            <button
-              type="button"
-              onClick={() => onActiveTabChange("cover-letter")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "cover-letter" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-              AI Cover Letter
-            </button>
+          <div className="flex flex-wrap rounded-[1rem] border border-white/10 bg-black/40 p-1">
             <button
               type="button"
               onClick={() => onActiveTabChange("toolkit")}
@@ -73,6 +78,16 @@ export function Step5Workspace({
               <FolderUp className="h-4 w-4" />
               Document Toolkit
             </button>
+            <button
+              type="button"
+              onClick={() => onActiveTabChange("cover-letter")}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeTab === "cover-letter" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
+              }`}
+            >
+              <Sparkles className="h-4 w-4" />
+              AI Cover Letter
+            </button>
           </div>
         </div>
 
@@ -80,7 +95,7 @@ export function Step5Workspace({
           {activeTab === "cover-letter" ? (
             <>
               <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
                       <Sparkles className="h-3.5 w-3.5" />
@@ -90,15 +105,27 @@ export function Step5Workspace({
                       Generate and refine the embassy-facing narrative before package creation.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onGenerateCoverLetter(applicant)}
-                    disabled={isGeneratingCoverLetter}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {isGeneratingCoverLetter ? "Generating..." : coverLetterDraft.trim() ? "Regenerate" : "Generate"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    {coverLetterDraft.trim() ? (
+                      <button
+                        type="button"
+                        onClick={handleDownloadDraft}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-[#151515] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Draft
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => onGenerateCoverLetter(applicant)}
+                      disabled={isGeneratingCoverLetter}
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {isGeneratingCoverLetter ? "Generating..." : coverLetterDraft.trim() ? "Regenerate" : "Generate"}
+                    </button>
+                  </div>
                 </div>
 
                 {coverLetterMessage ? (
@@ -180,7 +207,7 @@ export function Step5Workspace({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <PackageCheck className="h-4 w-4" />
               {previewMode
@@ -194,7 +221,7 @@ export function Step5Workspace({
               type="button"
               onClick={() => onCheckout("solo")}
               disabled={isStartingCheckout !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <PackageCheck className="h-4 w-4" />
               {isStartingCheckout === "solo" ? "Starting checkout..." : "Proceed to Secure Checkout ($19)"}
