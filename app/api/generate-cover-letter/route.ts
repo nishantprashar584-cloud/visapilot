@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { applicantInfoSchema } from "@/lib/applications/schema";
-import { generateCoverLetterMarkdown } from "@/lib/openai/generateCoverLetter";
+import { generateCoverLetterResult } from "@/lib/openai/generateCoverLetter";
 
 export async function POST(request: Request) {
   try {
@@ -17,9 +17,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const coverLetterMarkdown = await generateCoverLetterMarkdown(parsedApplicant.data);
+    const result = await generateCoverLetterResult(parsedApplicant.data);
 
-    return NextResponse.json({ coverLetterMarkdown });
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       {

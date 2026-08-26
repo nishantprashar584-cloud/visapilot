@@ -99,9 +99,16 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   ].join("\n");
 }
 
-export async function generateCoverLetterMarkdown(
+export type CoverLetterGenerationSource = "openai" | "fallback";
+
+export type CoverLetterGenerationResult = {
+  coverLetterMarkdown: string;
+  source: CoverLetterGenerationSource;
+};
+
+export async function generateCoverLetterResult(
   applicant: ApplicantInfo,
-): Promise<string> {
+): Promise<CoverLetterGenerationResult> {
   const destinationCountry = applicant.trip.destinationCountry;
   const consulateName = buildConsulateName(destinationCountry);
 
@@ -143,8 +150,21 @@ export async function generateCoverLetterMarkdown(
       throw new Error("OpenAI did not return cover letter content.");
     }
 
-    return coverLetterMarkdown;
+    return {
+      coverLetterMarkdown,
+      source: "openai",
+    };
   } catch {
-    return buildLocalCoverLetterFallback(applicant);
+    return {
+      coverLetterMarkdown: buildLocalCoverLetterFallback(applicant),
+      source: "fallback",
+    };
   }
+}
+
+export async function generateCoverLetterMarkdown(
+  applicant: ApplicantInfo,
+): Promise<string> {
+  const result = await generateCoverLetterResult(applicant);
+  return result.coverLetterMarkdown;
 }

@@ -987,14 +987,22 @@ export function ApplicationWizard({
         body: JSON.stringify(applicant),
       });
 
-      const payload = (await response.json()) as { coverLetterMarkdown?: string; error?: string };
+      const payload = (await response.json()) as {
+        coverLetterMarkdown?: string;
+        source?: "openai" | "fallback";
+        error?: string;
+      };
 
       if (!response.ok || !payload.coverLetterMarkdown) {
         throw new Error(payload.error ?? "Unable to generate cover letter preview.");
       }
 
       setCoverLetterDraft(payload.coverLetterMarkdown);
-      setCoverLetterMessage("Cover letter draft generated. You can edit it before package creation.");
+      setCoverLetterMessage(
+        payload.source === "fallback"
+          ? "Cover letter draft generated with the local fallback because the AI service is currently unavailable. You can edit it before package creation."
+          : "Cover letter draft generated. You can edit it before package creation.",
+      );
     } catch (error) {
       setCoverLetterMessage(error instanceof Error ? error.message : "Unable to generate cover letter preview.");
     } finally {

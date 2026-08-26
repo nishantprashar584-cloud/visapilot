@@ -21,6 +21,8 @@ type WorkspaceOutput = {
   fileName: string;
 };
 
+type RotationPreset = "90" | "180" | "270";
+
 function classifyDocumentCategory(file: File): WorkspaceDocument["category"] {
   const normalizedName = file.name.toLowerCase();
 
@@ -131,6 +133,16 @@ function parsePageRange(rangeInput: string, pageCount: number): number[] {
   return Array.from(pages).sort((left, right) => left - right);
 }
 
+function parsePageOrder(orderInput: string, pageCount: number): number[] {
+  const pages = parsePageRange(orderInput, pageCount);
+
+  if (pages.length !== pageCount) {
+    throw new Error(`Provide every page exactly once to reorder this ${pageCount}-page PDF.`);
+  }
+
+  return pages;
+}
+
 async function readDocumentMetadata(file: File): Promise<WorkspaceDocument> {
   const previewUrl = URL.createObjectURL(file);
 
@@ -204,6 +216,8 @@ export function PacketWorkspace({
   const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
   const [splitDocumentId, setSplitDocumentId] = useState<string>("");
   const [splitRange, setSplitRange] = useState("1");
+  const [pageOrder, setPageOrder] = useState("1");
+  const [rotationPreset, setRotationPreset] = useState<RotationPreset>("90");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
 
   const splitDocument = useMemo(
@@ -231,8 +245,19 @@ export function PacketWorkspace({
     };
   }, []);
 
-  function handleComingSoon(feature: string) {
-    setToolkitMessage(`${feature} UI is ready. The underlying PDF transformation is queued for a follow-up implementation.`);
+  function upsertOutput(nextOutput: WorkspaceOutput) {
+    setOutputs((currentOutputs) => {
+      currentOutputs.forEach((output) => {
+        if (output.fileName === nextOutput.fileName) {
+          URL.revokeObjectURL(output.url);
+        }
+      });
+
+      return [
+        nextOutput,
+        ...currentOutputs.filter((output) => output.fileName !== nextOutput.fileName),
+      ];
+    });
   }
 
   async function handleDroppedFiles(files: FileList | null) {
@@ -279,6 +304,7 @@ export function PacketWorkspace({
       setDocuments((currentDocuments) => [...currentDocuments, ...nextDocuments]);
       setSplitDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
       setPreviewDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
+      setPageOrder((currentValue) => currentValue === "1" && nextDocuments[0] ? Array.from({ length: nextDocuments[0].pageCount }, (_, index) => String(index + 1)).join(",") : currentValue);
       setToolkitMessage(
         previewMode
           ? `${nextDocuments.length} supporting document${nextDocuments.length === 1 ? "" : "s"} added to the packet workspace.`
@@ -399,21 +425,10 @@ export function PacketWorkspace({
       const mergedBytes = await mergedPdf.save();
       const url = URL.createObjectURL(new Blob([Uint8Array.from(mergedBytes)], { type: "application/pdf" }));
 
-      setOutputs((currentOutputs) => {
-        currentOutputs.forEach((output) => {
-          if (output.fileName === "visapilot-merged-supporting-docs.pdf") {
-            URL.revokeObjectURL(output.url);
-          }
-        });
-
-        return [
-          {
-            label: "Merged supporting packet",
-            url,
-            fileName: "visapilot-merged-supporting-docs.pdf",
-          },
-          ...currentOutputs.filter((output) => output.fileName !== "visapilot-merged-supporting-docs.pdf"),
-        ];
+      upsertOutput({
+        label: "Merged supporting packet",
+        url,
+        fileName: "visapilot-merged-supporting-docs.pdf",
       });
 
       setToolkitMessage("Merged PDF is ready to preview or download.");
@@ -445,18 +460,164 @@ export function PacketWorkspace({
         const url = URL.createObjectURL(new Blob([Uint8Array.from(splitBytes)], { type: "application/pdf" }));
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-pages-${splitRange.replace(/\s+/g, "")}.pdf`;
 
-      setOutputs((currentOutputs) => [
-        {
-          label: `Split pages from ${splitDocument.file.name}`,
-          url,
-          fileName,
-        },
-        ...currentOutputs,
-      ]);
+      upsertOutput({
+        label: `Split pages from ${splitDocument.file.name}`,
+        url,
+        fileName,
+      });
 
       setToolkitMessage(`Split output for pages ${splitRange} is ready.`);
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to split the selected PDF.");
+    } finally {
+      setIsProcessingDocuments(false);
+    }
+  }
+
+  async function handleCompressDocument() {
+    if (!splitDocument || splitDocument.kind !== "pdf") {
+      setToolkitMessage("Choose a PDF document before compressing it.");
+      return;
+    }
+
+    setIsProcessingDocuments(true);
+    setToolkitMessage(null);
+
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const compressedPdf = await PDFDocument.create();
+      const copiedPages = await compressedPdf.copyPages(source, source.getPageIndices());
+      copiedPages.forEach((page) => compressedPdf.addPage(page));
+      compressedPdf.setTitle(splitDocument.file.name.replace(/\.pdf$/i, ""));
+      compressedPdf.setAuthor("");
+      compressedPdf.setSubject("");
+      compressedPdf.setKeywords([]);
+      compressedPdf.setProducer("VisaPilot");
+      compressedPdf.setCreator("VisaPilot");
+
+      const compressedBytes = await compressedPdf.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
+      const url = URL.createObjectURL(new Blob([Uint8Array.from(compressedBytes)], { type: "application/pdf" }));
+      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-compressed.pdf`;
+
+      upsertOutput({
+        label: `Compressed PDF for ${splitDocument.file.name}`,
+        url,
+        fileName,
+      });
+
+      setToolkitMessage(`Compressed output for ${splitDocument.file.name} is ready to preview or download.`);
+    } catch (error) {
+      setToolkitMessage(error instanceof Error ? error.message : "Unable to compress the selected PDF.");
+    } finally {
+      setIsProcessingDocuments(false);
+    }
+  }
+
+  async function handleRotateDocument() {
+    if (!splitDocument || splitDocument.kind !== "pdf") {
+      setToolkitMessage("Choose a PDF document before rotating pages.");
+      return;
+    }
+
+    setIsProcessingDocuments(true);
+    setToolkitMessage(null);
+
+    try {
+      const { PDFDocument, degrees } = await import("pdf-lib");
+      const rotatedPdf = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const rotation = Number(rotationPreset);
+      rotatedPdf.getPages().forEach((page) => page.setRotation(degrees(rotation)));
+
+      const rotatedBytes = await rotatedPdf.save({ useObjectStreams: true, addDefaultPage: false });
+      const url = URL.createObjectURL(new Blob([Uint8Array.from(rotatedBytes)], { type: "application/pdf" }));
+      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-rotated-${rotation}.pdf`;
+
+      upsertOutput({
+        label: `Rotated pages for ${splitDocument.file.name}`,
+        url,
+        fileName,
+      });
+
+      setToolkitMessage(`Rotated all pages in ${splitDocument.file.name} by ${rotation} degrees.`);
+    } catch (error) {
+      setToolkitMessage(error instanceof Error ? error.message : "Unable to rotate the selected PDF.");
+    } finally {
+      setIsProcessingDocuments(false);
+    }
+  }
+
+  async function handleReorderDocument() {
+    if (!splitDocument || splitDocument.kind !== "pdf") {
+      setToolkitMessage("Choose a PDF document before reordering its pages.");
+      return;
+    }
+
+    setIsProcessingDocuments(true);
+    setToolkitMessage(null);
+
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const orderedPages = parsePageOrder(pageOrder, source.getPageCount());
+      const reorderedPdf = await PDFDocument.create();
+      const copiedPages = await reorderedPdf.copyPages(source, orderedPages);
+      copiedPages.forEach((page) => reorderedPdf.addPage(page));
+
+      const reorderedBytes = await reorderedPdf.save({ useObjectStreams: true, addDefaultPage: false });
+      const url = URL.createObjectURL(new Blob([Uint8Array.from(reorderedBytes)], { type: "application/pdf" }));
+      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-reordered.pdf`;
+
+      upsertOutput({
+        label: `Reordered pages for ${splitDocument.file.name}`,
+        url,
+        fileName,
+      });
+
+      setToolkitMessage(`Page order for ${splitDocument.file.name} has been rebuilt as ${pageOrder}.`);
+    } catch (error) {
+      setToolkitMessage(error instanceof Error ? error.message : "Unable to reorder the selected PDF.");
+    } finally {
+      setIsProcessingDocuments(false);
+    }
+  }
+
+  async function handleSanitizeDocument() {
+    if (!splitDocument || splitDocument.kind !== "pdf") {
+      setToolkitMessage("Choose a PDF document before sanitizing it.");
+      return;
+    }
+
+    setIsProcessingDocuments(true);
+    setToolkitMessage(null);
+
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const sanitizedPdf = await PDFDocument.create();
+      const copiedPages = await sanitizedPdf.copyPages(source, source.getPageIndices());
+      copiedPages.forEach((page) => sanitizedPdf.addPage(page));
+      sanitizedPdf.setTitle("");
+      sanitizedPdf.setAuthor("");
+      sanitizedPdf.setSubject("");
+      sanitizedPdf.setKeywords([]);
+      sanitizedPdf.setProducer("VisaPilot");
+      sanitizedPdf.setCreator("VisaPilot");
+      sanitizedPdf.setLanguage("");
+
+      const sanitizedBytes = await sanitizedPdf.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
+      const url = URL.createObjectURL(new Blob([Uint8Array.from(sanitizedBytes)], { type: "application/pdf" }));
+      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-sanitized.pdf`;
+
+      upsertOutput({
+        label: `Sanitized PDF for ${splitDocument.file.name}`,
+        url,
+        fileName,
+      });
+
+      setToolkitMessage(`Sanitized output for ${splitDocument.file.name} is ready.`);
+    } catch (error) {
+      setToolkitMessage(error instanceof Error ? error.message : "Unable to sanitize the selected PDF.");
     } finally {
       setIsProcessingDocuments(false);
     }
@@ -529,7 +690,8 @@ export function PacketWorkspace({
           </button>
           <button
             type="button"
-            onClick={() => handleComingSoon("Compress Size")}
+            onClick={() => void handleCompressDocument()}
+            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
             className="rounded-[1.1rem] border border-emerald-200/10 bg-emerald-500/10 p-4 text-left transition hover:bg-emerald-500/15"
           >
             <Minimize className="mb-3 h-10 w-10 rounded-lg bg-emerald-100 p-2 text-emerald-600" />
@@ -538,7 +700,8 @@ export function PacketWorkspace({
           </button>
           <button
             type="button"
-            onClick={() => handleComingSoon("Reorder Pages")}
+            onClick={() => void handleReorderDocument()}
+            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
             className="rounded-[1.1rem] border border-violet-200/10 bg-violet-500/10 p-4 text-left transition hover:bg-violet-500/15"
           >
             <ArrowDownUp className="mb-3 h-10 w-10 rounded-lg bg-violet-100 p-2 text-violet-600" />
@@ -547,7 +710,8 @@ export function PacketWorkspace({
           </button>
           <button
             type="button"
-            onClick={() => handleComingSoon("Rotate Scans")}
+            onClick={() => void handleRotateDocument()}
+            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
             className="rounded-[1.1rem] border border-amber-200/10 bg-amber-500/10 p-4 text-left transition hover:bg-amber-500/15"
           >
             <RotateCw className="mb-3 h-10 w-10 rounded-lg bg-amber-100 p-2 text-amber-600" />
@@ -556,7 +720,8 @@ export function PacketWorkspace({
           </button>
           <button
             type="button"
-            onClick={() => handleComingSoon("Flatten & Sanitize")}
+            onClick={() => void handleSanitizeDocument()}
+            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
             className="rounded-[1.1rem] border border-slate-200/10 bg-slate-500/10 p-4 text-left transition hover:bg-slate-500/15"
           >
             <Shield className="mb-3 h-10 w-10 rounded-lg bg-slate-100 p-2 text-slate-600" />
@@ -652,40 +817,104 @@ export function PacketWorkspace({
           )}
         </div>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
-            <label className="block space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split document</span>
-              <select
-                value={splitDocumentId}
-                onChange={(event) => setSplitDocumentId(event.target.value)}
-                className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-              >
-                <option value="">Choose a PDF</option>
-                {documents.filter((document) => document.kind === "pdf").map((document) => (
-                  <option key={document.id} value={document.id}>{document.file.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Pages</span>
-              <input
-                value={splitRange}
-                onChange={(event) => setSplitRange(event.target.value)}
-                placeholder="1-2 or 1,3"
-                className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
-              />
-            </label>
+        <div className="mt-5 grid gap-3 xl:grid-cols-2">
+          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">PDF controls</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-2 sm:col-span-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Selected PDF</span>
+                <select
+                  value={splitDocumentId}
+                  onChange={(event) => {
+                    const nextDocumentId = event.target.value;
+                    const nextDocument = documents.find((document) => document.id === nextDocumentId) ?? null;
+                    setSplitDocumentId(nextDocumentId);
+                    if (nextDocument?.kind === "pdf") {
+                      setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
+                    }
+                  }}
+                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                >
+                  <option value="">Choose a PDF</option>
+                  {documents.filter((document) => document.kind === "pdf").map((document) => (
+                    <option key={document.id} value={document.id}>{document.file.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split pages</span>
+                <input
+                  value={splitRange}
+                  onChange={(event) => setSplitRange(event.target.value)}
+                  placeholder="1-2 or 1,3"
+                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Rotate</span>
+                <select
+                  value={rotationPreset}
+                  onChange={(event) => setRotationPreset(event.target.value as RotationPreset)}
+                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                >
+                  <option value="90">90 degrees</option>
+                  <option value="180">180 degrees</option>
+                  <option value="270">270 degrees</option>
+                </select>
+              </label>
+              <label className="block space-y-2 sm:col-span-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Page order</span>
+                <input
+                  value={pageOrder}
+                  onChange={(event) => setPageOrder(event.target.value)}
+                  placeholder="1,2,3"
+                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                />
+              </label>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleSplitDocument()}
-            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Scissors className="h-4 w-4" />
-            Split Pages
-          </button>
+
+          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Quick actions</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => void handleSplitDocument()}
+                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Scissors className="h-4 w-4" />
+                Split Pages
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRotateDocument()}
+                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RotateCw className="h-4 w-4" />
+                Rotate PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReorderDocument()}
+                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <ArrowDownUp className="h-4 w-4" />
+                Reorder PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSanitizeDocument()}
+                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Shield className="h-4 w-4" />
+                Sanitize PDF
+              </button>
+            </div>
+          </div>
         </div>
 
         {outputs.length > 0 ? (
