@@ -1,5 +1,11 @@
 import JSZip from "jszip";
-import { buildChecklistMarkdown, buildInsuranceVerificationSlip } from "@/lib/applications/packetArtifacts";
+import {
+  buildChecklistMarkdown,
+  buildFinancialAuditReport,
+  buildInsuranceVerificationSlip,
+  buildRegionalFormGuidance,
+} from "@/lib/applications/packetArtifacts";
+import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -26,11 +32,28 @@ export async function GET(
     return new Response("Application package not found.", { status: 404 });
   }
 
+  const pdfStrategy = await resolvePdfGenerationStrategy(
+    data.application_data.trip.destinationCountry,
+  );
+
   const zip = new JSZip();
   zip.file("cover-letter.md", data.cover_letter_markdown);
   zip.file("application.pdf", Buffer.from(data.filled_pdf_base64, "base64"));
   zip.file("document-checklist.md", buildChecklistMarkdown(data.application_data, data.refusal_reason_code));
+  zip.file("financial-audit-report.md", buildFinancialAuditReport(data.application_data));
   zip.file("insurance-verification-slip.txt", buildInsuranceVerificationSlip(data.application_data));
+
+  if (!pdfStrategy.supportsNativeAutofill && pdfStrategy.guidanceMessage) {
+    zip.file(
+      "regional-form-guidance.md",
+      buildRegionalFormGuidance({
+        applicant: data.application_data,
+        templateLabel: pdfStrategy.templateLabel,
+        portalUrl: pdfStrategy.portalUrl,
+        guidanceMessage: pdfStrategy.guidanceMessage,
+      }),
+    );
+  }
 
   if (Array.isArray(data.application_data.supportingDocuments) && data.application_data.supportingDocuments.length > 0) {
     const admin = createSupabaseAdminClient();

@@ -1,15 +1,20 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
+  ChevronDown,
   CheckCircle2,
   Download,
+  Eye,
   Layers3,
   Scissors,
+  Shield,
   Sparkles,
+  Tags,
   Upload,
 } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
@@ -19,6 +24,7 @@ type WorkspaceDocument = {
   id: string;
   file: File;
   kind: "pdf" | "image";
+  category: "travel" | "financial" | "employment" | "insurance" | "identity" | "general";
   pageCount: number;
   previewUrl: string;
 };
@@ -42,6 +48,66 @@ const manualFeatures = [
   "Embassy appointment attendance and physical drop-off",
   "Country-specific extra attachments not yet modeled in the form",
 ] as const;
+
+function classifyDocumentCategory(file: File): WorkspaceDocument["category"] {
+  const normalizedName = file.name.toLowerCase();
+
+  if (/(flight|ticket|hotel|booking|itinerary|reservation)/.test(normalizedName)) {
+    return "travel";
+  }
+
+  if (/(bank|statement|salary|payslip|payroll|tax)/.test(normalizedName)) {
+    return "financial";
+  }
+
+  if (/(employment|offer|contract|employer|leave)/.test(normalizedName)) {
+    return "employment";
+  }
+
+  if (/(insurance|policy|medical)/.test(normalizedName)) {
+    return "insurance";
+  }
+
+  if (/(passport|id|identity|aadhaar)/.test(normalizedName)) {
+    return "identity";
+  }
+
+  return "general";
+}
+
+function formatCategoryLabel(category: WorkspaceDocument["category"]): string {
+  switch (category) {
+    case "travel":
+      return "Flight / Hotel";
+    case "financial":
+      return "Financial";
+    case "employment":
+      return "Employment";
+    case "insurance":
+      return "Insurance";
+    case "identity":
+      return "Identity";
+    default:
+      return "General";
+  }
+}
+
+function categoryBadgeClasses(category: WorkspaceDocument["category"]): string {
+  switch (category) {
+    case "travel":
+      return "border-sky-400/20 bg-sky-400/10 text-sky-100";
+    case "financial":
+      return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
+    case "employment":
+      return "border-indigo-400/20 bg-indigo-400/10 text-indigo-100";
+    case "insurance":
+      return "border-amber-400/20 bg-amber-400/10 text-amber-100";
+    case "identity":
+      return "border-rose-400/20 bg-rose-400/10 text-rose-100";
+    default:
+      return "border-white/10 bg-white/5 text-slate-200";
+  }
+}
 
 function formatBytes(size: number) {
   if (size < 1024 * 1024) {
@@ -104,6 +170,7 @@ async function readDocumentMetadata(file: File): Promise<WorkspaceDocument> {
       id: crypto.randomUUID(),
       file,
       kind: "pdf",
+      category: classifyDocumentCategory(file),
       pageCount: pdf.getPageCount(),
       previewUrl,
     };
@@ -114,6 +181,7 @@ async function readDocumentMetadata(file: File): Promise<WorkspaceDocument> {
       id: crypto.randomUUID(),
       file,
       kind: "image",
+      category: classifyDocumentCategory(file),
       pageCount: 1,
       previewUrl,
     };
@@ -169,6 +237,9 @@ export function PacketWorkspace({
   const [isProcessingDocuments, setIsProcessingDocuments] = useState(false);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"toolkit" | "cover-letter">("toolkit");
+  const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
+  const [isFeatureAuditOpen, setIsFeatureAuditOpen] = useState(false);
   const [splitDocumentId, setSplitDocumentId] = useState<string>("");
   const [splitRange, setSplitRange] = useState("1");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
@@ -176,6 +247,11 @@ export function PacketWorkspace({
   const splitDocument = useMemo(
     () => documents.find((document) => document.id === splitDocumentId) ?? null,
     [documents, splitDocumentId],
+  );
+
+  const previewDocument = useMemo(
+    () => documents.find((document) => document.id === previewDocumentId) ?? null,
+    [documents, previewDocumentId],
   );
 
   useEffect(() => {
@@ -232,6 +308,7 @@ export function PacketWorkspace({
 
       setDocuments((currentDocuments) => [...currentDocuments, ...nextDocuments]);
       setSplitDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
+      setPreviewDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
       setToolkitMessage(
         previewMode
           ? `${nextDocuments.length} supporting document${nextDocuments.length === 1 ? "" : "s"} added to the packet workspace.`
@@ -318,6 +395,9 @@ export function PacketWorkspace({
       if (splitDocumentId === documentId) {
         setSplitDocumentId(nextDocuments[0]?.id ?? "");
       }
+      if (previewDocumentId === documentId) {
+        setPreviewDocumentId(nextDocuments[0]?.id ?? "");
+      }
       return nextDocuments;
     });
 
@@ -338,13 +418,16 @@ export function PacketWorkspace({
     try {
       const { PDFDocument } = await import("pdf-lib");
       const mergedPdf = await PDFDocument.create();
+      mergedPdf.setTitle("VisaPilot Supporting Document Stack");
+      mergedPdf.setProducer("VisaPilot");
+      mergedPdf.setCreator("VisaPilot");
 
       for (const document of documents) {
         await appendFileToPdf(mergedPdf, document);
       }
 
       const mergedBytes = await mergedPdf.save();
-  const url = URL.createObjectURL(new Blob([Uint8Array.from(mergedBytes)], { type: "application/pdf" }));
+      const url = URL.createObjectURL(new Blob([Uint8Array.from(mergedBytes)], { type: "application/pdf" }));
 
       setOutputs((currentOutputs) => {
         currentOutputs.forEach((output) => {
@@ -389,7 +472,7 @@ export function PacketWorkspace({
       copiedPages.forEach((page) => splitPdf.addPage(page));
 
       const splitBytes = await splitPdf.save();
-  const url = URL.createObjectURL(new Blob([Uint8Array.from(splitBytes)], { type: "application/pdf" }));
+        const url = URL.createObjectURL(new Blob([Uint8Array.from(splitBytes)], { type: "application/pdf" }));
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-pages-${splitRange.replace(/\s+/g, "")}.pdf`;
 
       setOutputs((currentOutputs) => [
@@ -438,172 +521,278 @@ export function PacketWorkspace({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Document toolkit</p>
-              <h3 className="mt-2 text-lg font-semibold text-white">Upload, preview, reorder, merge, and split</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Prepare supporting PDFs before package generation so the final packet, dashboard vault, and printed stack stay aligned.
-              </p>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept="application/pdf,image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(event) => void handleDocumentUpload(event.target.files)}
-            />
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={isProcessingDocuments}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Upload className="h-4 w-4" />
-              {isProcessingDocuments ? "Working..." : "Add documents"}
-            </button>
+    <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-100">
+            <Sparkles className="h-3.5 w-3.5" />
+            Document Toolkit & AI Cover Letter Studio
           </div>
-
-          {toolkitMessage ? (
-            <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
-              {toolkitMessage}
-            </div>
-          ) : null}
-
-          <div className="mt-5 space-y-3">
-            {documents.length === 0 ? (
-              <div className="rounded-[1rem] border border-dashed border-white/10 bg-black/30 px-4 py-6 text-sm text-slate-400">
-                No supporting PDFs uploaded yet. Add itineraries, insurance, invitation letters, or bank statements here.
-              </div>
-            ) : (
-              documents.map((document, index) => (
-                <div key={document.id} className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-white">{document.file.name}</p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {document.kind.toUpperCase()} · {document.pageCount} {document.pageCount === 1 ? "page" : "pages"} · {formatBytes(document.file.size)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <a
-                        href={document.previewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
-                      >
-                        Preview
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => moveDocument(document.id, -1)}
-                        disabled={index === 0}
-                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveDocument(document.id, 1)}
-                        disabled={index === documents.length - 1}
-                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void removeDocument(document.id)}
-                        className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
-              <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split document</span>
-                <select
-                  value={splitDocumentId}
-                  onChange={(event) => setSplitDocumentId(event.target.value)}
-                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                >
-                  <option value="">Choose a PDF</option>
-                  {documents.filter((document) => document.kind === "pdf").map((document) => (
-                    <option key={document.id} value={document.id}>{document.file.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Pages</span>
-                <input
-                  value={splitRange}
-                  onChange={(event) => setSplitRange(event.target.value)}
-                  placeholder="1-2 or 1,3"
-                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
-                />
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void handleMergeDocuments()}
-                disabled={isProcessingDocuments || documents.length === 0}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Layers3 className="h-4 w-4" />
-                Merge
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSplitDocument()}
-                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Scissors className="h-4 w-4" />
-                Split
-              </button>
-            </div>
-          </div>
-
-          {outputs.length > 0 ? (
-            <div className="mt-5 space-y-3">
-              {outputs.map((output) => (
-                <div key={`${output.fileName}-${output.url}`} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{output.label}</p>
-                    <p className="mt-1 text-sm text-slate-400">{output.fileName}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <a href={output.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30">
-                      Preview
-                    </a>
-                    <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
-                      <Download className="h-4 w-4" />
-                      Download
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <h3 className="mt-3 text-xl font-semibold text-white">Consular-grade packet preparation workspace</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+            Switch between supporting-document preparation and the AI cover-letter editor without leaving Step 4.
+          </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
+        <div className="inline-flex rounded-full border border-white/10 bg-black/40 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab("toolkit")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "toolkit" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
+            }`}
+          >
+            Document Toolkit
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("cover-letter")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "cover-letter" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
+            }`}
+          >
+            AI Cover Letter
+          </button>
+        </div>
+      </div>
+
+      {activeTab === "toolkit" ? (
+        <div className="mt-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-4">
+            <div className="rounded-[1.1rem] border border-white/10 bg-black/30 p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">PDF prep studio</p>
+                  <h4 className="mt-2 text-lg font-semibold text-white">Upload, classify, reorder, split, and merge</h4>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Drag documents into a cleaner consular stack before package generation. Tags are inferred automatically from the file name.
+                  </p>
+                </div>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(event) => void handleDocumentUpload(event.target.files)}
+                />
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={isProcessingDocuments}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Upload className="h-4 w-4" />
+                  {isProcessingDocuments ? "Working..." : "Add documents"}
+                </button>
+              </div>
+
+              {toolkitMessage ? (
+                <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
+                  {toolkitMessage}
+                </div>
+              ) : null}
+
+              <div className="mt-5 space-y-3">
+                {documents.length === 0 ? (
+                  <div className="rounded-[1rem] border border-dashed border-white/10 bg-black/30 px-4 py-6 text-sm text-slate-400">
+                    No supporting PDFs uploaded yet. Add itineraries, insurance, invitation letters, salary records, or bank statements here.
+                  </div>
+                ) : (
+                  documents.map((document, index) => (
+                    <div key={document.id} className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-white">{document.file.name}</p>
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${categoryBadgeClasses(document.category)}`}>
+                              {formatCategoryLabel(document.category)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-400">
+                            {document.kind.toUpperCase()} · {document.pageCount} {document.pageCount === 1 ? "page" : "pages"} · {formatBytes(document.file.size)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocumentId(document.id)}
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Live Preview
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveDocument(document.id, -1)}
+                            disabled={index === 0}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveDocument(document.id, 1)}
+                            disabled={index === documents.length - 1}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void removeDocument(document.id)}
+                            className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+                  <label className="block space-y-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split document</span>
+                    <select
+                      value={splitDocumentId}
+                      onChange={(event) => setSplitDocumentId(event.target.value)}
+                      className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                    >
+                      <option value="">Choose a PDF</option>
+                      {documents.filter((document) => document.kind === "pdf").map((document) => (
+                        <option key={document.id} value={document.id}>{document.file.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Pages</span>
+                    <input
+                      value={splitRange}
+                      onChange={(event) => setSplitRange(event.target.value)}
+                      placeholder="1-2 or 1,3"
+                      className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleMergeDocuments()}
+                    disabled={isProcessingDocuments || documents.length === 0}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Layers3 className="h-4 w-4" />
+                    Merge Packet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSplitDocument()}
+                    disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Scissors className="h-4 w-4" />
+                    Split PDF
+                  </button>
+                </div>
+              </div>
+
+              {outputs.length > 0 ? (
+                <div className="mt-5 space-y-3">
+                  {outputs.map((output) => (
+                    <div key={`${output.fileName}-${output.url}`} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{output.label}</p>
+                        <p className="mt-1 text-sm text-slate-400">{output.fileName}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <a href={output.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30">
+                          Preview
+                        </a>
+                        <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
+                          <Download className="h-4 w-4" />
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[1.1rem] border border-white/10 bg-black/30 p-5">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <Eye className="h-3.5 w-3.5" />
+                Live Preview
+              </div>
+              <div className="mt-4 overflow-hidden rounded-[1rem] border border-white/10 bg-black/50">
+                {previewDocument ? (
+                  previewDocument.kind === "pdf" ? (
+                    <iframe
+                      src={previewDocument.previewUrl}
+                      title={previewDocument.file.name}
+                      className="h-[420px] w-full bg-white"
+                    />
+                  ) : (
+                    <div className="flex min-h-[420px] items-center justify-center bg-black/70 p-4">
+                      <Image
+                        src={previewDocument.previewUrl}
+                        alt={previewDocument.file.name}
+                        width={800}
+                        height={1100}
+                        unoptimized
+                        className="max-h-[390px] w-auto rounded-[0.8rem] object-contain"
+                      />
+                    </div>
+                  )
+                ) : (
+                  <div className="flex min-h-[420px] items-center justify-center px-4 text-center text-sm text-slate-400">
+                    Choose a supporting document to inspect it before packet generation.
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 rounded-[1rem] border border-amber-400/15 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                Merged exports are re-saved through pdf-lib so packet outputs are flattened into a cleaner submission stack with reduced editing metadata.
+              </div>
+            </div>
+
+            {!previewMode && supportingDocuments.length > 0 ? (
+              <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  <Tags className="h-3.5 w-3.5" />
+                  Saved to packet vault
+                </div>
+                <div className="mt-3 space-y-2">
+                  {supportingDocuments.map((document) => (
+                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-white">{document.fileName}</p>
+                        <p className="text-xs text-slate-400">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
+                      </div>
+                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
+                        Saved
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <div className="rounded-[1.1rem] border border-white/10 bg-black/30 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Cover letter workspace</p>
-                <h3 className="mt-2 text-lg font-semibold text-white">Generate and refine before submission</h3>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">AI rationale generator</p>
+                <h4 className="mt-2 text-lg font-semibold text-white">Generate and refine before submission</h4>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Draft the embassy-facing narrative, then edit it before the final package request binds it to the application.
+                </p>
               </div>
               <button
                 type="button"
@@ -625,7 +814,7 @@ export function PacketWorkspace({
             <textarea
               value={coverLetterDraft}
               onChange={(event) => onCoverLetterChange(event.target.value)}
-              rows={12}
+              rows={14}
               placeholder="Generate a cover letter preview here, then edit any phrasing before the final package is created."
               className="mt-4 w-full rounded-[1rem] border border-white/12 bg-black/40 px-4 py-3 text-sm leading-6 text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/30"
             />
@@ -634,11 +823,40 @@ export function PacketWorkspace({
             </p>
           </div>
 
-          <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Feature coverage audit</p>
-            <h3 className="mt-2 text-lg font-semibold text-white">What this build already handles</h3>
+          <div className="rounded-[1.1rem] border border-white/10 bg-black/30 p-5">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <Shield className="h-3.5 w-3.5" />
+              Letter Preview
+            </div>
+            <div className="mt-4 min-h-[420px] rounded-[1rem] border border-white/10 bg-black/50 p-4">
+              {coverLetterDraft.trim() ? (
+                <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{coverLetterDraft}</pre>
+              ) : (
+                <div className="flex min-h-[388px] items-center justify-center text-center text-sm text-slate-400">
+                  Generate a draft to preview the consulate address block and the final narrative before export.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-            <div className="mt-4 space-y-3">
+      <div className="mt-6 rounded-[1rem] border border-white/10 bg-black/30">
+        <button
+          type="button"
+          onClick={() => setIsFeatureAuditOpen((currentValue) => !currentValue)}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+        >
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Feature coverage audit</p>
+            <p className="mt-1 text-sm text-slate-300">Open the supporting checklist only when you need it.</p>
+          </div>
+          <ChevronDown className={`h-5 w-5 text-slate-400 transition ${isFeatureAuditOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {isFeatureAuditOpen ? (
+          <div className="border-t border-white/10 px-5 py-4">
+            <div className="space-y-3">
               {liveFeatures.map((feature) => (
                 <div key={feature} className="flex gap-3 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -657,26 +875,7 @@ export function PacketWorkspace({
               Current scope: packet automation, financial audit, document prep, and cover-letter drafting are in-product. Embassy attendance and physical submission remain offline steps.
             </div>
           </div>
-
-          {!previewMode && supportingDocuments.length > 0 ? (
-            <div className="mt-5 rounded-[1rem] border border-white/10 bg-black/30 p-4">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Saved to packet vault</p>
-              <div className="mt-3 space-y-2">
-                {supportingDocuments.map((document) => (
-                  <div key={document.id} className="flex items-center justify-between gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-2">
-                    <div>
-                      <p className="text-sm font-medium text-white">{document.fileName}</p>
-                      <p className="text-xs text-slate-400">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
-                    </div>
-                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
-                      Saved
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );

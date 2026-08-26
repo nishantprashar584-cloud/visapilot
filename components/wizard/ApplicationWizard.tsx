@@ -48,6 +48,20 @@ const stepMicrocopy = [
   "Accommodation evidence and return anchors",
 ] as const;
 
+const stepFourHandledFeatures = [
+  "Passport OCR and bank statement OCR",
+  "Voice-assisted form filling for text fields",
+  "Cover letter preview and regeneration",
+  "PDF packet autofill and ZIP package export",
+  "Upload, preview, reorder, merge, and split supporting PDFs",
+] as const;
+
+const stepFourManualFeatures = [
+  "In-person biometrics and consulate submission",
+  "Embassy appointment attendance and physical drop-off",
+  "Country-specific extra attachments not yet modeled in the form",
+] as const;
+
 const stepFieldGroups: FieldPath<ApplicantInfo>[][] = [
   [
     "personal.firstName",
@@ -1294,56 +1308,80 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
           {currentStep === 3 ? (
             <StepPanel
               title="Accommodation and home ties"
-              description="Finish the packet with booking evidence and the return reasons that should be reinforced in the cover letter."
+              description="Finish the packet in a cleaner three-card workspace: ties and stay evidence, the document toolkit, and final package assembly."
             >
-              <div className="grid gap-4 md:grid-cols-2">
-                <TextInput label="Hotel booking reference" name="trip.hotelBookingReference" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hotelBookingReference"} />
-                <TextInput label="Place of application" name="application.placeOfApplication" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "application.placeOfApplication"} />
-                <SelectInput
-                  label="Property ownership status"
-                  name="homeTies.propertyOwnership"
-                  register={form.register}
-                  errors={form.formState.errors}
-                  options={[
-                    { label: "Owned", value: "owned" },
-                    { label: "Family-owned", value: "family_owned" },
-                    { label: "Rented", value: "rented" },
-                    { label: "No property", value: "none" },
-                  ]}
-                />
-                <TextAreaInput label="Dependent information" name="homeTies.dependentInformation" register={form.register} errors={form.formState.errors} placeholder="Dependents, caregiving duties, or similar obligations" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.dependentInformation"} />
-                <TextAreaInput label="Return-intent evidence" name="homeTies.returnIntentEvidence" register={form.register} errors={form.formState.errors} rows={5} placeholder="Employment continuity, family obligations, property, education, or other ties to return home" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.returnIntentEvidence"} />
-                <TextAreaInput label="Host or company notes" name="trip.hostAddress" register={form.register} errors={form.formState.errors} placeholder="Host address or invitation context if relevant" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hostAddress"} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <CheckboxInput label="Fingerprints taken previously" name="application.fingerprintsTakenBefore" register={form.register} />
-                <CheckboxInput label="Final-destination permit required" name="application.finalDestinationPermitRequired" register={form.register} />
+              <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100">
+                      Ties & Stay Evidence
+                    </div>
+                    <h3 className="mt-3 text-xl font-semibold text-white">Accommodations and return anchors</h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                      Record the booking reference, filing location, and the home-country ties that strengthen the application narrative.
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                    {liveAudit.passportValiditySatisfied ? "Passes 3-month expiry rule" : "Passport review required"}
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <TextInput label="Hotel booking reference" name="trip.hotelBookingReference" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hotelBookingReference"} />
+                  <TextInput label="Place of visa application" name="application.placeOfApplication" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "application.placeOfApplication"} />
+                  <SelectInput
+                    label="Property ownership selector"
+                    name="homeTies.propertyOwnership"
+                    register={form.register}
+                    errors={form.formState.errors}
+                    options={[
+                      { label: "Owned", value: "owned" },
+                      { label: "Family-owned", value: "family_owned" },
+                      { label: "Rented", value: "rented" },
+                      { label: "No property", value: "none" },
+                    ]}
+                  />
+                  <TextAreaInput label="Dependents & family notes" name="homeTies.dependentInformation" register={form.register} errors={form.formState.errors} placeholder="Dependents, caregiving duties, or similar obligations" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.dependentInformation"} />
+                  <TextAreaInput label="Return-intent evidence" name="homeTies.returnIntentEvidence" register={form.register} errors={form.formState.errors} rows={5} placeholder="Employment continuity, family obligations, property, education, or other ties to return home" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.returnIntentEvidence"} />
+                  <TextAreaInput label="Accommodation or host notes" name="trip.hostAddress" register={form.register} errors={form.formState.errors} placeholder="Host address, invitation context, or stay details if relevant" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hostAddress"} />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <CheckboxInput label="Fingerprints taken previously" name="application.fingerprintsTakenBefore" register={form.register} />
+                  <CheckboxInput label="Final-destination permit required" name="application.finalDestinationPermitRequired" register={form.register} />
+                </div>
+
+                <div className="mt-4 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                  Passport validity audit: passport valid through {liveAudit.passportValidThrough}. Schengen processing expects at least 3 months of validity beyond the return date.
+                </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Passport expiry audit</p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {liveAudit.passportValiditySatisfied ? "Passes 3-month rule" : "Fails 3-month rule"}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Passport valid through {liveAudit.passportValidThrough}. Schengen processing expects at least 3 months of passport validity beyond the return date.
-                  </p>
-                </div>
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Final package assembly</p>
-                  <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
-                    <li>• Cover letter is generated with `gpt-4o` for the target consulate.</li>
-                    <li>• `pdf-lib` maps your inputs onto the official Schengen PDF template.</li>
-                    <li>• The locked identity remains tied to the same full name and passport number.</li>
-                    <li>• After payment or generation, the package moves to the dashboard download vault.</li>
-                  </ul>
-                </div>
-              </div>
+              <PacketWorkspace
+                applicant={watchedValues as ApplicantInfo}
+                coverLetterDraft={coverLetterDraft}
+                onCoverLetterChange={setCoverLetterDraft}
+                previewMode={previewMode}
+                supportingDocuments={supportingDocuments}
+                onSupportingDocumentsChange={handleSupportingDocumentsChange}
+              />
 
-              <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Checkout handoff</p>
-                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
+                      Package Generation & Checkout
+                    </div>
+                    <h3 className="mt-3 text-xl font-semibold text-white">Final package assembly and billing handoff</h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                      Choose the right pass, or proceed directly if the account already has application credits available.
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200">
+                    Active passes: Solo $19 · Couple $29 · Family $49
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 lg:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => void handleCheckout("solo")}
@@ -1369,17 +1407,37 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
                     {isStartingCheckout === "family" ? "Starting Family checkout..." : "Family Pass · $49"}
                   </button>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-300">If you already have credits, you can skip checkout and generate the package directly to route into the dashboard vault.</p>
-              </div>
 
-              <PacketWorkspace
-                applicant={watchedValues as ApplicantInfo}
-                coverLetterDraft={coverLetterDraft}
-                onCoverLetterChange={setCoverLetterDraft}
-                previewMode={previewMode}
-                supportingDocuments={supportingDocuments}
-                onSupportingDocumentsChange={handleSupportingDocumentsChange}
-              />
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Generation path</p>
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
+                      <li>• Cover letter is generated for the target consulate and can be edited before submission.</li>
+                      <li>• Official PDF auto-fill runs natively for France, Spain, and Germany, with harmonized fallback handling for other regions.</li>
+                      <li>• The locked identity remains tied to the same full name and passport number.</li>
+                    </ul>
+                  </div>
+                  <div className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Expandable feature scope</p>
+                    <div className="mt-3 space-y-2 text-sm text-slate-300">
+                      {stepFourHandledFeatures.map((feature) => (
+                        <div key={feature} className="rounded-[0.9rem] border border-emerald-400/15 bg-emerald-400/10 px-3 py-2 text-emerald-100">
+                          {feature}
+                        </div>
+                      ))}
+                      {stepFourManualFeatures.map((feature) => (
+                        <div key={feature} className="rounded-[0.9rem] border border-amber-400/15 bg-amber-400/10 px-3 py-2 text-amber-100">
+                          {feature}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm leading-6 text-slate-300">
+                  If credits are already present on the account, the final submit button below generates the package directly and routes the result into the dashboard vault.
+                </p>
+              </div>
             </StepPanel>
           ) : null}
 

@@ -2,34 +2,12 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import francePdfMap from "@/config/pdf-maps/france.json";
-import germanyPdfMap from "@/config/pdf-maps/germany.json";
-import spainPdfMap from "@/config/pdf-maps/spain.json";
 import { calculateStayDurationDays } from "@/lib/applications/schema";
 import { generateCoverLetterMarkdown } from "@/lib/openai/generateCoverLetter";
 import { fillSchengenForm } from "@/lib/pdf/fillSchengenForm";
+import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { lockApplicantIdentity } from "@/lib/security/identityLock";
-import type { ApplicantInfo, ApplicationRow, PdfMapConfig } from "@/types";
-
-const pdfMapsByCountry: Record<string, PdfMapConfig> = {
-  france: francePdfMap as PdfMapConfig,
-  spain: spainPdfMap as PdfMapConfig,
-  germany: germanyPdfMap as PdfMapConfig,
-};
-
-function normalizeCountryKey(country: string): string {
-  return country.trim().toLowerCase();
-}
-
-function resolvePdfMap(destinationCountry: string): PdfMapConfig {
-  const pdfMap = pdfMapsByCountry[normalizeCountryKey(destinationCountry)];
-
-  if (!pdfMap) {
-    throw new Error(`No PDF mapping is configured for ${destinationCountry}.`);
-  }
-
-  return pdfMap;
-}
+import type { ApplicantInfo, ApplicationRow } from "@/types";
 
 async function readPdfTemplate(templatePath: string): Promise<Buffer> {
   const resolvedPath = path.resolve(process.cwd(), templatePath);
@@ -98,9 +76,15 @@ export async function generateApplicationPackage(
   const coverLetterMarkdown = owner.coverLetterMarkdown?.trim().length
     ? owner.coverLetterMarkdown.trim()
     : await generateCoverLetterMarkdown(normalizedApplicant);
-  const pdfMap = resolvePdfMap(normalizedApplicant.trip.destinationCountry);
-  const templateBytes = await readPdfTemplate(pdfMap.templatePath);
-  const filledPdfBuffer = await fillSchengenForm(normalizedApplicant, pdfMap, templateBytes);
+  const pdfStrategy = await resolvePdfGenerationStrategy(
+    normalizedApplicant.trip.destinationCountry,
+  );
+  const templateBytes = await readPdfTemplate(pdfStrategy.templatePath);
+  const filledPdfBuffer = await fillSchengenForm(
+    normalizedApplicant,
+    pdfStrategy.pdfMap,
+    templateBytes,
+  );
 
   const { error: userUpsertError } = await supabase.from("users").upsert(
     {
