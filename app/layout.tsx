@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import "./globals.css";
 
@@ -41,9 +42,10 @@ export default function RootLayout({
           <div className="pointer-events-none absolute inset-0 bg-hero-grid opacity-15 [mask-image:linear-gradient(to_bottom,white,white,transparent)]" />
           <div className="pointer-events-none absolute -left-24 top-24 h-64 w-64 rounded-full bg-brand-cyan/10 blur-[140px]" />
           <div className="pointer-events-none absolute right-0 top-12 h-72 w-72 rounded-full bg-amber-200/5 blur-[140px]" />
-          <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-4 sm:px-6 lg:px-8">
+          <div className="relative flex min-h-screen w-full flex-col">
             <Navbar />
-            <main className="flex-1 py-10 sm:py-14">{children}</main>
+            <main className="flex-1 w-full py-4 sm:py-8">{children}</main>
+            <Footer />
           </div>
         </div>
       </body>

@@ -630,9 +630,9 @@ export function PacketWorkspace({
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
               <Upload className="h-3.5 w-3.5" />
-              Add Supporting PDF
+              PDF Editor
             </div>
-            <h4 className="mt-3 text-lg font-semibold text-white">Supporting document toolkit</h4>
+            <h4 className="mt-3 text-lg font-semibold text-white">Supporting document PDF editor</h4>
             <p className="mt-2 text-sm leading-6 text-slate-300">
               Upload supporting files, classify them automatically, preview them, and merge them into a cleaner consular stack.
             </p>
@@ -819,10 +819,10 @@ export function PacketWorkspace({
 
         <div className="mt-5 grid gap-3 xl:grid-cols-2">
           <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">PDF controls</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-2 sm:col-span-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Selected PDF</span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split PDF</p>
+            <div className="mt-3 flex flex-col gap-4 rounded-[1rem] border border-white/10 bg-[#111111] p-4 md:flex-row md:items-end">
+              <label className="flex flex-1 flex-col gap-2">
+                <span className="text-sm font-medium text-slate-200">Select Document</span>
                 <select
                   value={splitDocumentId}
                   onChange={(event) => {
@@ -833,7 +833,7 @@ export function PacketWorkspace({
                       setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
                     }
                   }}
-                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                  className="w-full rounded-[0.9rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
                 >
                   <option value="">Choose a PDF</option>
                   {documents.filter((document) => document.kind === "pdf").map((document) => (
@@ -841,15 +841,27 @@ export function PacketWorkspace({
                   ))}
                 </select>
               </label>
-              <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split pages</span>
+              <label className="flex flex-1 flex-col gap-2">
+                <span className="text-sm font-medium text-slate-200">Page Range (e.g. 1-3)</span>
                 <input
                   value={splitRange}
                   onChange={(event) => setSplitRange(event.target.value)}
                   placeholder="1-2 or 1,3"
-                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                  className="w-full rounded-[0.9rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
                 />
               </label>
+              <button
+                type="button"
+                onClick={() => void handleSplitDocument()}
+                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                className="inline-flex items-center justify-center gap-2 rounded-[0.9rem] bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Scissors className="h-4 w-4" />
+                Split
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Rotate</span>
                 <select
@@ -877,15 +889,6 @@ export function PacketWorkspace({
           <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Quick actions</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => void handleSplitDocument()}
-                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Scissors className="h-4 w-4" />
-                Split Pages
-              </button>
               <button
                 type="button"
                 onClick={() => void handleRotateDocument()}

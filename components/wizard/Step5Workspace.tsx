@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, FolderUp, PackageCheck, Sparkles } from "lucide-react";
+import { Download, FileText, FileStack, PackageCheck, Sparkles } from "lucide-react";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
@@ -75,8 +75,8 @@ export function Step5Workspace({
                 activeTab === "toolkit" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
               }`}
             >
-              <FolderUp className="h-4 w-4" />
-              Document Toolkit
+              <FileStack className="h-4 w-4" />
+              PDF Editor
             </button>
             <button
               type="button"

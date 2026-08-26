@@ -331,12 +331,16 @@ type SpeechRecognitionEventLike = {
   };
 };
 
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
 type BrowserSpeechRecognition = {
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -625,7 +629,12 @@ export function ApplicationWizard({
       : "Enter destination and first entry to verify the consular rule path.";
 
   useEffect(() => {
-    setSpeechSupported(Boolean(getSpeechRecognitionConstructor()));
+    const supported = Boolean(getSpeechRecognitionConstructor());
+    setSpeechSupported(supported);
+
+    if (!supported) {
+      setVoiceMessage("Voice assist requires Web Speech API support. Chrome or Edge on desktop/mobile are the safest options.");
+    }
   }, []);
 
   useEffect(() => {
@@ -692,11 +701,11 @@ export function ApplicationWizard({
     };
   }, []);
 
-  function handleVoiceCapture(name: FieldPath<ApplicantInfo>) {
+  async function handleVoiceCapture(name: FieldPath<ApplicantInfo>) {
     const SpeechRecognition = getSpeechRecognitionConstructor();
 
     if (!SpeechRecognition) {
-      setVoiceMessage("Speech input is not available in this browser.");
+      setVoiceMessage("Speech input is not available in this browser. Use Chrome or Edge, or type the value manually.");
       return;
     }
 
@@ -709,6 +718,18 @@ export function ApplicationWizard({
 
     if (speechRecognitionRef.current) {
       speechRecognitionRef.current.stop();
+    }
+
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Mic permission granted");
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (error) {
+        setVoiceMessage("Microphone access was blocked. Allow mic permissions in the browser, then try voice assist again.");
+        console.log("Mic permission denied", error);
+        return;
+      }
     }
 
     const recognition = new SpeechRecognition();
@@ -725,6 +746,8 @@ export function ApplicationWizard({
       if (!transcript) {
         return;
       }
+
+      console.log("Speech recognized:", transcript);
 
       const currentValue = form.getValues(name);
       const normalizedTranscript = normalizeVoiceTranscript(name, transcript);
@@ -752,8 +775,13 @@ export function ApplicationWizard({
       );
     };
 
-    recognition.onerror = () => {
-      setVoiceMessage("Voice input could not be captured. Check microphone permissions and try again.");
+    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+      const errorCode = event.error ?? "unknown_error";
+      setVoiceMessage(
+        errorCode === "not-allowed"
+          ? "Microphone access was denied. Allow browser mic permissions and try again."
+          : `Voice input could not be captured (${errorCode}). Check microphone permissions and try again.`,
+      );
       setActiveVoiceField(null);
     };
 

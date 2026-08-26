@@ -15,7 +15,7 @@ const repeatedCountryPills = [...countryPills, ...countryPills];
 
 export function MarqueePills() {
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+    <div className="w-full px-4 sm:px-6 lg:px-8">
       <div className="group overflow-hidden rounded-[1.35rem] border border-zinc-200/10 bg-black/60 px-4 py-3 shadow-panel backdrop-blur-md">
         <div className="flex min-w-max gap-3 whitespace-nowrap animate-marquee group-hover:[animation-play-state:paused]">
           {repeatedCountryPills.map((pill, index) => (
