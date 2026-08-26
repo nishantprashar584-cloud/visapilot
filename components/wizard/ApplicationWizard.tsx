@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Mic, MicOff } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileStack, Home, Mic, MicOff, Plane, UserSquare2, Wallet } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -21,17 +21,18 @@ import {
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
 import { previewWizardApplicant } from "@/lib/mock/applications";
-import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
+import { Step5Workspace } from "@/components/wizard/Step5Workspace";
 import type { ApplicantInfo, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
 import { runRiskAudit } from "@/lib/riskAudit";
 
 const draftStorageKey = "visapilot.applicationDraft";
 
 const stepLabels = [
-  "Personal and passport",
-  "Travel details",
-  "Finances and employment",
-  "Accommodations and home ties",
+  "Identity",
+  "Travel",
+  "Financials",
+  "Accommodations",
+  "Document Studio",
 ] as const;
 
 const stepAccentMap = [
@@ -39,6 +40,7 @@ const stepAccentMap = [
   "from-brand-violet to-indigo-400",
   "from-brand-coral to-orange-300",
   "from-brand-lime to-emerald-300",
+  "from-sky-400 to-indigo-400",
 ] as const;
 
 const stepMicrocopy = [
@@ -46,21 +48,10 @@ const stepMicrocopy = [
   "Route, timing, and Schengen entry logic",
   "Proof of funds and employment posture",
   "Accommodation evidence and return anchors",
+  "Supporting documents, cover letter, and final generation",
 ] as const;
 
-const stepFourHandledFeatures = [
-  "Passport OCR and bank statement OCR",
-  "Voice-assisted form filling for text fields",
-  "Cover letter preview and regeneration",
-  "PDF packet autofill and ZIP package export",
-  "Upload, preview, reorder, merge, and split supporting PDFs",
-] as const;
-
-const stepFourManualFeatures = [
-  "In-person biometrics and consulate submission",
-  "Embassy appointment attendance and physical drop-off",
-  "Country-specific extra attachments not yet modeled in the form",
-] as const;
+const stepIcons = [UserSquare2, Plane, Wallet, Home, FileStack] as const;
 
 const stepFieldGroups: FieldPath<ApplicantInfo>[][] = [
   [
@@ -99,12 +90,14 @@ const stepFieldGroups: FieldPath<ApplicantInfo>[][] = [
     "sponsor.type",
   ],
   [
-    "trip.accommodations",
     "trip.hotelBookingReference",
+    "trip.accommodations",
     "homeTies.propertyOwnership",
+    "homeTies.dependentInformation",
     "homeTies.returnIntentEvidence",
     "application.placeOfApplication",
   ],
+  [],
 ];
 
 function getErrorMessage<T extends FieldValues>(
@@ -273,21 +266,6 @@ function TextAreaInput({
         ) : null}
       </span>
       {errorMessage ? <span className="text-sm text-rose-600">{errorMessage}</span> : null}
-    </label>
-  );
-}
-
-interface CheckboxInputProps {
-  label: string;
-  name: FieldPath<ApplicantInfo>;
-  register: UseFormRegister<ApplicantInfo>;
-}
-
-function CheckboxInput({ label, name, register }: CheckboxInputProps) {
-  return (
-    <label className="flex items-center gap-3 rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#171717]">
-      <input type="checkbox" className="h-4 w-4 rounded border-slate-300" {...register(name)} />
-      <span>{label}</span>
     </label>
   );
 }
@@ -572,7 +550,13 @@ function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor 
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
-export function ApplicationWizard({ previewMode = false }: { previewMode?: boolean }) {
+export function ApplicationWizard({
+  previewMode = false,
+  availableCredits = 0,
+}: {
+  previewMode?: boolean;
+  availableCredits?: number;
+}) {
   const router = useRouter();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -588,6 +572,9 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
   const [bankStatementParseMessage, setBankStatementParseMessage] = useState<string | null>(null);
   const [isStartingCheckout, setIsStartingCheckout] = useState<PricingTier | null>(null);
   const [coverLetterDraft, setCoverLetterDraft] = useState("");
+  const [documentStudioTab, setDocumentStudioTab] = useState<"cover-letter" | "toolkit">("cover-letter");
+  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
+  const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
   const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -979,6 +966,34 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
     }
   }
 
+  async function handleGenerateCoverLetter(applicant: ApplicantInfo) {
+    setIsGeneratingCoverLetter(true);
+    setCoverLetterMessage(null);
+
+    try {
+      const response = await fetch("/api/generate-cover-letter", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(applicant),
+      });
+
+      const payload = (await response.json()) as { coverLetterMarkdown?: string; error?: string };
+
+      if (!response.ok || !payload.coverLetterMarkdown) {
+        throw new Error(payload.error ?? "Unable to generate cover letter preview.");
+      }
+
+      setCoverLetterDraft(payload.coverLetterMarkdown);
+      setCoverLetterMessage("Cover letter draft generated. You can edit it before package creation.");
+    } catch (error) {
+      setCoverLetterMessage(error instanceof Error ? error.message : "Unable to generate cover letter preview.");
+    } finally {
+      setIsGeneratingCoverLetter(false);
+    }
+  }
+
   return (
     <FormProvider {...form}>
       <div className="mx-auto max-w-4xl space-y-6">
@@ -1003,6 +1018,37 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
               className={`h-full rounded-full bg-gradient-to-r ${stepAccentMap[currentStep]}`}
               style={{ width: `${completionPercent}%` }}
             />
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-5">
+            {stepLabels.map((label, index) => {
+              const Icon = stepIcons[index];
+              const isActive = index === currentStep;
+              const isComplete = index < currentStep;
+
+              return (
+                <div
+                  key={label}
+                  className={`rounded-[1rem] border px-3 py-3 ${
+                    isActive
+                      ? "border-white/20 bg-white/10"
+                      : isComplete
+                        ? "border-emerald-400/20 bg-emerald-400/10"
+                        : "border-white/10 bg-[#101010]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${isActive ? "bg-white text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : "bg-white/5 text-slate-400"}`}>
+                      {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                    </span>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Step {index + 1}</p>
+                      <p className="text-sm font-semibold text-white">{label}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-4">
@@ -1307,28 +1353,26 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
 
           {currentStep === 3 ? (
             <StepPanel
-              title="Accommodation and home ties"
-              description="Finish the packet in a cleaner three-card workspace: ties and stay evidence, the document toolkit, and final package assembly."
+              title="Accommodations & home ties"
+              description="Finish the remaining form inputs here, then move into the document studio for file preparation and final package generation."
             >
               <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100">
-                      Ties & Stay Evidence
+                      <Home className="h-3.5 w-3.5" />
+                      Accommodations & Home Ties
                     </div>
-                    <h3 className="mt-3 text-xl font-semibold text-white">Accommodations and return anchors</h3>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                      Record the booking reference, filing location, and the home-country ties that strengthen the application narrative.
+                      Capture the hotel reference, filing location, accommodation details, and return anchors that strengthen the final application narrative.
                     </p>
-                  </div>
-                  <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
-                    {liveAudit.passportValiditySatisfied ? "Passes 3-month expiry rule" : "Passport review required"}
                   </div>
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                   <TextInput label="Hotel booking reference" name="trip.hotelBookingReference" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hotelBookingReference"} />
                   <TextInput label="Place of visa application" name="application.placeOfApplication" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "application.placeOfApplication"} />
+                  <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} rows={4} placeholder="Hotel, host address, or full stay details" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.accommodations"} />
                   <SelectInput
                     label="Property ownership selector"
                     name="homeTies.propertyOwnership"
@@ -1342,102 +1386,44 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
                     ]}
                   />
                   <TextAreaInput label="Dependents & family notes" name="homeTies.dependentInformation" register={form.register} errors={form.formState.errors} placeholder="Dependents, caregiving duties, or similar obligations" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.dependentInformation"} />
-                  <TextAreaInput label="Return-intent evidence" name="homeTies.returnIntentEvidence" register={form.register} errors={form.formState.errors} rows={5} placeholder="Employment continuity, family obligations, property, education, or other ties to return home" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.returnIntentEvidence"} />
-                  <TextAreaInput label="Accommodation or host notes" name="trip.hostAddress" register={form.register} errors={form.formState.errors} placeholder="Host address, invitation context, or stay details if relevant" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hostAddress"} />
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <CheckboxInput label="Fingerprints taken previously" name="application.fingerprintsTakenBefore" register={form.register} />
-                  <CheckboxInput label="Final-destination permit required" name="application.finalDestinationPermitRequired" register={form.register} />
+                  <TextAreaInput label="Return-intent evidence notes" name="homeTies.returnIntentEvidence" register={form.register} errors={form.formState.errors} rows={5} placeholder="Employment continuity, family obligations, property, education, or other ties to return home" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.returnIntentEvidence"} />
                 </div>
 
                 <div className="mt-4 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                  Passport validity audit: passport valid through {liveAudit.passportValidThrough}. Schengen processing expects at least 3 months of validity beyond the return date.
+                  <div className="flex items-center gap-2 font-semibold">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {liveAudit.passportValiditySatisfied ? "Passes 3-Month Expiry Rule" : "Passport validity needs review"}
+                  </div>
+                  <p className="mt-2 leading-6">
+                    Passport valid through {liveAudit.passportValidThrough}. Schengen processing expects at least 3 months of validity beyond the return date.
+                  </p>
                 </div>
               </div>
+            </StepPanel>
+          ) : null}
 
-              <PacketWorkspace
+          {currentStep === 4 ? (
+            <StepPanel
+              title="Document Studio"
+              description="Prepare supporting files, refine the cover letter, and create the final application package in one focused workspace."
+            >
+              <Step5Workspace
                 applicant={watchedValues as ApplicantInfo}
                 coverLetterDraft={coverLetterDraft}
                 onCoverLetterChange={setCoverLetterDraft}
                 previewMode={previewMode}
                 supportingDocuments={supportingDocuments}
                 onSupportingDocumentsChange={handleSupportingDocumentsChange}
+                availableCredits={availableCredits}
+                activeTab={documentStudioTab}
+                onActiveTabChange={setDocumentStudioTab}
+                onCheckout={(tier) => void handleCheckout(tier)}
+                isStartingCheckout={isStartingCheckout}
+                isSubmitting={isSubmitting}
+                isGeneratingCoverLetter={isGeneratingCoverLetter}
+                coverLetterMessage={coverLetterMessage}
+                onGenerateCoverLetter={(applicant) => void handleGenerateCoverLetter(applicant)}
               />
-
-              <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
-                      Package Generation & Checkout
-                    </div>
-                    <h3 className="mt-3 text-xl font-semibold text-white">Final package assembly and billing handoff</h3>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                      Choose the right pass, or proceed directly if the account already has application credits available.
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200">
-                    Active passes: Solo $19 · Couple $29 · Family $49
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-3 lg:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={() => void handleCheckout("solo")}
-                    disabled={isStartingCheckout !== null}
-                    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isStartingCheckout === "solo" ? "Starting Solo checkout..." : "Solo Pass · $19"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleCheckout("couple")}
-                    disabled={isStartingCheckout !== null}
-                    className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#141414] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isStartingCheckout === "couple" ? "Starting Couple checkout..." : "Couple Pass · $29"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleCheckout("family")}
-                    disabled={isStartingCheckout !== null}
-                    className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#141414] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isStartingCheckout === "family" ? "Starting Family checkout..." : "Family Pass · $49"}
-                  </button>
-                </div>
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Generation path</p>
-                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
-                      <li>• Cover letter is generated for the target consulate and can be edited before submission.</li>
-                      <li>• Official PDF auto-fill runs natively for France, Spain, and Germany, with harmonized fallback handling for other regions.</li>
-                      <li>• The locked identity remains tied to the same full name and passport number.</li>
-                    </ul>
-                  </div>
-                  <div className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Expandable feature scope</p>
-                    <div className="mt-3 space-y-2 text-sm text-slate-300">
-                      {stepFourHandledFeatures.map((feature) => (
-                        <div key={feature} className="rounded-[0.9rem] border border-emerald-400/15 bg-emerald-400/10 px-3 py-2 text-emerald-100">
-                          {feature}
-                        </div>
-                      ))}
-                      {stepFourManualFeatures.map((feature) => (
-                        <div key={feature} className="rounded-[0.9rem] border border-amber-400/15 bg-amber-400/10 px-3 py-2 text-amber-100">
-                          {feature}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <p className="mt-4 text-sm leading-6 text-slate-300">
-                  If credits are already present on the account, the final submit button below generates the package directly and routes the result into the dashboard vault.
-                </p>
-              </div>
             </StepPanel>
           ) : null}
 
@@ -1463,24 +1449,10 @@ export function ApplicationWizard({ previewMode = false }: { previewMode?: boole
                 onClick={handleNextStep}
                 className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                Save and continue
-              </button>
-            ) : previewMode ? (
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard/preview-france-tourism?preview=1")}
-                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
-              >
-                Open Sample Package
+                {currentStep === 3 ? "Continue to Document Studio" : "Save and continue"}
               </button>
             ) : (
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? "Generating package..." : "Generate Application Package"}
-              </button>
+              <div />
             )}
           </div>
         </form>

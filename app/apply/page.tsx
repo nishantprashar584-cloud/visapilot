@@ -1,6 +1,22 @@
 import { ApplicationWizard } from "@/components/wizard/ApplicationWizard";
 import { redirect } from "next/navigation";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+async function getAvailableCredits(userId?: string): Promise<number> {
+  if (!userId) {
+    return 0;
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { data } = await supabase
+    .from("users")
+    .select("credits")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return data?.credits ?? 0;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +32,8 @@ export default async function ApplyPage({
     redirect(buildAuthRedirectPath("/apply"));
   }
 
+  const availableCredits = previewMode ? 1 : await getAvailableCredits(account?.id);
+
   return (
     <section className="mx-auto max-w-6xl space-y-8">
       <div className="space-y-4">
@@ -26,7 +44,7 @@ export default async function ApplyPage({
           Build your Schengen application packet
         </h1>
         <p className="max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
-          Move through the guided steps for identity, travel, finances, and final packet review without losing context as you progress.
+          Move through five clean stages for identity, travel, financial proof, accommodation ties, and final document packaging without losing context.
         </p>
       </div>
       {previewMode ? (
@@ -34,7 +52,7 @@ export default async function ApplyPage({
           Preview mode is active with realistic sample data. Review the full step-by-step packet builder without signing in.
         </div>
       ) : null}
-      <ApplicationWizard previewMode={previewMode} />
+      <ApplicationWizard previewMode={previewMode} availableCredits={availableCredits} />
     </section>
   );
 }
