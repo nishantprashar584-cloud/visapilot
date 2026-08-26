@@ -1,0 +1,42 @@
+{
+  "countries": {
+    "France": {
+      "dailyFundsEur": 65,
+      "dailyFundsWithoutAccommodationEur": 120,
+      "recommendedBufferMultiplier": 1.2,
+      "minimumInsuranceCoverageEur": 30000,
+      "requireRoundTripReservation": true,
+      "requireAccommodationProof": true,
+      "documentRules": [
+        "Proof of accommodation covering the full stay is expected unless a host invitation letter is provided.",
+        "Bank statements should demonstrate sufficient balance for the full stay and transport costs.",
+        "Travel medical insurance must cover all Schengen states with at least EUR 30,000 coverage."
+      ]
+    },
+    "Spain": {
+      "dailyFundsEur": 113,
+      "minimumBalanceEur": 1020,
+      "recommendedBufferMultiplier": 1.25,
+      "minimumInsuranceCoverageEur": 30000,
+      "requireRoundTripReservation": true,
+      "requireAccommodationProof": true,
+      "documentRules": [
+        "Applicants should evidence daily maintenance funds for each day of the planned stay.",
+        "Accommodation proof may be hotel bookings or a host invitation letter accepted by the consulate.",
+        "Proof of onward or return travel is typically reviewed during visa adjudication."
+      ]
+    },
+    "Germany": {
+      "dailyFundsEur": 45,
+      "recommendedBufferMultiplier": 1.15,
+      "minimumInsuranceCoverageEur": 30000,
+      "requireRoundTripReservation": true,
+      "requireAccommodationProof": true,
+      "documentRules": [
+        "Applicants should provide clear itinerary evidence and means of subsistence for the complete stay.",
+        "Hosted travel should include a host letter and address details aligned with the application form.",
+        "Employment or business travelers should attach employer confirmation and leave approval when relevant."
+      ]
+    }
+  }
+}

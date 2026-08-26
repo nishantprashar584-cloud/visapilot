@@ -1,0 +1,380 @@
+{
+  "country": "Germany",
+  "templatePath": "public/templates/schengen_germany.pdf",
+  "fields": [
+    {
+      "key": "surname",
+      "kind": "text",
+      "source": "personal.lastName",
+      "format": "uppercase",
+      "candidates": ["surname", "Surname", "nom", "nom_de_famille"]
+    },
+    {
+      "key": "surnameAtBirth",
+      "kind": "text",
+      "source": "personal.lastNameAtBirth",
+      "format": "uppercase",
+      "required": false,
+      "candidates": ["surname_at_birth", "SurnameAtBirth", "nom_naissance"]
+    },
+    {
+      "key": "firstNames",
+      "kind": "text",
+      "source": "personal.firstName",
+      "format": "uppercase",
+      "candidates": ["first_names", "FirstNames", "prenoms", "given_names"]
+    },
+    {
+      "key": "dateOfBirth",
+      "kind": "text",
+      "source": "personal.dateOfBirth",
+      "format": "date-dd-mm-yyyy",
+      "candidates": ["date_of_birth", "DateOfBirth", "date_naissance"]
+    },
+    {
+      "key": "placeOfBirth",
+      "kind": "text",
+      "source": "personal.placeOfBirth",
+      "candidates": ["place_of_birth", "PlaceOfBirth", "lieu_naissance"]
+    },
+    {
+      "key": "countryOfBirth",
+      "kind": "text",
+      "source": "personal.countryOfBirth",
+      "format": "uppercase",
+      "candidates": ["country_of_birth", "CountryOfBirth", "pays_naissance"]
+    },
+    {
+      "key": "currentNationality",
+      "kind": "text",
+      "source": "personal.currentNationality",
+      "format": "uppercase",
+      "candidates": ["current_nationality", "CurrentNationality", "nationalite_actuelle"]
+    },
+    {
+      "key": "nationalityAtBirth",
+      "kind": "text",
+      "source": "personal.nationalityAtBirth",
+      "format": "uppercase",
+      "required": false,
+      "candidates": ["nationality_at_birth", "NationalityAtBirth", "nationalite_naissance"]
+    },
+    {
+      "key": "sexMale",
+      "kind": "checkbox",
+      "source": "personal.gender",
+      "equals": "male",
+      "candidates": ["sex_male", "GenderMale", "sexe_m"]
+    },
+    {
+      "key": "sexFemale",
+      "kind": "checkbox",
+      "source": "personal.gender",
+      "equals": "female",
+      "candidates": ["sex_female", "GenderFemale", "sexe_f"]
+    },
+    {
+      "key": "maritalStatusSingle",
+      "kind": "checkbox",
+      "source": "personal.maritalStatus",
+      "equals": "single",
+      "candidates": ["marital_single", "MaritalSingle", "etat_civil_celibataire"]
+    },
+    {
+      "key": "maritalStatusMarried",
+      "kind": "checkbox",
+      "source": "personal.maritalStatus",
+      "equals": "married",
+      "candidates": ["marital_married", "MaritalMarried", "etat_civil_marie"]
+    },
+    {
+      "key": "maritalStatusSeparated",
+      "kind": "checkbox",
+      "source": "personal.maritalStatus",
+      "equals": "separated",
+      "candidates": ["marital_separated", "MaritalSeparated", "etat_civil_separe"]
+    },
+    {
+      "key": "maritalStatusDivorced",
+      "kind": "checkbox",
+      "source": "personal.maritalStatus",
+      "equals": "divorced",
+      "candidates": ["marital_divorced", "MaritalDivorced", "etat_civil_divorce"]
+    },
+    {
+      "key": "maritalStatusWidowed",
+      "kind": "checkbox",
+      "source": "personal.maritalStatus",
+      "equals": "widowed",
+      "candidates": ["marital_widowed", "MaritalWidowed", "etat_civil_veuf"]
+    },
+    {
+      "key": "documentTypeOrdinaryPassport",
+      "kind": "checkbox",
+      "source": "passport.documentType",
+      "equals": "ordinary_passport",
+      "candidates": ["document_type_ordinary_passport", "DocumentTypeOrdinary", "type_passeport_ordinaire"]
+    },
+    {
+      "key": "passportNumber",
+      "kind": "text",
+      "source": "passport.number",
+      "format": "passport-spacing",
+      "candidates": ["passport_number", "PassportNumber", "numero_passeport"]
+    },
+    {
+      "key": "passportDateOfIssue",
+      "kind": "text",
+      "source": "passport.dateOfIssue",
+      "format": "date-dd-mm-yyyy",
+      "candidates": ["passport_date_of_issue", "PassportDateOfIssue", "date_delivrance"]
+    },
+    {
+      "key": "passportValidUntil",
+      "kind": "text",
+      "source": "passport.dateOfExpiry",
+      "format": "date-dd-mm-yyyy",
+      "candidates": ["passport_valid_until", "PassportValidUntil", "valable_jusquau"]
+    },
+    {
+      "key": "passportIssuedBy",
+      "kind": "text",
+      "source": "passport.issuedBy",
+      "format": "uppercase",
+      "candidates": ["passport_issued_by", "PassportIssuedBy", "autorite_delivrante"]
+    },
+    {
+      "key": "applicantAddress",
+      "kind": "text",
+      "template": "{contact.addressLine1} {contact.addressLine2}, {contact.postalCode} {contact.city}, {contact.country}",
+      "candidates": ["applicant_address", "ApplicantAddress", "adresse_demandeur"]
+    },
+    {
+      "key": "applicantEmail",
+      "kind": "text",
+      "source": "contact.email",
+      "candidates": ["applicant_email", "ApplicantEmail", "email_demandeur"]
+    },
+    {
+      "key": "applicantPhone",
+      "kind": "text",
+      "source": "contact.phone",
+      "candidates": ["applicant_phone", "ApplicantPhone", "telephone_demandeur"]
+    },
+    {
+      "key": "residenceCountry",
+      "kind": "text",
+      "source": "contact.residenceCountry",
+      "format": "uppercase",
+      "required": false,
+      "candidates": ["residence_country", "ResidenceCountry", "pays_residence"]
+    },
+    {
+      "key": "occupation",
+      "kind": "text",
+      "source": "employment.occupation",
+      "candidates": ["occupation", "Occupation", "profession"]
+    },
+    {
+      "key": "employerNameAndAddress",
+      "kind": "text",
+      "template": "{employment.employerName}, {employment.employerAddress}",
+      "required": false,
+      "candidates": ["employer_name_and_address", "EmployerNameAndAddress", "employeur_nom_adresse"]
+    },
+    {
+      "key": "destinationMemberStates",
+      "kind": "text",
+      "source": "trip.destinationCountry",
+      "format": "uppercase",
+      "candidates": ["destination_member_states", "DestinationMemberStates", "etat_destination"]
+    },
+    {
+      "key": "firstEntryMemberState",
+      "kind": "text",
+      "source": "trip.firstEntryCountry",
+      "format": "uppercase",
+      "candidates": ["first_entry_member_state", "FirstEntryMemberState", "premiere_entree"]
+    },
+    {
+      "key": "numberOfEntriesSingle",
+      "kind": "checkbox",
+      "source": "trip.entriesRequested",
+      "equals": "single",
+      "candidates": ["entries_single", "EntriesSingle", "nombre_entrees_une"]
+    },
+    {
+      "key": "numberOfEntriesDouble",
+      "kind": "checkbox",
+      "source": "trip.entriesRequested",
+      "equals": "double",
+      "candidates": ["entries_double", "EntriesDouble", "nombre_entrees_deux"]
+    },
+    {
+      "key": "numberOfEntriesMultiple",
+      "kind": "checkbox",
+      "source": "trip.entriesRequested",
+      "equals": "multiple",
+      "candidates": ["entries_multiple", "EntriesMultiple", "nombre_entrees_multiples"]
+    },
+    {
+      "key": "durationOfStayDays",
+      "kind": "text",
+      "source": "trip.stayDurationDays",
+      "candidates": ["duration_of_stay_days", "DurationOfStayDays", "duree_sejour_jours"]
+    },
+    {
+      "key": "arrivalDate",
+      "kind": "text",
+      "source": "trip.arrivalDate",
+      "format": "date-dd-mm-yyyy",
+      "candidates": ["arrival_date", "ArrivalDate", "date_arrivee"]
+    },
+    {
+      "key": "departureDate",
+      "kind": "text",
+      "source": "trip.departureDate",
+      "format": "date-dd-mm-yyyy",
+      "candidates": ["departure_date", "DepartureDate", "date_depart"]
+    },
+    {
+      "key": "fingerprintsTakenNo",
+      "kind": "checkbox",
+      "source": "application.fingerprintsTakenBefore",
+      "equals": false,
+      "candidates": ["fingerprints_taken_no", "FingerprintsTakenNo", "empreintes_non"]
+    },
+    {
+      "key": "fingerprintsTakenYes",
+      "kind": "checkbox",
+      "source": "application.fingerprintsTakenBefore",
+      "equals": true,
+      "candidates": ["fingerprints_taken_yes", "FingerprintsTakenYes", "empreintes_oui"]
+    },
+    {
+      "key": "permitForFinalDestinationNo",
+      "kind": "checkbox",
+      "source": "application.finalDestinationPermitRequired",
+      "equals": false,
+      "candidates": ["permit_final_destination_no", "PermitFinalDestinationNo", "autorisation_destination_non"]
+    },
+    {
+      "key": "permitForFinalDestinationYes",
+      "kind": "checkbox",
+      "source": "application.finalDestinationPermitRequired",
+      "equals": true,
+      "candidates": ["permit_final_destination_yes", "PermitFinalDestinationYes", "autorisation_destination_oui"]
+    },
+    {
+      "key": "travelPurposeTourism",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "tourism",
+      "candidates": ["purpose_tourism", "PurposeTourism", "motif_tourisme"]
+    },
+    {
+      "key": "travelPurposeBusiness",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "business",
+      "candidates": ["purpose_business", "PurposeBusiness", "motif_affaires"]
+    },
+    {
+      "key": "travelPurposeFamilyVisit",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "family_visit",
+      "candidates": ["purpose_family_visit", "PurposeFamilyVisit", "motif_visite_famille"]
+    },
+    {
+      "key": "travelPurposeMedical",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "medical",
+      "candidates": ["purpose_medical", "PurposeMedical", "motif_soins"]
+    },
+    {
+      "key": "travelPurposeStudy",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "study",
+      "candidates": ["purpose_study", "PurposeStudy", "motif_etudes"]
+    },
+    {
+      "key": "travelPurposeCultural",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "cultural",
+      "candidates": ["purpose_cultural", "PurposeCultural", "motif_culturel"]
+    },
+    {
+      "key": "travelPurposeSports",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "sports",
+      "candidates": ["purpose_sports", "PurposeSports", "motif_sport"]
+    },
+    {
+      "key": "travelPurposeOfficial",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "equals": "official",
+      "candidates": ["purpose_official", "PurposeOfficial", "motif_officiel"]
+    },
+    {
+      "key": "travelPurposeTransit",
+      "kind": "checkbox",
+      "source": "trip.purpose",
+      "includes": "transit",
+      "candidates": ["purpose_transit", "PurposeTransit", "motif_transit"]
+    },
+    {
+      "key": "invitingPersonName",
+      "kind": "text",
+      "source": "trip.hostName",
+      "required": false,
+      "candidates": ["inviting_person_name", "InvitingPersonName", "personne_invitation_nom"]
+    },
+    {
+      "key": "invitingPersonAddress",
+      "kind": "text",
+      "source": "trip.hostAddress",
+      "required": false,
+      "candidates": ["inviting_person_address", "InvitingPersonAddress", "personne_invitation_adresse"]
+    },
+    {
+      "key": "invitingCompanyName",
+      "kind": "text",
+      "source": "trip.invitingCompanyName",
+      "required": false,
+      "candidates": ["inviting_company_name", "InvitingCompanyName", "societe_invitation_nom"]
+    },
+    {
+      "key": "invitingCompanyAddress",
+      "kind": "text",
+      "source": "trip.invitingCompanyAddress",
+      "required": false,
+      "candidates": ["inviting_company_address", "InvitingCompanyAddress", "societe_invitation_adresse"]
+    },
+    {
+      "key": "travelCostsCoveredByApplicant",
+      "kind": "checkbox",
+      "source": "sponsor.type",
+      "equals": "self",
+      "candidates": ["costs_covered_by_applicant", "CostsCoveredByApplicant", "frais_demandeur"]
+    },
+    {
+      "key": "travelCostsCoveredBySponsor",
+      "kind": "checkbox",
+      "source": "sponsor.type",
+      "includes": "host",
+      "candidates": ["costs_covered_by_sponsor", "CostsCoveredBySponsor", "frais_garant"]
+    },
+    {
+      "key": "placeAndDate",
+      "kind": "text",
+      "template": "{application.placeOfApplication}, {application.applicationDate}",
+      "candidates": ["place_and_date", "PlaceAndDate", "lieu_et_date"]
+    }
+  ]
+}

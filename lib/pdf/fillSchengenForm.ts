@@ -1,0 +1,1 @@
+export { fillSchengenPdf as fillSchengenForm } from "@/lib/pdf/fillSchengenPdf";
