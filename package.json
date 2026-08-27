@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "test:pdf": "ts-node --project tsconfig.ts-node.json --transpile-only scripts/verify-pdf-items26-27.ts",
     "inspect:pdf": "tsx scripts/inspect-pdf.ts",
     "extract:pdf-fields": "tsx scripts/extract-pdf-fields.ts"
   },
@@ -34,9 +36,12 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.33",
+    "pdf-parse": "^2.4.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "tsx": "^4.23.12",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

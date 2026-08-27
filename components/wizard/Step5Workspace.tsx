@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, Square, WandSparkles } from "lucide-react";
+import { ConsulateChecklist } from "@/components/wizard/ConsulateChecklist";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
+import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
 export type CustomLetterDraft = {
@@ -249,6 +251,19 @@ export function Step5Workspace({
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  async function handleDownloadChecklistPdf() {
+    const bytes = await generateChecklistPdf(applicant);
+    const browserBytes = new Uint8Array(bytes.length);
+    browserBytes.set(bytes);
+    const blob = new Blob([browserBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Consulate_Submission_Checklist.pdf";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleDownloadPdf(content: string, label: string) {
@@ -852,7 +867,8 @@ export function Step5Workspace({
               </div>
         </div>
 
-        <div className={activeTab === "toolkit" ? "mt-6 xl:col-span-2" : "mt-6 hidden"}>
+        <div className={activeTab === "toolkit" ? "mt-6 space-y-4 xl:col-span-2" : "mt-6 hidden"}>
+          <ConsulateChecklist applicant={applicant} onDownloadPdf={handleDownloadChecklistPdf} />
           <PacketWorkspace
             applicant={applicant}
             previewMode={previewMode}

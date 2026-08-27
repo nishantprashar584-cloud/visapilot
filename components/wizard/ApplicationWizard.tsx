@@ -22,6 +22,7 @@ import {
 } from "@/lib/applications/schema";
 import { previewWizardApplicant } from "@/lib/mock/applications";
 import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
+import { FinancialSafetyGauge } from "@/components/wizard/FinancialSafetyGauge";
 import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 import type { ApplicantInfo, ParsedVoiceContextResult, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
@@ -2316,7 +2317,14 @@ export function ApplicationWizard({
                 <TextInput label="Employer name" name="employment.employerName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerName" ? voiceCaptureState.phase : null} />
                 <TextInput label="Employer address" name="employment.employerAddress" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerAddress" ? voiceCaptureState.phase : null} />
                 <TextInput label="Monthly income (EUR)" name="employment.monthlyIncomeEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.monthlyIncomeEur" ? voiceCaptureState.phase : null} />
-                <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} helper={<span className="inline-flex items-start gap-2"><HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /> <span>{financialCalculatorMessage}</span></span>} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.savingsBalanceEur" ? voiceCaptureState.phase : null} />
+                <div className="space-y-4 md:col-span-2">
+                  <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} helper={<span className="inline-flex items-start gap-2"><HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /> <span>{financialCalculatorMessage}</span></span>} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.savingsBalanceEur" ? voiceCaptureState.phase : null} />
+                  <FinancialSafetyGauge
+                    destinationCountry={destinationCountry ?? ""}
+                    stayDurationDays={stayDuration}
+                    availableLiquidFundsEur={fundsValue}
+                  />
+                </div>
                 <TextInput label="Employer phone" name="employment.employerPhone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerPhone" ? voiceCaptureState.phase : null} />
                 <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-slate-300">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Consultant triage</p>

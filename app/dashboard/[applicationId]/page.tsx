@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Archive,
   BadgeCheck,
+  ClipboardList,
   FileText,
   Link2,
   Lock,
@@ -172,7 +173,7 @@ export default async function ApplicationDashboardPage({
         })}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -222,6 +223,29 @@ export default async function ApplicationDashboardPage({
                 Download PDF
               </Link>
             ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+          <TintedIconBadge icon={ClipboardList} tone="blue" label="Consulate Checklist" />
+          <h2 className="mt-4 text-xl font-semibold text-white">Submission Checklist PDF</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Provider-specific appointment checklist covering photos, passport validity, document order, bank proof, and appointment sheet.</p>
+          <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
+            Generated from the destination-country provider mapping and included in the full ZIP archive.
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            {!previewMode ? (
+              <Link
+                href={`/dashboard/${application.id}/consulate-checklist`}
+                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              >
+                Download PDF
+              </Link>
+            ) : (
+              <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                Preview-only action state
+              </span>
+            )}
           </div>
         </div>
       </div>

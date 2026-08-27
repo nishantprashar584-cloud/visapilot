@@ -5,6 +5,7 @@ import {
   buildInsuranceVerificationSlip,
   buildRegionalFormGuidance,
 } from "@/lib/applications/packetArtifacts";
+import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -39,6 +40,7 @@ export async function GET(
   zip.file("cover-letter.md", data.cover_letter_markdown);
   zip.file("application.pdf", Buffer.from(data.filled_pdf_base64, "base64"));
   zip.file("document-checklist.md", buildChecklistMarkdown(data.application_data, data.refusal_reason_code));
+  zip.file("Consulate_Submission_Checklist.pdf", await generateChecklistPdf(data.application_data));
   zip.file("financial-audit-report.md", buildFinancialAuditReport(data.application_data));
   zip.file("insurance-verification-slip.txt", buildInsuranceVerificationSlip(data.application_data));
 
