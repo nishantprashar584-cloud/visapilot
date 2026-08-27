@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test e2e/wizard-flow.spec.ts",
     "test:pdf": "ts-node --project tsconfig.ts-node.json --transpile-only scripts/verify-pdf-items26-27.ts",
     "inspect:pdf": "tsx scripts/inspect-pdf.ts",
     "extract:pdf-fields": "tsx scripts/extract-pdf-fields.ts"
@@ -31,9 +32,12 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "adm-zip": "^0.6.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.33",
     "pdf-parse": "^2.4.5",

@@ -1,54 +1,99 @@
 import JSZip from "jszip";
+import { Buffer } from "node:buffer";
 import {
   buildChecklistMarkdown,
   buildFinancialAuditReport,
   buildInsuranceVerificationSlip,
   buildRegionalFormGuidance,
 } from "@/lib/applications/packetArtifacts";
+import { getPreviewApplication } from "@/lib/mock/applications";
+import { generateFilledApplicationPdf } from "@/lib/pdf/generateFilledApplicationPdf";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
+import { generateTextPdf } from "@/lib/pdf/generateTextPdf";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { ApplicantInfo, RefusalReasonCode } from "@/types";
+
+function buildApplicationPdfFileName(destinationCountry: string): string {
+  return `schengen_application_${destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")}.pdf`;
+}
+
+type PackageApplicationData = {
+  id: string;
+  application_data: ApplicantInfo;
+  cover_letter_markdown: string;
+  filled_pdf_base64: string;
+  refusal_reason_code: RefusalReasonCode | null;
+};
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { applicationId: string } },
 ) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const previewMode = new URL(request.url).searchParams.get("preview") === "1";
+  const previewApplication = previewMode ? getPreviewApplication(params.applicationId) : null;
 
-  if (!user) {
-    return new Response("Authentication required.", { status: 401 });
-  }
-
-  const { data, error } = await supabase
-    .from("applications")
-    .select("id, user_id, applicant_name, application_data, cover_letter_markdown, filled_pdf_base64, refusal_reason_code")
-    .eq("id", params.applicationId)
-    .single();
-
-  if (error || !data || data.user_id !== user.id) {
+  if (previewMode && !previewApplication) {
     return new Response("Application package not found.", { status: 404 });
   }
 
+  const supabase = createSupabaseServerClient();
+  let applicationData: PackageApplicationData | null = null;
+
+  if (previewApplication) {
+    applicationData = {
+      id: previewApplication.id,
+      application_data: previewApplication.application_data,
+      cover_letter_markdown: previewApplication.cover_letter_markdown,
+      filled_pdf_base64: previewApplication.filled_pdf_base64,
+      refusal_reason_code: previewApplication.refusal_reason_code,
+    };
+  } else {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return new Response("Authentication required.", { status: 401 });
+    }
+
+    const { data, error } = await supabase
+      .from("applications")
+      .select("id, user_id, applicant_name, application_data, cover_letter_markdown, filled_pdf_base64, refusal_reason_code")
+      .eq("id", params.applicationId)
+      .single();
+
+    if (error || !data || data.user_id !== user.id) {
+      return new Response("Application package not found.", { status: 404 });
+    }
+
+    applicationData = data;
+  }
+
   const pdfStrategy = await resolvePdfGenerationStrategy(
-    data.application_data.trip.destinationCountry,
+    applicationData.application_data.trip.destinationCountry,
   );
+  const filledPdfBuffer = applicationData.filled_pdf_base64
+    ? Buffer.from(applicationData.filled_pdf_base64, "base64")
+    : await generateFilledApplicationPdf(applicationData.application_data);
+  const coverLetterPdf = await generateTextPdf(applicationData.cover_letter_markdown);
+  const applicationPdfFileName = buildApplicationPdfFileName(applicationData.application_data.trip.destinationCountry);
 
   const zip = new JSZip();
-  zip.file("cover-letter.md", data.cover_letter_markdown);
-  zip.file("application.pdf", Buffer.from(data.filled_pdf_base64, "base64"));
-  zip.file("document-checklist.md", buildChecklistMarkdown(data.application_data, data.refusal_reason_code));
-  zip.file("Consulate_Submission_Checklist.pdf", await generateChecklistPdf(data.application_data));
-  zip.file("financial-audit-report.md", buildFinancialAuditReport(data.application_data));
-  zip.file("insurance-verification-slip.txt", buildInsuranceVerificationSlip(data.application_data));
+  zip.file("cover-letter.md", applicationData.cover_letter_markdown);
+  zip.file("Schengen_Cover_Letter.pdf", coverLetterPdf);
+  zip.file("application.pdf", filledPdfBuffer);
+  zip.file(applicationPdfFileName, filledPdfBuffer);
+  zip.file("document-checklist.md", buildChecklistMarkdown(applicationData.application_data, applicationData.refusal_reason_code));
+  zip.file("Consulate_Submission_Checklist.pdf", await generateChecklistPdf(applicationData.application_data));
+  zip.file("financial-audit-report.md", buildFinancialAuditReport(applicationData.application_data));
+  zip.file("insurance-verification-slip.txt", buildInsuranceVerificationSlip(applicationData.application_data));
 
   if (!pdfStrategy.supportsNativeAutofill && pdfStrategy.guidanceMessage) {
     zip.file(
       "regional-form-guidance.md",
       buildRegionalFormGuidance({
-        applicant: data.application_data,
+        applicant: applicationData.application_data,
         templateLabel: pdfStrategy.templateLabel,
         portalUrl: pdfStrategy.portalUrl,
         guidanceMessage: pdfStrategy.guidanceMessage,
@@ -56,8 +101,8 @@ export async function GET(
     );
   }
 
-  if (Array.isArray(data.application_data.supportingDocuments) && data.application_data.supportingDocuments.length > 0) {
-    for (const document of data.application_data.supportingDocuments) {
+  if (!previewApplication && Array.isArray(applicationData.application_data.supportingDocuments) && applicationData.application_data.supportingDocuments.length > 0) {
+    for (const document of applicationData.application_data.supportingDocuments) {
       const { data: fileData, error: fileError } = await supabase.storage
         .from("visapilot-supporting-documents")
         .download(document.storagePath);
@@ -76,7 +121,7 @@ export async function GET(
   return new Response(new Uint8Array(archive), {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="visapilot-package-${params.applicationId}.zip"`,
+      "Content-Disposition": `attachment; filename="visapilot-package-${applicationData.id}.zip"`,
     },
   });
 }

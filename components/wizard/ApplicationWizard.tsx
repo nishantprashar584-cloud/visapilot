@@ -20,7 +20,7 @@ import {
   defaultApplicantInfo,
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
-import { previewWizardApplicant } from "@/lib/mock/applications";
+import { getPreviewApplicationForDestination, previewWizardApplicant } from "@/lib/mock/applications";
 import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
 import { FinancialSafetyGauge } from "@/components/wizard/FinancialSafetyGauge";
 import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
@@ -1044,6 +1044,14 @@ export function ApplicationWizard({
     };
   }, [toast]);
 
+  if (!hasHydrated) {
+    return (
+      <div className="rounded-[1.5rem] border border-white/10 bg-[#101010] px-6 py-8 text-sm text-slate-300">
+        Preparing your application workspace...
+      </div>
+    );
+  }
+
   function clearVoiceProcessingTimeout() {
     if (voiceProcessingTimeoutRef.current) {
       clearTimeout(voiceProcessingTimeoutRef.current);
@@ -1354,7 +1362,8 @@ export function ApplicationWizard({
     setSubmitError(null);
 
     if (previewMode) {
-      router.push("/dashboard/preview-france-tourism?preview=1");
+      const previewApplication = getPreviewApplicationForDestination(values.trip.destinationCountry) ?? { id: "preview-france-tourism" };
+      router.push(`/dashboard/${previewApplication.id}?preview=1`);
       return;
     }
 

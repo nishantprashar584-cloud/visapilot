@@ -1,10 +1,32 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { getPreviewApplication } from "@/lib/mock/applications";
+import { generateTextPdf } from "@/lib/pdf/generateTextPdf";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { applicationId: string } },
 ) {
+  const previewMode = new URL(request.url).searchParams.get("preview") === "1";
+
+  if (previewMode) {
+    const previewApplication = getPreviewApplication(params.applicationId);
+
+    if (!previewApplication) {
+      return new Response("Cover letter not found.", { status: 404 });
+    }
+
+    const previewBytes = await generateTextPdf(previewApplication.cover_letter_markdown);
+    const responseBytes = new Uint8Array(previewBytes.length);
+    responseBytes.set(previewBytes);
+
+    return new Response(responseBytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="Schengen_Cover_Letter.pdf"',
+      },
+    });
+  }
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -24,42 +46,14 @@ export async function GET(
     return new Response("Cover letter not found.", { status: 404 });
   }
 
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const lines = data.cover_letter_markdown.split(/\r?\n/);
-  const lineHeight = 16;
-  const margin = 48;
-  const pageSize: [number, number] = [595.28, 841.89];
-  let page = pdfDoc.addPage(pageSize);
-  let cursorY = page.getHeight() - margin;
+  const bytes = await generateTextPdf(data.cover_letter_markdown);
+  const responseBytes = new Uint8Array(bytes.length);
+  responseBytes.set(bytes);
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim().length === 0 ? " " : rawLine;
-
-    if (cursorY <= margin) {
-      page = pdfDoc.addPage(pageSize);
-      cursorY = page.getHeight() - margin;
-    }
-
-    page.drawText(line, {
-      x: margin,
-      y: cursorY,
-      size: 11,
-      font,
-      color: rgb(0.08, 0.1, 0.16),
-      maxWidth: page.getWidth() - margin * 2,
-      lineHeight,
-    });
-
-    cursorY -= lineHeight;
-  }
-
-  const bytes = await pdfDoc.save();
-
-  return new Response(new Uint8Array(bytes), {
+  return new Response(responseBytes, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="visapilot-cover-letter-${params.applicationId}.pdf"`,
+      "Content-Disposition": 'attachment; filename="Schengen_Cover_Letter.pdf"',
     },
   });
 }

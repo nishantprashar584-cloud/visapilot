@@ -310,3 +310,11 @@ export const previewWizardApplicant = previewApplications[0].application_data;
 export function getPreviewApplication(applicationId: string): ApplicationRow | null {
   return previewApplications.find((application) => application.id === applicationId) ?? null;
 }
+
+export function getPreviewApplicationForDestination(destinationCountry: string): ApplicationRow | null {
+  const normalizedDestination = destinationCountry.trim().toLowerCase();
+
+  return previewApplications.find(
+    (application) => application.destination_country.trim().toLowerCase() === normalizedDestination,
+  ) ?? null;
+}

@@ -194,9 +194,12 @@ export default async function ApplicationDashboardPage({
                 Download Filled PDF
               </Link>
             ) : (
-              <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-                Preview-only action state
-              </span>
+              <Link
+                href={`/dashboard/${application.id}/download?preview=1`}
+                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              >
+                Download Filled PDF
+              </Link>
             )}
           </div>
         </div>
@@ -222,7 +225,14 @@ export default async function ApplicationDashboardPage({
               >
                 Download PDF
               </Link>
-            ) : null}
+            ) : (
+              <Link
+                href={`/dashboard/${application.id}/cover-letter?preview=1`}
+                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              >
+                Download PDF
+              </Link>
+            )}
           </div>
         </div>
 
@@ -242,9 +252,12 @@ export default async function ApplicationDashboardPage({
                 Download PDF
               </Link>
             ) : (
-              <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-                Preview-only action state
-              </span>
+              <Link
+                href={`/dashboard/${application.id}/consulate-checklist?preview=1`}
+                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              >
+                Download PDF
+              </Link>
             )}
           </div>
         </div>
@@ -267,9 +280,12 @@ export default async function ApplicationDashboardPage({
                 Download Full Package (.zip)
               </Link>
             ) : (
-              <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-                Preview-only action state
-              </span>
+              <Link
+                href={`/dashboard/${application.id}/package?preview=1`}
+                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              >
+                Download Full Package (.zip)
+              </Link>
             )}
           </div>
         </div>

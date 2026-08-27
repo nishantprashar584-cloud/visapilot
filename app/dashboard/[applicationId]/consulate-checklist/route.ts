@@ -1,10 +1,32 @@
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
+import { getPreviewApplication } from "@/lib/mock/applications";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { applicationId: string } },
 ) {
+  const previewMode = new URL(request.url).searchParams.get("preview") === "1";
+
+  if (previewMode) {
+    const previewApplication = getPreviewApplication(params.applicationId);
+
+    if (!previewApplication) {
+      return new Response("Consulate checklist not found.", { status: 404 });
+    }
+
+    const previewBytes = await generateChecklistPdf(previewApplication.application_data);
+    const responseBytes = new Uint8Array(previewBytes.length);
+    responseBytes.set(previewBytes);
+
+    return new Response(responseBytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="Consulate_Submission_Checklist.pdf"',
+      },
+    });
+  }
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
