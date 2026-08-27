@@ -35,7 +35,7 @@ export default async function ApplyPage({
   const availableCredits = previewMode ? 1 : await getAvailableCredits(account?.id);
 
   return (
-    <section className="mx-auto max-w-6xl space-y-8">
+    <section className="w-full space-y-8 px-4 sm:px-6 lg:px-8">
       <div className="space-y-4">
         <p className="eyebrow">
           Start Application

@@ -21,12 +21,30 @@ import {
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
 import { previewWizardApplicant } from "@/lib/mock/applications";
-import { Step5Workspace } from "@/components/wizard/Step5Workspace";
+import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 import type { ApplicantInfo, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
 import { runRiskAudit } from "@/lib/riskAudit";
 
 const draftStorageKey = "visapilot.applicationDraft";
+const customLettersStorageKey = "visapilot.customLettersDraft";
+
+const defaultCustomLetters: CustomLetterDraft[] = [
+  {
+    id: "custom-letter-1",
+    title: "Employer support letter",
+    prompt: "",
+    content: "",
+    message: null,
+  },
+  {
+    id: "custom-letter-2",
+    title: "Additional explanation letter",
+    prompt: "",
+    content: "",
+    message: null,
+  },
+];
 
 const stepLabels = [
   "Identity",
@@ -623,6 +641,8 @@ export function ApplicationWizard({
   const [documentStudioTab, setDocumentStudioTab] = useState<"cover-letter" | "toolkit">("toolkit");
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
+  const [customLetters, setCustomLetters] = useState<CustomLetterDraft[]>(defaultCustomLetters);
+  const [activeCustomLetterId, setActiveCustomLetterId] = useState<string | null>(null);
   const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -681,6 +701,7 @@ export function ApplicationWizard({
   useEffect(() => {
     if (previewMode) {
       form.reset(previewWizardApplicant);
+      setCustomLetters(defaultCustomLetters);
       setHasHydrated(true);
       return;
     }
@@ -692,6 +713,25 @@ export function ApplicationWizard({
 
       if (parsedDraft.success) {
         form.reset(mergeApplicantDraft(parsedDraft.data));
+      }
+    }
+
+    const savedCustomLetters = window.localStorage.getItem(customLettersStorageKey);
+
+    if (savedCustomLetters) {
+      try {
+        const parsedCustomLetters = JSON.parse(savedCustomLetters) as CustomLetterDraft[];
+
+        if (Array.isArray(parsedCustomLetters) && parsedCustomLetters.length === defaultCustomLetters.length) {
+          setCustomLetters(
+            parsedCustomLetters.map((letter, index) => ({
+              ...defaultCustomLetters[index],
+              ...letter,
+            })),
+          );
+        }
+      } catch {
+        setCustomLetters(defaultCustomLetters);
       }
     }
 
@@ -732,6 +772,14 @@ export function ApplicationWizard({
       window.clearTimeout(timeoutId);
     };
   }, [hasHydrated, watchedValues]);
+
+  useEffect(() => {
+    if (!hasHydrated || previewMode) {
+      return;
+    }
+
+    window.localStorage.setItem(customLettersStorageKey, JSON.stringify(customLetters));
+  }, [customLetters, hasHydrated, previewMode]);
 
   useEffect(() => {
     return () => {
@@ -1078,7 +1126,7 @@ export function ApplicationWizard({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(applicant),
+        body: JSON.stringify({ applicant, letterKind: "cover_letter" }),
       });
 
       const payload = (await response.json()) as {
@@ -1104,9 +1152,79 @@ export function ApplicationWizard({
     }
   }
 
+  function handleCustomLetterChange(letterId: string, updates: Partial<CustomLetterDraft>) {
+    setCustomLetters((currentLetters) =>
+      currentLetters.map((letter) =>
+        letter.id === letterId
+          ? {
+              ...letter,
+              ...updates,
+            }
+          : letter,
+      ),
+    );
+  }
+
+  async function handleGenerateCustomLetter(letterId: string, applicant: ApplicantInfo) {
+    const targetLetter = customLetters.find((letter) => letter.id === letterId);
+
+    if (!targetLetter) {
+      return;
+    }
+
+    if (!targetLetter.prompt.trim()) {
+      handleCustomLetterChange(letterId, {
+        message: "Describe what you want this additional letter to say before generating it.",
+      });
+      return;
+    }
+
+    setActiveCustomLetterId(letterId);
+    handleCustomLetterChange(letterId, { message: null });
+
+    try {
+      const response = await fetch("/api/generate-cover-letter", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          applicant,
+          letterKind: "custom_letter",
+          customTitle: targetLetter.title,
+          customInstructions: targetLetter.prompt,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        coverLetterMarkdown?: string;
+        source?: "openai" | "fallback";
+        error?: string;
+      };
+
+      if (!response.ok || !payload.coverLetterMarkdown) {
+        throw new Error(payload.error ?? "Unable to generate the requested letter.");
+      }
+
+      handleCustomLetterChange(letterId, {
+        content: payload.coverLetterMarkdown,
+        message:
+          payload.source === "fallback"
+            ? "This letter used the local fallback because the AI service was unavailable. Review before downloading."
+            : "Additional letter generated. Review and download it below.",
+      });
+    } catch (error) {
+      handleCustomLetterChange(letterId, {
+        message: error instanceof Error ? error.message : "Unable to generate the requested letter.",
+      });
+    } finally {
+      setActiveCustomLetterId(null);
+    }
+  }
+
   return (
     <FormProvider {...form}>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="w-full space-y-6">
         <div className="glass-panel p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -1225,6 +1343,18 @@ export function ApplicationWizard({
               </div>
 
               {voiceMessage ? <p className="mt-3 text-sm leading-6 text-slate-300">{voiceMessage}</p> : null}
+
+              {microphonePermission === "denied" ? (
+                <div className="mt-4 rounded-[1rem] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+                  <p className="font-semibold text-white">How to enable microphone access</p>
+                  <p className="mt-2 leading-6">1. Click the lock or site-settings icon in your browser address bar.</p>
+                  <p className="leading-6">2. Set Microphone to Allow for this site.</p>
+                  <p className="leading-6">3. Choose the correct input device in your browser or system audio settings.</p>
+                  <p className="leading-6">4. Refresh this page and click Enable Microphone Access again.</p>
+                  <p className="mt-2 leading-6 text-rose-100/85">Chrome settings path: chrome://settings/content/microphone</p>
+                  <p className="leading-6 text-rose-100/85">Edge settings path: edge://settings/content/microphone</p>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1613,6 +1743,8 @@ export function ApplicationWizard({
                 applicant={watchedValues as ApplicantInfo}
                 coverLetterDraft={coverLetterDraft}
                 onCoverLetterChange={setCoverLetterDraft}
+                customLetters={customLetters}
+                onCustomLetterChange={handleCustomLetterChange}
                 previewMode={previewMode}
                 supportingDocuments={supportingDocuments}
                 onSupportingDocumentsChange={handleSupportingDocumentsChange}
@@ -1623,8 +1755,13 @@ export function ApplicationWizard({
                 isStartingCheckout={isStartingCheckout}
                 isSubmitting={isSubmitting}
                 isGeneratingCoverLetter={isGeneratingCoverLetter}
+                activeCustomLetterId={activeCustomLetterId}
                 coverLetterMessage={coverLetterMessage}
                 onGenerateCoverLetter={(applicant) => void handleGenerateCoverLetter(applicant)}
+                onGenerateCustomLetter={(letterId, applicant) => void handleGenerateCustomLetter(letterId, applicant)}
+                speechSupported={speechSupported}
+                microphonePermission={microphonePermission}
+                onRequestMicrophoneAccess={requestMicrophoneAccess}
               />
             </StepPanel>
           ) : null}

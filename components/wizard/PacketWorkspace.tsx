@@ -21,6 +21,7 @@ type WorkspaceOutput = {
   url: string;
   fileName: string;
   createdAtLabel: string;
+  sizeLabel: string;
 };
 
 type RotationPreset = "90" | "180" | "270";
@@ -222,6 +223,7 @@ export function PacketWorkspace({
   const [rotationPreset, setRotationPreset] = useState<RotationPreset>("90");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
+  const [previewOutputId, setPreviewOutputId] = useState<string>("");
 
   const pdfDocuments = useMemo(
     () => documents.filter((document) => document.kind === "pdf"),
@@ -238,8 +240,14 @@ export function PacketWorkspace({
     [documents, previewDocumentId],
   );
 
+  const previewOutput = useMemo(
+    () => outputs.find((output) => output.id === previewOutputId) ?? null,
+    [outputs, previewOutputId],
+  );
+
   function syncDocumentSelection(documentId: string) {
     const nextDocument = documents.find((document) => document.id === documentId) ?? null;
+    setPreviewOutputId("");
     setPreviewDocumentId(documentId);
     setSplitDocumentId(nextDocument?.kind === "pdf" ? documentId : "");
 
@@ -276,6 +284,7 @@ export function PacketWorkspace({
         ...currentOutputs.filter((output) => output.fileName !== nextOutput.fileName),
       ];
     });
+    setPreviewOutputId(nextOutput.id);
   }
 
   function removeOutput(outputId: string) {
@@ -288,6 +297,8 @@ export function PacketWorkspace({
 
       return currentOutputs.filter((output) => output.id !== outputId);
     });
+
+    setPreviewOutputId((currentId) => (currentId === outputId ? "" : currentId));
 
     setToolkitMessage("Generated PDF removed from the workspace outputs.");
   }
@@ -476,6 +487,7 @@ export function PacketWorkspace({
         url,
         fileName: "visapilot-merged-supporting-docs.pdf",
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(mergedBytes.length),
       });
 
       setToolkitMessage("Merged PDF is ready to preview or download.");
@@ -515,6 +527,7 @@ export function PacketWorkspace({
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(splitBytes.length),
       });
 
       setToolkitMessage(`Split output for pages ${splitRange} is ready.`);
@@ -552,6 +565,7 @@ export function PacketWorkspace({
       const compressedBytes = await compressedPdf.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
       const url = URL.createObjectURL(new Blob([Uint8Array.from(compressedBytes)], { type: "application/pdf" }));
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-compressed.pdf`;
+      const sizeDelta = splitDocument.file.size - compressedBytes.length;
 
       upsertOutput({
         id: crypto.randomUUID(),
@@ -559,9 +573,14 @@ export function PacketWorkspace({
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(compressedBytes.length),
       });
 
-      setToolkitMessage(`Compressed output for ${splitDocument.file.name} is ready to preview or download.`);
+      setToolkitMessage(
+        sizeDelta > 0
+          ? `Compressed output for ${splitDocument.file.name} is ready. Saved ${formatBytes(sizeDelta)}.`
+          : `Optimized output for ${splitDocument.file.name} is ready. The original file was already compact, so size savings were limited.`,
+      );
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to compress the selected PDF.");
     } finally {
@@ -596,6 +615,7 @@ export function PacketWorkspace({
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(rotatedBytes.length),
       });
 
       setToolkitMessage(`Rotated all pages in ${splitDocument.file.name} by ${rotation} degrees.`);
@@ -635,6 +655,7 @@ export function PacketWorkspace({
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(reorderedBytes.length),
       });
 
       setToolkitMessage(`Page order for ${splitDocument.file.name} has been rebuilt as ${pageOrder}.`);
@@ -680,6 +701,7 @@ export function PacketWorkspace({
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(sanitizedBytes.length),
       });
 
       setToolkitMessage(`Sanitized output for ${splitDocument.file.name} is ready.`);
@@ -899,6 +921,54 @@ export function PacketWorkspace({
       </div>
 
       <div className="space-y-4">
+        {outputs.length > 0 ? (
+          <div className="rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Generated Files</div>
+                <p className="mt-2 text-sm leading-6 text-emerald-100/90">
+                  Finished PDFs land here automatically. The newest export is selected in preview so the result is obvious immediately after each action.
+                </p>
+              </div>
+              <span className="inline-flex rounded-full border border-emerald-300/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                {outputs.length} Export{outputs.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {outputs.map((output) => (
+                <div key={output.id} className={`flex flex-col gap-3 rounded-[1rem] border p-4 sm:flex-row sm:items-center sm:justify-between ${previewOutputId === output.id ? "border-white/30 bg-black/40" : "border-white/10 bg-black/25"}`}>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{output.label}</p>
+                    <p className="mt-1 text-sm text-emerald-50/85">{output.fileName}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-emerald-100/75">{output.sizeLabel} · generated {output.createdAtLabel}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewOutputId(output.id)}
+                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
+                    >
+                      Preview Result
+                    </button>
+                    <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
+                      <Download className="h-4 w-4" />
+                      Download
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeOutput(output.id)}
+                      className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -919,7 +989,9 @@ export function PacketWorkspace({
             </div>
 
             <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-300">
-              {splitDocument && splitDocument.kind === "pdf"
+              {previewOutput
+                ? `Previewing generated file: ${previewOutput.fileName}.`
+                : splitDocument && splitDocument.kind === "pdf"
                 ? `Active PDF: ${splitDocument.file.name} · ${splitDocument.pageCount} ${splitDocument.pageCount === 1 ? "page" : "pages"}`
                 : pdfDocuments.length > 0
                   ? "Select a PDF in the preview header to use Split, Rotate, Reorder, and Sanitize."
@@ -927,7 +999,13 @@ export function PacketWorkspace({
             </div>
           </div>
           <div className="mt-4 overflow-hidden rounded-[1rem] border border-white/10 bg-black/50">
-            {previewDocument ? (
+            {previewOutput ? (
+              <iframe
+                src={previewOutput.url}
+                title={previewOutput.fileName}
+                className="h-[420px] w-full bg-white"
+              />
+            ) : previewDocument ? (
               previewDocument.kind === "pdf" ? (
                 <iframe
                   src={previewDocument.previewUrl}

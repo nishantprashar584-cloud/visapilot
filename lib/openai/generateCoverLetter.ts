@@ -141,6 +141,14 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
 
 export type CoverLetterGenerationSource = "openai" | "fallback";
 
+type LetterKind = "cover_letter" | "custom_letter";
+
+type LetterGenerationOptions = {
+  letterKind?: LetterKind;
+  customTitle?: string;
+  customInstructions?: string;
+};
+
 export type CoverLetterGenerationResult = {
   coverLetterMarkdown: string;
   source: CoverLetterGenerationSource;
@@ -157,11 +165,46 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   ]);
 }
 
+function buildCustomLetterFallback(applicant: ApplicantInfo, options: LetterGenerationOptions): string {
+  const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim() || "Applicant";
+  const destinationCountry = applicant.trip.destinationCountry;
+  const title = options.customTitle?.trim() || "Additional supporting letter";
+  const instructions = cleanSentence(options.customInstructions?.trim() ?? "") || "Please prepare this additional visa-supporting letter using the applicant context below.";
+  const arrivalDate = formatDate(applicant.trip.arrivalDate);
+  const departureDate = formatDate(applicant.trip.departureDate);
+  const purpose = applicant.trip.purpose.replace(/_/g, " ");
+
+  return [
+    fullName,
+    applicant.application.placeOfApplication.trim(),
+    "",
+    buildConsulateName(destinationCountry),
+    "",
+    `Subject: ${title}`,
+    "",
+    "Dear Visa Officer,",
+    "",
+    `I am submitting this additional supporting letter in relation to my Schengen visa application for ${destinationCountry}, planned from ${arrivalDate} to ${departureDate} for the purpose of ${purpose}.`,
+    "",
+    instructions,
+    "",
+    "This letter should be read together with my supporting documents, travel plan, financial evidence, and primary cover letter already included in the application package.",
+    "",
+    "I respectfully request that this additional context be considered as part of my application review.",
+    "",
+    "Sincerely,",
+    fullName,
+  ].filter(Boolean).join("\n");
+}
+
 export async function generateCoverLetterResult(
   applicant: ApplicantInfo,
+  options: LetterGenerationOptions = {},
 ): Promise<CoverLetterGenerationResult> {
   const destinationCountry = applicant.trip.destinationCountry;
   const consulateName = buildConsulateName(destinationCountry);
+  const letterKind = options.letterKind ?? "cover_letter";
+  const isCustomLetter = letterKind === "custom_letter";
 
   try {
     const response = await withTimeout(
@@ -176,7 +219,9 @@ export async function generateCoverLetterResult(
               {
                 type: "input_text",
                 text:
-                  "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences. The result must read like a real consular submission, not generic AI copy.",
+                  isCustomLetter
+                    ? "You write formal supporting letters for Schengen visa applications. Output polished markdown only, with no preamble and no code fences. The result must read like a real applicant submission and follow the requested purpose precisely."
+                    : "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences. The result must read like a real consular submission, not generic AI copy.",
               },
             ],
           },
@@ -185,7 +230,9 @@ export async function generateCoverLetterResult(
             content: [
               {
                 type: "input_text",
-                text: `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Use the structure typically seen in real Schengen cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
+                text: isCustomLetter
+                  ? `Draft a formal Schengen visa supporting letter addressed to ${consulateName}. The requested letter title is: ${options.customTitle ?? "Additional supporting letter"}. The user wants this letter to cover the following points: ${options.customInstructions ?? ""}. Use the applicant context below to make the letter specific, factual, and visa-relevant. Keep it formal and credible. Do not invent facts. If a requested point is not present in the applicant record, acknowledge it carefully without fabricating details. Applicant record:\n${buildApplicantSummary(applicant)}`
+                  : `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Use the structure typically seen in real Schengen cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
               },
             ],
           },
@@ -210,7 +257,9 @@ export async function generateCoverLetterResult(
     };
   } catch {
     return {
-      coverLetterMarkdown: buildLocalCoverLetterFallback(applicant),
+      coverLetterMarkdown: isCustomLetter
+        ? buildCustomLetterFallback(applicant, options)
+        : buildLocalCoverLetterFallback(applicant),
       source: "fallback",
     };
   }
