@@ -1040,7 +1040,7 @@ export function ApplicationWizard({
 
   return (
     <FormProvider {...form}>
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         <div className="glass-panel p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -1064,7 +1064,7 @@ export function ApplicationWizard({
             />
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             {stepLabels.map((label, index) => {
               const Icon = stepIcons[index];
               const isActive = index === currentStep;
@@ -1073,7 +1073,7 @@ export function ApplicationWizard({
               return (
                 <div
                   key={label}
-                  className={`rounded-[1rem] border px-3 py-3 ${
+                  className={`min-h-[88px] rounded-[1rem] border px-4 py-4 ${
                     isActive
                       ? "border-white/20 bg-white/10"
                       : isComplete
@@ -1081,13 +1081,13 @@ export function ApplicationWizard({
                         : "border-white/10 bg-[#101010]"
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${isActive ? "bg-white text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : "bg-white/5 text-slate-400"}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isActive ? "bg-white text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : "bg-white/5 text-slate-400"}`}>
                       {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Step {index + 1}</p>
-                      <p className="text-sm font-semibold text-white">{label}</p>
+                      <p className="text-sm font-semibold text-white sm:text-[15px]">{label}</p>
                     </div>
                   </div>
                 </div>
