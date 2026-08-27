@@ -2,7 +2,27 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowDownUp, ArrowUp, CloudUpload, Download, Eye, FileText, Layers3, LoaderCircle, Minimize, RotateCw, Scissors, Shield, Tags, Upload, Zap } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowDownUp,
+  ArrowUp,
+  CheckCircle2,
+  CloudUpload,
+  Download,
+  Eye,
+  FileText,
+  GripVertical,
+  Layers3,
+  LoaderCircle,
+  Minimize,
+  RotateCw,
+  Scissors,
+  Shield,
+  Tags,
+  Upload,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
 import type { SupportingDocument } from "@/types";
 
@@ -24,7 +44,115 @@ type WorkspaceOutput = {
   sizeLabel: string;
 };
 
+type WorkspacePagePreview = {
+  pageNumber: number;
+  url: string;
+};
+
 type RotationPreset = "90" | "180" | "270";
+type ToolkitMode = "merge" | "split" | "compress" | "reorder" | "rotate" | "sanitize";
+
+type ToolDefinition = {
+  id: ToolkitMode;
+  label: string;
+  shortLabel: string;
+  description: string;
+  uploadTitle: string;
+  uploadDescription: string;
+  accept: string;
+  multiple: boolean;
+  requiresPdf: boolean;
+  icon: LucideIcon;
+  accentClass: string;
+  iconClass: string;
+};
+
+const toolDefinitions: ToolDefinition[] = [
+  {
+    id: "merge",
+    label: "Merge PDF",
+    shortLabel: "Merge",
+    description: "Upload multiple files, arrange them, then create one embassy-ready PDF.",
+    uploadTitle: "Select files to merge",
+    uploadDescription: "Add two or more PDFs or images. Drag to change the merge order before exporting.",
+    accept: "application/pdf,image/png,image/jpeg,image/webp",
+    multiple: true,
+    requiresPdf: false,
+    icon: Layers3,
+    accentClass: "border-blue-300/20 bg-blue-500/10 text-blue-100",
+    iconClass: "bg-blue-100 text-blue-600",
+  },
+  {
+    id: "split",
+    label: "Split PDF",
+    shortLabel: "Split",
+    description: "Upload one PDF, preview it, then extract the exact page range you need.",
+    uploadTitle: "Select a PDF to split",
+    uploadDescription: "Choose a PDF, preview it, then enter page ranges like 1-3 or 2,5.",
+    accept: "application/pdf",
+    multiple: false,
+    requiresPdf: true,
+    icon: Scissors,
+    accentClass: "border-rose-300/20 bg-rose-500/10 text-rose-100",
+    iconClass: "bg-rose-100 text-rose-600",
+  },
+  {
+    id: "compress",
+    label: "Compress PDF",
+    shortLabel: "Compress",
+    description: "Upload one PDF, preview it, then generate a lighter portal-friendly copy.",
+    uploadTitle: "Select a PDF to compress",
+    uploadDescription: "Use this for VFS, TLS, or BLS upload limits when a file needs cleanup and compaction.",
+    accept: "application/pdf",
+    multiple: false,
+    requiresPdf: true,
+    icon: Minimize,
+    accentClass: "border-emerald-300/20 bg-emerald-500/10 text-emerald-100",
+    iconClass: "bg-emerald-100 text-emerald-600",
+  },
+  {
+    id: "reorder",
+    label: "Reorder Pages",
+    shortLabel: "Reorder",
+    description: "Upload one PDF, inspect its page tiles, then drag pages into the final sequence.",
+    uploadTitle: "Select a PDF to reorder",
+    uploadDescription: "Drag the page cards into the exact embassy order before exporting the rebuilt PDF.",
+    accept: "application/pdf",
+    multiple: false,
+    requiresPdf: true,
+    icon: ArrowDownUp,
+    accentClass: "border-violet-300/20 bg-violet-500/10 text-violet-100",
+    iconClass: "bg-violet-100 text-violet-600",
+  },
+  {
+    id: "rotate",
+    label: "Rotate PDF",
+    shortLabel: "Rotate",
+    description: "Upload one PDF, choose the angle, then export a corrected orientation.",
+    uploadTitle: "Select a PDF to rotate",
+    uploadDescription: "Preview the current scan, set the rotation angle, and create a corrected copy.",
+    accept: "application/pdf",
+    multiple: false,
+    requiresPdf: true,
+    icon: RotateCw,
+    accentClass: "border-amber-300/20 bg-amber-500/10 text-amber-100",
+    iconClass: "bg-amber-100 text-amber-600",
+  },
+  {
+    id: "sanitize",
+    label: "Sanitize PDF",
+    shortLabel: "Sanitize",
+    description: "Upload one PDF, review it, then strip metadata before submission.",
+    uploadTitle: "Select a PDF to sanitize",
+    uploadDescription: "Use this when you want a cleaner export without author, subject, or editing metadata.",
+    accept: "application/pdf",
+    multiple: false,
+    requiresPdf: true,
+    icon: Shield,
+    accentClass: "border-slate-300/20 bg-slate-500/10 text-slate-100",
+    iconClass: "bg-slate-100 text-slate-700",
+  },
+];
 
 function classifyDocumentCategory(file: File): WorkspaceDocument["category"] {
   const normalizedName = file.name.toLowerCase();
@@ -136,14 +264,15 @@ function parsePageRange(rangeInput: string, pageCount: number): number[] {
   return Array.from(pages).sort((left, right) => left - right);
 }
 
-function parsePageOrder(orderInput: string, pageCount: number): number[] {
-  const pages = parsePageRange(orderInput, pageCount);
+function buildPageSequence(pageCount: number): number[] {
+  return Array.from({ length: pageCount }, (_, index) => index + 1);
+}
 
-  if (pages.length !== pageCount) {
-    throw new Error(`Provide every page exactly once to reorder this ${pageCount}-page PDF.`);
-  }
-
-  return pages;
+function reorderItems<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const nextItems = [...items];
+  const [item] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, item);
+  return nextItems;
 }
 
 async function readDocumentMetadata(file: File): Promise<WorkspaceDocument> {
@@ -213,26 +342,37 @@ export function PacketWorkspace({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const documentsRef = useRef<WorkspaceDocument[]>([]);
   const outputsRef = useRef<WorkspaceOutput[]>([]);
+  const pagePreviewsRef = useRef<WorkspacePagePreview[]>([]);
+  const [selectedTool, setSelectedTool] = useState<ToolkitMode>("merge");
   const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
   const [toolkitMessage, setToolkitMessage] = useState<string | null>(null);
   const [isProcessingDocuments, setIsProcessingDocuments] = useState(false);
   const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
-  const [splitDocumentId, setSplitDocumentId] = useState<string>("");
+  const [activePdfId, setActivePdfId] = useState<string>("");
   const [splitRange, setSplitRange] = useState("1");
-  const [pageOrder, setPageOrder] = useState("1");
+  const [pageSequence, setPageSequence] = useState<number[]>([]);
   const [rotationPreset, setRotationPreset] = useState<RotationPreset>("90");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [previewOutputId, setPreviewOutputId] = useState<string>("");
+  const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
+  const [draggedPageNumber, setDraggedPageNumber] = useState<number | null>(null);
+  const [pagePreviews, setPagePreviews] = useState<WorkspacePagePreview[]>([]);
+  const [isPreparingPageBoard, setIsPreparingPageBoard] = useState(false);
+
+  const selectedToolDefinition = useMemo(
+    () => toolDefinitions.find((tool) => tool.id === selectedTool) ?? toolDefinitions[0],
+    [selectedTool],
+  );
 
   const pdfDocuments = useMemo(
     () => documents.filter((document) => document.kind === "pdf"),
     [documents],
   );
 
-  const splitDocument = useMemo(
-    () => documents.find((document) => document.id === splitDocumentId) ?? null,
-    [documents, splitDocumentId],
+  const activePdf = useMemo(
+    () => documents.find((document) => document.id === activePdfId && document.kind === "pdf") ?? null,
+    [activePdfId, documents],
   );
 
   const previewDocument = useMemo(
@@ -245,17 +385,6 @@ export function PacketWorkspace({
     [outputs, previewOutputId],
   );
 
-  function syncDocumentSelection(documentId: string) {
-    const nextDocument = documents.find((document) => document.id === documentId) ?? null;
-    setPreviewOutputId("");
-    setPreviewDocumentId(documentId);
-    setSplitDocumentId(nextDocument?.kind === "pdf" ? documentId : "");
-
-    if (nextDocument?.kind === "pdf") {
-      setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
-    }
-  }
-
   useEffect(() => {
     documentsRef.current = documents;
   }, [documents]);
@@ -265,11 +394,133 @@ export function PacketWorkspace({
   }, [outputs]);
 
   useEffect(() => {
+    pagePreviewsRef.current = pagePreviews;
+  }, [pagePreviews]);
+
+  useEffect(() => {
     return () => {
       documentsRef.current.forEach((document) => URL.revokeObjectURL(document.previewUrl));
       outputsRef.current.forEach((output) => URL.revokeObjectURL(output.url));
+      pagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
     };
   }, []);
+
+  useEffect(() => {
+    if (documents.length === 0) {
+      setPreviewDocumentId("");
+      setActivePdfId("");
+      return;
+    }
+
+    if (!documents.some((document) => document.id === previewDocumentId)) {
+      setPreviewDocumentId(documents[0]?.id ?? "");
+    }
+
+    if (!pdfDocuments.some((document) => document.id === activePdfId)) {
+      setActivePdfId(pdfDocuments[0]?.id ?? "");
+    }
+  }, [activePdfId, documents, pdfDocuments, previewDocumentId]);
+
+  useEffect(() => {
+    if (!activePdf) {
+      setPageSequence([]);
+      return;
+    }
+
+    setPageSequence(buildPageSequence(activePdf.pageCount));
+  }, [activePdf]);
+
+  useEffect(() => {
+    if (selectedTool !== "merge" && activePdf) {
+      setPreviewDocumentId(activePdf.id);
+    }
+  }, [activePdf, selectedTool]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function buildPagePreviews() {
+      if (selectedTool !== "reorder" || !activePdf) {
+        pagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
+        pagePreviewsRef.current = [];
+        setPagePreviews([]);
+        setIsPreparingPageBoard(false);
+        return;
+      }
+
+      setIsPreparingPageBoard(true);
+
+      try {
+        const { PDFDocument } = await import("pdf-lib");
+        const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
+        const nextPreviews: WorkspacePagePreview[] = [];
+
+        for (let index = 0; index < source.getPageCount(); index += 1) {
+          const singlePagePdf = await PDFDocument.create();
+          const [page] = await singlePagePdf.copyPages(source, [index]);
+          singlePagePdf.addPage(page);
+          const bytes = await singlePagePdf.save({ useObjectStreams: true, addDefaultPage: false });
+          const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }));
+          nextPreviews.push({ pageNumber: index + 1, url });
+        }
+
+        if (isCancelled) {
+          nextPreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
+          return;
+        }
+
+        pagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
+        pagePreviewsRef.current = nextPreviews;
+        setPagePreviews(nextPreviews);
+      } catch (error) {
+        if (!isCancelled) {
+          setToolkitMessage(error instanceof Error ? error.message : "Unable to prepare page previews for reordering.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsPreparingPageBoard(false);
+        }
+      }
+    }
+
+    void buildPagePreviews();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activePdf, selectedTool]);
+
+  function syncSavedSupportingOrder(nextDocuments: WorkspaceDocument[]) {
+    if (previewMode || supportingDocuments.length === 0) {
+      return;
+    }
+
+    const savedById = new Map(supportingDocuments.map((document) => [document.id, document]));
+    const reorderedSaved = nextDocuments
+      .map((document) => savedById.get(document.id))
+      .filter((document): document is SupportingDocument => Boolean(document));
+
+    if (reorderedSaved.length === supportingDocuments.length) {
+      onSupportingDocumentsChange(reorderedSaved);
+    }
+  }
+
+  function commitDocuments(nextDocuments: WorkspaceDocument[]) {
+    documentsRef.current = nextDocuments;
+    setDocuments(nextDocuments);
+    syncSavedSupportingOrder(nextDocuments);
+  }
+
+  function syncDocumentSelection(documentId: string) {
+    const nextDocument = documents.find((document) => document.id === documentId) ?? null;
+
+    setPreviewOutputId("");
+    setPreviewDocumentId(documentId);
+
+    if (nextDocument?.kind === "pdf") {
+      setActivePdfId(nextDocument.id);
+    }
+  }
 
   function upsertOutput(nextOutput: WorkspaceOutput) {
     setOutputs((currentOutputs) => {
@@ -299,8 +550,44 @@ export function PacketWorkspace({
     });
 
     setPreviewOutputId((currentId) => (currentId === outputId ? "" : currentId));
-
     setToolkitMessage("Generated PDF removed from the workspace outputs.");
+  }
+
+  function moveDocument(documentId: string, direction: -1 | 1) {
+    const currentDocuments = documentsRef.current;
+    const index = currentDocuments.findIndex((document) => document.id === documentId);
+
+    if (index < 0) {
+      return;
+    }
+
+    const targetIndex = index + direction;
+
+    if (targetIndex < 0 || targetIndex >= currentDocuments.length) {
+      return;
+    }
+
+    const nextDocuments = reorderItems(currentDocuments, index, targetIndex);
+    commitDocuments(nextDocuments);
+    setToolkitMessage("Document order updated for the merge export.");
+  }
+
+  function movePage(pageNumber: number, direction: -1 | 1) {
+    setPageSequence((currentSequence) => {
+      const index = currentSequence.findIndex((value) => value === pageNumber);
+
+      if (index < 0) {
+        return currentSequence;
+      }
+
+      const targetIndex = index + direction;
+
+      if (targetIndex < 0 || targetIndex >= currentSequence.length) {
+        return currentSequence;
+      }
+
+      return reorderItems(currentSequence, index, targetIndex);
+    });
   }
 
   async function handleDroppedFiles(files: FileList | null) {
@@ -312,17 +599,27 @@ export function PacketWorkspace({
       return;
     }
 
+    const nextFiles = Array.from(files).slice(0, selectedToolDefinition.multiple ? undefined : 1);
+
+    if (selectedToolDefinition.requiresPdf && nextFiles.some((file) => file.type !== "application/pdf")) {
+      setToolkitMessage(`${selectedToolDefinition.label} accepts PDF files only.`);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+      return;
+    }
+
     setIsProcessingDocuments(true);
-    setProcessingLabel("Uploading documents");
+    setProcessingLabel("Uploading files");
     setToolkitMessage(null);
 
     try {
-      const nextDocuments = await Promise.all(Array.from(files).map(readDocumentMetadata));
+      const uploadedWorkspaceDocuments = await Promise.all(nextFiles.map(readDocumentMetadata));
 
       if (!previewMode) {
         const uploadedDocuments: SupportingDocument[] = [];
 
-        for (const document of nextDocuments) {
+        for (const document of uploadedWorkspaceDocuments) {
           const formData = new FormData();
           formData.append("documentId", document.id);
           formData.append("file", document.file);
@@ -345,20 +642,25 @@ export function PacketWorkspace({
         onSupportingDocumentsChange([...supportingDocuments, ...uploadedDocuments]);
       }
 
-      const nextAllDocuments = [...documentsRef.current, ...nextDocuments];
-      const firstPdfDocument = nextAllDocuments.find((document) => document.kind === "pdf") ?? null;
+      const nextAllDocuments = [...documentsRef.current, ...uploadedWorkspaceDocuments];
+      commitDocuments(nextAllDocuments);
 
-      setDocuments((currentDocuments) => [...currentDocuments, ...nextDocuments]);
-      setSplitDocumentId((currentId) => {
-        const currentSelection = nextAllDocuments.find((document) => document.id === currentId && document.kind === "pdf");
-        return currentSelection?.id ?? firstPdfDocument?.id ?? "";
-      });
-      setPreviewDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
-      setPageOrder((currentValue) => currentValue === "1" && firstPdfDocument ? Array.from({ length: firstPdfDocument.pageCount }, (_, index) => String(index + 1)).join(",") : currentValue);
+      const newestPdf = uploadedWorkspaceDocuments.find((document) => document.kind === "pdf")
+        ?? nextAllDocuments.find((document) => document.kind === "pdf")
+        ?? null;
+
+      setPreviewOutputId("");
+      setPreviewDocumentId(uploadedWorkspaceDocuments[0]?.id ?? nextAllDocuments[0]?.id ?? "");
+
+      if (newestPdf) {
+        setActivePdfId(newestPdf.id);
+        setPageSequence(buildPageSequence(newestPdf.pageCount));
+      }
+
       setToolkitMessage(
         previewMode
-          ? `${nextDocuments.length} supporting document${nextDocuments.length === 1 ? "" : "s"} added to the packet workspace.`
-          : `${nextDocuments.length} supporting document${nextDocuments.length === 1 ? "" : "s"} uploaded and saved to your packet vault.`,
+          ? `${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} added for ${selectedToolDefinition.shortLabel.toLowerCase()}.`
+          : `${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} uploaded, saved, and ready for ${selectedToolDefinition.shortLabel.toLowerCase()}.`,
       );
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to add supporting documents.");
@@ -370,39 +672,6 @@ export function PacketWorkspace({
         inputRef.current.value = "";
       }
     }
-  }
-
-  function moveDocument(documentId: string, direction: -1 | 1) {
-    setDocuments((currentDocuments) => {
-      const index = currentDocuments.findIndex((document) => document.id === documentId);
-
-      if (index < 0) {
-        return currentDocuments;
-      }
-
-      const targetIndex = index + direction;
-
-      if (targetIndex < 0 || targetIndex >= currentDocuments.length) {
-        return currentDocuments;
-      }
-
-      const nextDocuments = [...currentDocuments];
-      const [document] = nextDocuments.splice(index, 1);
-      nextDocuments.splice(targetIndex, 0, document);
-
-      if (!previewMode) {
-        const supportingIndex = supportingDocuments.findIndex((item) => item.id === documentId);
-
-        if (supportingIndex >= 0) {
-          const nextSupportingDocuments = [...supportingDocuments];
-          const [supportingDocument] = nextSupportingDocuments.splice(supportingIndex, 1);
-          nextSupportingDocuments.splice(targetIndex, 0, supportingDocument);
-          onSupportingDocumentsChange(nextSupportingDocuments);
-        }
-      }
-
-      return nextDocuments;
-    });
   }
 
   async function removeDocument(documentId: string) {
@@ -431,40 +700,37 @@ export function PacketWorkspace({
       onSupportingDocumentsChange(supportingDocuments.filter((document) => document.id !== documentId));
     }
 
-    setDocuments((currentDocuments) => {
-      const documentToRemove = currentDocuments.find((document) => document.id === documentId);
+    const currentDocuments = documentsRef.current;
+    const documentToRemove = currentDocuments.find((document) => document.id === documentId);
 
-      if (documentToRemove) {
-        URL.revokeObjectURL(documentToRemove.previewUrl);
-      }
-
-      const nextDocuments = currentDocuments.filter((document) => document.id !== documentId);
-      if (splitDocumentId === documentId) {
-        const nextPdfDocument = nextDocuments.find((document) => document.kind === "pdf");
-        setSplitDocumentId(nextPdfDocument?.id ?? "");
-        if (nextPdfDocument) {
-          setPageOrder(Array.from({ length: nextPdfDocument.pageCount }, (_, index) => String(index + 1)).join(","));
-        }
-      }
-      if (previewDocumentId === documentId) {
-        setPreviewDocumentId(nextDocuments[0]?.id ?? "");
-      }
-      return nextDocuments;
-    });
-
-    if (storedDocument) {
-      setToolkitMessage(`${storedDocument.fileName} removed from the packet vault.`);
+    if (documentToRemove) {
+      URL.revokeObjectURL(documentToRemove.previewUrl);
     }
+
+    const nextDocuments = currentDocuments.filter((document) => document.id !== documentId);
+    commitDocuments(nextDocuments);
+
+    if (previewDocumentId === documentId) {
+      setPreviewDocumentId(nextDocuments[0]?.id ?? "");
+    }
+
+    if (activePdfId === documentId) {
+      const nextPdf = nextDocuments.find((document) => document.kind === "pdf") ?? null;
+      setActivePdfId(nextPdf?.id ?? "");
+      setPageSequence(nextPdf ? buildPageSequence(nextPdf.pageCount) : []);
+    }
+
+    setToolkitMessage(`${documentToRemove?.file.name ?? storedDocument?.fileName ?? "Document"} removed from the workspace.`);
   }
 
   async function handleMergeDocuments() {
-    if (documents.length === 0) {
-      setToolkitMessage("Add at least one PDF or image before merging a packet bundle.");
+    if (documents.length < 2) {
+      setToolkitMessage("Add at least two files before creating a merged PDF.");
       return;
     }
 
     setIsProcessingDocuments(true);
-    setProcessingLabel("Merging document stack");
+    setProcessingLabel("Creating merged PDF");
     setToolkitMessage(null);
 
     try {
@@ -500,30 +766,30 @@ export function PacketWorkspace({
   }
 
   async function handleSplitDocument() {
-    if (!splitDocument || splitDocument.kind !== "pdf") {
+    if (!activePdf) {
       setToolkitMessage("Choose a PDF document before splitting pages.");
       return;
     }
 
     setIsProcessingDocuments(true);
-    setProcessingLabel("Splitting PDF pages");
+    setProcessingLabel("Extracting pages");
     setToolkitMessage(null);
 
     try {
       const { PDFDocument } = await import("pdf-lib");
-      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
       const selectedPages = parsePageRange(splitRange, source.getPageCount());
       const splitPdf = await PDFDocument.create();
       const copiedPages = await splitPdf.copyPages(source, selectedPages);
       copiedPages.forEach((page) => splitPdf.addPage(page));
 
       const splitBytes = await splitPdf.save();
-        const url = URL.createObjectURL(new Blob([Uint8Array.from(splitBytes)], { type: "application/pdf" }));
-      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-pages-${splitRange.replace(/\s+/g, "")}.pdf`;
+      const url = URL.createObjectURL(new Blob([Uint8Array.from(splitBytes)], { type: "application/pdf" }));
+      const fileName = `${activePdf.file.name.replace(/\.pdf$/i, "")}-pages-${splitRange.replace(/\s+/g, "")}.pdf`;
 
       upsertOutput({
         id: crypto.randomUUID(),
-        label: `Split pages from ${splitDocument.file.name}`,
+        label: `Split pages from ${activePdf.file.name}`,
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -540,7 +806,7 @@ export function PacketWorkspace({
   }
 
   async function handleCompressDocument() {
-    if (!splitDocument || splitDocument.kind !== "pdf") {
+    if (!activePdf) {
       setToolkitMessage("Choose a PDF document before compressing it.");
       return;
     }
@@ -551,11 +817,11 @@ export function PacketWorkspace({
 
     try {
       const { PDFDocument } = await import("pdf-lib");
-      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
       const compressedPdf = await PDFDocument.create();
       const copiedPages = await compressedPdf.copyPages(source, source.getPageIndices());
       copiedPages.forEach((page) => compressedPdf.addPage(page));
-      compressedPdf.setTitle(splitDocument.file.name.replace(/\.pdf$/i, ""));
+      compressedPdf.setTitle(activePdf.file.name.replace(/\.pdf$/i, ""));
       compressedPdf.setAuthor("");
       compressedPdf.setSubject("");
       compressedPdf.setKeywords([]);
@@ -564,12 +830,12 @@ export function PacketWorkspace({
 
       const compressedBytes = await compressedPdf.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
       const url = URL.createObjectURL(new Blob([Uint8Array.from(compressedBytes)], { type: "application/pdf" }));
-      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-compressed.pdf`;
-      const sizeDelta = splitDocument.file.size - compressedBytes.length;
+      const fileName = `${activePdf.file.name.replace(/\.pdf$/i, "")}-compressed.pdf`;
+      const sizeDelta = activePdf.file.size - compressedBytes.length;
 
       upsertOutput({
         id: crypto.randomUUID(),
-        label: `Compressed PDF for ${splitDocument.file.name}`,
+        label: `Compressed PDF for ${activePdf.file.name}`,
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -578,8 +844,8 @@ export function PacketWorkspace({
 
       setToolkitMessage(
         sizeDelta > 0
-          ? `Compressed output for ${splitDocument.file.name} is ready. Saved ${formatBytes(sizeDelta)}.`
-          : `Optimized output for ${splitDocument.file.name} is ready. The original file was already compact, so size savings were limited.`,
+          ? `Compressed output for ${activePdf.file.name} is ready. Saved ${formatBytes(sizeDelta)}.`
+          : `Optimized output for ${activePdf.file.name} is ready. The original file was already compact, so size savings were limited.`,
       );
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to compress the selected PDF.");
@@ -590,7 +856,7 @@ export function PacketWorkspace({
   }
 
   async function handleRotateDocument() {
-    if (!splitDocument || splitDocument.kind !== "pdf") {
+    if (!activePdf) {
       setToolkitMessage("Choose a PDF document before rotating pages.");
       return;
     }
@@ -601,24 +867,24 @@ export function PacketWorkspace({
 
     try {
       const { PDFDocument, degrees } = await import("pdf-lib");
-      const rotatedPdf = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const rotatedPdf = await PDFDocument.load(await activePdf.file.arrayBuffer());
       const rotation = Number(rotationPreset);
       rotatedPdf.getPages().forEach((page) => page.setRotation(degrees(rotation)));
 
       const rotatedBytes = await rotatedPdf.save({ useObjectStreams: true, addDefaultPage: false });
       const url = URL.createObjectURL(new Blob([Uint8Array.from(rotatedBytes)], { type: "application/pdf" }));
-      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-rotated-${rotation}.pdf`;
+      const fileName = `${activePdf.file.name.replace(/\.pdf$/i, "")}-rotated-${rotation}.pdf`;
 
       upsertOutput({
         id: crypto.randomUUID(),
-        label: `Rotated pages for ${splitDocument.file.name}`,
+        label: `Rotated pages for ${activePdf.file.name}`,
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(rotatedBytes.length),
       });
 
-      setToolkitMessage(`Rotated all pages in ${splitDocument.file.name} by ${rotation} degrees.`);
+      setToolkitMessage(`Rotated all pages in ${activePdf.file.name} by ${rotation} degrees.`);
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to rotate the selected PDF.");
     } finally {
@@ -628,37 +894,41 @@ export function PacketWorkspace({
   }
 
   async function handleReorderDocument() {
-    if (!splitDocument || splitDocument.kind !== "pdf") {
+    if (!activePdf) {
       setToolkitMessage("Choose a PDF document before reordering its pages.");
       return;
     }
 
+    if (pageSequence.length !== activePdf.pageCount) {
+      setToolkitMessage(`Provide every page exactly once to reorder this ${activePdf.pageCount}-page PDF.`);
+      return;
+    }
+
     setIsProcessingDocuments(true);
-    setProcessingLabel("Reordering PDF pages");
+    setProcessingLabel("Rebuilding page order");
     setToolkitMessage(null);
 
     try {
       const { PDFDocument } = await import("pdf-lib");
-      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
-      const orderedPages = parsePageOrder(pageOrder, source.getPageCount());
+      const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
       const reorderedPdf = await PDFDocument.create();
-      const copiedPages = await reorderedPdf.copyPages(source, orderedPages);
+      const copiedPages = await reorderedPdf.copyPages(source, pageSequence.map((pageNumber) => pageNumber - 1));
       copiedPages.forEach((page) => reorderedPdf.addPage(page));
 
       const reorderedBytes = await reorderedPdf.save({ useObjectStreams: true, addDefaultPage: false });
       const url = URL.createObjectURL(new Blob([Uint8Array.from(reorderedBytes)], { type: "application/pdf" }));
-      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-reordered.pdf`;
+      const fileName = `${activePdf.file.name.replace(/\.pdf$/i, "")}-reordered.pdf`;
 
       upsertOutput({
         id: crypto.randomUUID(),
-        label: `Reordered pages for ${splitDocument.file.name}`,
+        label: `Reordered pages for ${activePdf.file.name}`,
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(reorderedBytes.length),
       });
 
-      setToolkitMessage(`Page order for ${splitDocument.file.name} has been rebuilt as ${pageOrder}.`);
+      setToolkitMessage(`Page order for ${activePdf.file.name} has been rebuilt as ${pageSequence.join(", ")}.`);
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to reorder the selected PDF.");
     } finally {
@@ -668,7 +938,7 @@ export function PacketWorkspace({
   }
 
   async function handleSanitizeDocument() {
-    if (!splitDocument || splitDocument.kind !== "pdf") {
+    if (!activePdf) {
       setToolkitMessage("Choose a PDF document before sanitizing it.");
       return;
     }
@@ -679,7 +949,7 @@ export function PacketWorkspace({
 
     try {
       const { PDFDocument } = await import("pdf-lib");
-      const source = await PDFDocument.load(await splitDocument.file.arrayBuffer());
+      const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
       const sanitizedPdf = await PDFDocument.create();
       const copiedPages = await sanitizedPdf.copyPages(source, source.getPageIndices());
       copiedPages.forEach((page) => sanitizedPdf.addPage(page));
@@ -693,18 +963,18 @@ export function PacketWorkspace({
 
       const sanitizedBytes = await sanitizedPdf.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
       const url = URL.createObjectURL(new Blob([Uint8Array.from(sanitizedBytes)], { type: "application/pdf" }));
-      const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-sanitized.pdf`;
+      const fileName = `${activePdf.file.name.replace(/\.pdf$/i, "")}-sanitized.pdf`;
 
       upsertOutput({
         id: crypto.randomUUID(),
-        label: `Sanitized PDF for ${splitDocument.file.name}`,
+        label: `Sanitized PDF for ${activePdf.file.name}`,
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(sanitizedBytes.length),
       });
 
-      setToolkitMessage(`Sanitized output for ${splitDocument.file.name} is ready.`);
+      setToolkitMessage(`Sanitized output for ${activePdf.file.name} is ready.`);
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to sanitize the selected PDF.");
     } finally {
@@ -713,211 +983,564 @@ export function PacketWorkspace({
     }
   }
 
-  return (
-    <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-      <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
-                <Upload className="h-3.5 w-3.5" />
-                PDF Editor
-              </div>
-              <h4 className="text-lg font-semibold text-white">Supporting document PDF editor</h4>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              Upload supporting files, classify them automatically, preview them, and merge them into a cleaner consular stack.
-            </p>
+  function openFilePicker() {
+    inputRef.current?.click();
+  }
+
+  function handleDocumentDropReorder(targetDocumentId: string) {
+    if (!draggedDocumentId || draggedDocumentId === targetDocumentId) {
+      return;
+    }
+
+    const currentDocuments = documentsRef.current;
+    const fromIndex = currentDocuments.findIndex((document) => document.id === draggedDocumentId);
+    const targetIndex = currentDocuments.findIndex((document) => document.id === targetDocumentId);
+
+    if (fromIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    commitDocuments(reorderItems(currentDocuments, fromIndex, targetIndex));
+    setToolkitMessage("Document order updated for the merge export.");
+  }
+
+  function handlePageDropReorder(targetPageNumber: number) {
+    if (!draggedPageNumber || draggedPageNumber === targetPageNumber) {
+      return;
+    }
+
+    setPageSequence((currentSequence) => {
+      const fromIndex = currentSequence.findIndex((pageNumber) => pageNumber === draggedPageNumber);
+      const targetIndex = currentSequence.findIndex((pageNumber) => pageNumber === targetPageNumber);
+
+      if (fromIndex < 0 || targetIndex < 0) {
+        return currentSequence;
+      }
+
+      return reorderItems(currentSequence, fromIndex, targetIndex);
+    });
+  }
+
+  function renderMergeWorkbench() {
+    if (documents.length === 0) {
+      return (
+        <div className="rounded-[1.1rem] border border-white/10 bg-black/30 px-4 py-8 text-center text-sm text-slate-400">
+          <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[1rem] bg-white/5 text-slate-300">
+            <Layers3 className="h-6 w-6" />
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept="application/pdf,image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(event) => void handleDocumentUpload(event.target.files)}
-          />
+          <p className="mt-4 text-base font-semibold text-white">Add the files you want to merge</p>
+          <p className="mx-auto mt-2 max-w-lg leading-6 text-slate-400">
+            Start with passports, bookings, insurance, bank statements, or employer letters. After upload, drag them into the final consular order.
+          </p>
         </div>
+      );
+    }
 
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            void handleDroppedFiles(event.dataTransfer.files);
-          }}
-          disabled={isProcessingDocuments}
-          className="mt-5 flex w-full flex-col items-center justify-center gap-3 rounded-[1.3rem] border-2 border-dashed border-indigo-300/40 bg-indigo-500/10 px-4 py-8 text-center text-sm font-semibold text-indigo-100 transition hover:bg-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <span className="inline-flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-indigo-100 text-indigo-600 shadow-sm shadow-indigo-950/20">
-            <CloudUpload className="h-8 w-8" />
-          </span>
-          <span className="text-base font-semibold text-white">Drag & Drop Consular Documents Here</span>
-          <span className="max-w-xl text-sm font-medium leading-6 text-indigo-100/85">
-            {isProcessingDocuments ? "Adding supporting documents..." : "PDF, PNG, JPEG, and WEBP files are supported. Current server upload limits still apply."}
-          </span>
-        </button>
-
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-white">Merge order</p>
+            <p className="mt-1 text-sm text-slate-400">Drag cards up or down to control the exported stack.</p>
+          </div>
           <button
             type="button"
             onClick={() => void handleMergeDocuments()}
-            disabled={isProcessingDocuments || documents.length === 0}
-            className="rounded-[1.1rem] border border-blue-200/10 bg-blue-500/10 p-4 text-left transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isProcessingDocuments || documents.length < 2}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Layers3 className="mb-3 h-10 w-10 rounded-lg bg-blue-100 p-2 text-blue-600" />
-            <p className="text-sm font-semibold text-white">Merge Stack</p>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Combine the current PDFs and scans into one embassy-ready file.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSplitDocument()}
-            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-            className="rounded-[1.1rem] border border-red-200/10 bg-red-500/10 p-4 text-left transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Scissors className="mb-3 h-10 w-10 rounded-lg bg-red-100 p-2 text-red-600" />
-            <p className="text-sm font-semibold text-white">Split & Extract</p>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Pull specific pages from a longer PDF like a bank statement or booking packet.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleCompressDocument()}
-            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-            className="rounded-[1.1rem] border border-emerald-200/10 bg-emerald-500/10 p-4 text-left transition hover:bg-emerald-500/15"
-          >
-            <Minimize className="mb-3 h-10 w-10 rounded-lg bg-emerald-100 p-2 text-emerald-600" />
-            <p className="text-sm font-semibold text-white">Compress Size</p>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Prepare smaller files for VFS, TLS, or BLS portal upload limits.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleReorderDocument()}
-            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-            className="rounded-[1.1rem] border border-violet-200/10 bg-violet-500/10 p-4 text-left transition hover:bg-violet-500/15"
-          >
-            <ArrowDownUp className="mb-3 h-10 w-10 rounded-lg bg-violet-100 p-2 text-violet-600" />
-            <p className="text-sm font-semibold text-white">Reorder Pages</p>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Use the list controls below to move files into the checklist order.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleRotateDocument()}
-            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-            className="rounded-[1.1rem] border border-amber-200/10 bg-amber-500/10 p-4 text-left transition hover:bg-amber-500/15"
-          >
-            <RotateCw className="mb-3 h-10 w-10 rounded-lg bg-amber-100 p-2 text-amber-600" />
-            <p className="text-sm font-semibold text-white">Rotate Scans</p>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Fix upside-down passport scans and rotated evidence before export.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSanitizeDocument()}
-            disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-            className="rounded-[1.1rem] border border-slate-200/10 bg-slate-500/10 p-4 text-left transition hover:bg-slate-500/15"
-          >
-            <Shield className="mb-3 h-10 w-10 rounded-lg bg-slate-100 p-2 text-slate-600" />
-            <p className="text-sm font-semibold text-white">Flatten & Sanitize</p>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Strip editing metadata before the final embassy submission package is created.</p>
+            <Layers3 className="h-4 w-4" />
+            Create merged PDF
           </button>
         </div>
 
-        {toolkitMessage ? (
-          <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
-            {toolkitMessage}
-          </div>
-        ) : null}
+        <div className="space-y-3">
+          {documents.map((document, index) => (
+            <div
+              key={document.id}
+              draggable
+              onDragStart={() => setDraggedDocumentId(document.id)}
+              onDragEnd={() => setDraggedDocumentId(null)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => handleDocumentDropReorder(document.id)}
+              className="rounded-[1rem] border border-white/10 bg-black/40 p-4"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-300">
+                    <GripVertical className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-white">{index + 1}. {document.file.name}</p>
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${categoryBadgeClasses(document.category)}`}>
+                        {formatCategoryLabel(document.category)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {document.pageCount} {document.pageCount === 1 ? "page" : "pages"} · {formatBytes(document.file.size)}
+                    </p>
+                  </div>
+                </div>
 
-        <div className="mt-5 space-y-3">
-          {documents.length === 0 ? (
-            <div className="rounded-[1.1rem] border border-white/10 bg-black/30 px-4 py-8 text-center text-sm text-slate-400">
-              <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[1rem] bg-white/5 text-slate-300">
-                <FileText className="h-6 w-6" />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => syncDocumentSelection(document.id)}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveDocument(document.id, -1)}
+                    disabled={index === 0}
+                    className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveDocument(document.id, 1)}
+                    disabled={index === documents.length - 1}
+                    className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeDocument(document.id)}
+                    className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <p className="mt-4 text-base font-semibold text-white">No supporting documents yet</p>
-              <p className="mx-auto mt-2 max-w-lg leading-6 text-slate-400">
-                Add flights, hotel confirmations, insurance, employment letters, or financial statements to build the final consular stack.
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderSinglePdfSelector() {
+    return (
+      <div className="space-y-3 rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Working PDF</p>
+            <p className="mt-1 text-sm text-slate-400">Pick the PDF you want to edit for this operation.</p>
+          </div>
+          <select
+            value={activePdfId}
+            onChange={(event) => syncDocumentSelection(event.target.value)}
+            className="min-w-[240px] rounded-full border border-white/12 bg-[#161616] px-4 py-2 text-sm text-white outline-none transition focus:border-white/30"
+          >
+            <option value="">Choose a PDF</option>
+            {pdfDocuments.map((document) => (
+              <option key={document.id} value={document.id}>{document.file.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {!activePdf ? (
+          <div className="rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+            Upload a PDF for {selectedToolDefinition.shortLabel.toLowerCase()} to unlock this workspace.
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-3 text-sm text-slate-300">
+            <span className="font-semibold text-white">{activePdf.file.name}</span>
+            <span>{activePdf.pageCount} {activePdf.pageCount === 1 ? "page" : "pages"}</span>
+            <span>{formatBytes(activePdf.file.size)}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderSplitWorkbench() {
+    return (
+      <div className="space-y-4">
+        {renderSinglePdfSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+            <Scissors className="h-4 w-4 text-rose-400" />
+            Extract page range
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            Use ranges like 1-3, 5 or 2,4,8. The result opens in preview and lands in Generated Files for download.
+          </p>
+          <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end">
+            <label className="flex-1">
+              <span className="text-sm font-medium text-slate-200">Page range</span>
+              <input
+                value={splitRange}
+                onChange={(event) => setSplitRange(event.target.value)}
+                placeholder="1-3"
+                className="mt-2 w-full rounded-xl border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleSplitDocument()}
+              disabled={isProcessingDocuments || !activePdf}
+              className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Extract pages
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderCompressWorkbench() {
+    return (
+      <div className="space-y-4">
+        {renderSinglePdfSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+            <Minimize className="h-4 w-4 text-emerald-400" />
+            Create lighter PDF
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            VisaPilot rebuilds the uploaded PDF into a cleaner export suited for portal limits while keeping the pages intact.
+          </p>
+          {activePdf ? (
+            <div className="mt-4 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-3 text-sm text-slate-300">
+              Current file size: <span className="font-semibold text-white">{formatBytes(activePdf.file.size)}</span>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void handleCompressDocument()}
+            disabled={isProcessingDocuments || !activePdf}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Create compressed PDF
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderRotateWorkbench() {
+    return (
+      <div className="space-y-4">
+        {renderSinglePdfSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+            <RotateCw className="h-4 w-4 text-amber-400" />
+            Choose rotation angle
+          </h4>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {(["90", "180", "270"] as RotationPreset[]).map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setRotationPreset(preset)}
+                className={rotationPreset === preset
+                  ? "rounded-[1rem] border border-amber-300/40 bg-amber-500/15 px-4 py-4 text-sm font-semibold text-white"
+                  : "rounded-[1rem] border border-white/10 bg-[#141414] px-4 py-4 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"}
+              >
+                Rotate {preset}°
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleRotateDocument()}
+            disabled={isProcessingDocuments || !activePdf}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Apply rotation
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderReorderWorkbench() {
+    const previewMap = new Map(pagePreviews.map((preview) => [preview.pageNumber, preview.url]));
+
+    return (
+      <div className="space-y-4">
+        {renderSinglePdfSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+                <ArrowDownUp className="h-4 w-4 text-violet-400" />
+                Drag pages into final order
+              </h4>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Rearrange page tiles to match the final embassy packet. Use Reset if you want to restore the original order.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
+              disabled={!activePdf}
+              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:opacity-50"
+            >
+              Reset order
+            </button>
+          </div>
+
+          {isPreparingPageBoard ? (
+            <div className="mt-4 flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              Preparing page previews...
+            </div>
+          ) : !activePdf ? (
+            <div className="mt-4 rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+              Upload and choose a PDF to build the reorder board.
+            </div>
           ) : (
-            documents.map((document, index) => (
-              <div key={document.id} className="rounded-[1rem] border border-white/10 bg-black/40 p-4">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                      <FileText className="h-5 w-5" />
-                    </span>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {pageSequence.map((pageNumber, index) => (
+                <div
+                  key={`${pageNumber}-${index}`}
+                  draggable
+                  onDragStart={() => setDraggedPageNumber(pageNumber)}
+                  onDragEnd={() => setDraggedPageNumber(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handlePageDropReorder(pageNumber)}
+                  className="rounded-[1rem] border border-white/10 bg-[#141414] p-3"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-white">{document.file.name}</p>
-                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${categoryBadgeClasses(document.category)}`}>
-                          {formatCategoryLabel(document.category)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {document.pageCount} {document.pageCount === 1 ? "page" : "pages"} · {formatBytes(document.file.size)}
-                      </p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Position {index + 1}</p>
+                      <p className="text-sm font-semibold text-white">Page {pageNumber}</p>
                     </div>
+                    <GripVertical className="h-4 w-4 text-slate-400" />
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white">
+                    {previewMap.get(pageNumber) ? (
+                      <iframe
+                        src={previewMap.get(pageNumber)}
+                        title={`Page ${pageNumber}`}
+                        className="h-[220px] w-full bg-white"
+                      />
+                    ) : (
+                      <div className="flex h-[220px] items-center justify-center text-sm text-slate-400">Page preview unavailable</div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setSplitDocumentId(document.id);
-                        setPreviewDocumentId(document.id);
-                      }}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
-                    >
-                      <Scissors className="h-4 w-4" />
-                      Split Pages
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewDocumentId(document.id)}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Preview
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void removeDocument(document.id)}
-                      className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveDocument(document.id, -1)}
+                      onClick={() => movePage(pageNumber, -1)}
                       disabled={index === 0}
-                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
+                      className="inline-flex flex-1 items-center justify-center rounded-full border border-white/12 bg-[#101010] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
                     >
                       <ArrowUp className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => moveDocument(document.id, 1)}
-                      disabled={index === documents.length - 1}
-                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
+                      onClick={() => movePage(pageNumber, 1)}
+                      disabled={index === pageSequence.length - 1}
+                      className="inline-flex flex-1 items-center justify-center rounded-full border border-white/12 bg-[#101010] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
                     >
                       <ArrowDown className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => void handleReorderDocument()}
+            disabled={isProcessingDocuments || !activePdf || pageSequence.length === 0}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Create reordered PDF
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSanitizeWorkbench() {
+    return (
+      <div className="space-y-4">
+        {renderSinglePdfSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+            <Shield className="h-4 w-4 text-slate-300" />
+            Remove metadata before submission
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            This export strips metadata such as author, subject, language, and other editing traces while preserving the page content.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleSanitizeDocument()}
+            disabled={isProcessingDocuments || !activePdf}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Create sanitized PDF
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderActiveToolWorkbench() {
+    switch (selectedTool) {
+      case "merge":
+        return renderMergeWorkbench();
+      case "split":
+        return renderSplitWorkbench();
+      case "compress":
+        return renderCompressWorkbench();
+      case "reorder":
+        return renderReorderWorkbench();
+      case "rotate":
+        return renderRotateWorkbench();
+      case "sanitize":
+        return renderSanitizeWorkbench();
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+      <div className="space-y-4">
+        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
+                <Upload className="h-3.5 w-3.5" />
+                PDF Editor
+              </div>
+              <h4 className="mt-3 text-lg font-semibold text-white">Operation-first PDF workspace</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Start by choosing what you want to do. VisaPilot then narrows the upload, preview, and export flow around that single job.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+              Choose tool, upload, configure, export
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {toolDefinitions.map((tool) => {
+              const Icon = tool.icon;
+
+              return (
+                <button
+                  key={tool.id}
+                  type="button"
+                  onClick={() => setSelectedTool(tool.id)}
+                  className={selectedTool === tool.id
+                    ? `rounded-[1.1rem] border p-4 text-left transition ${tool.accentClass}`
+                    : "rounded-[1.1rem] border border-white/10 bg-black/30 p-4 text-left text-slate-300 transition hover:border-white/20 hover:bg-white/[0.03]"}
+                >
+                  <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${tool.iconClass}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <p className="mt-4 text-sm font-semibold text-white">{tool.label}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">{tool.description}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void handleMergeDocuments()}
-          disabled={isProcessingDocuments || documents.length === 0}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[1rem] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Layers3 className="h-4 w-4" />
-          Merge All Documents Into Consular Stack
-        </button>
+        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Step 2</p>
+              <h4 className="mt-2 text-lg font-semibold text-white">{selectedToolDefinition.uploadTitle}</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{selectedToolDefinition.uploadDescription}</p>
+            </div>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple={selectedToolDefinition.multiple}
+              accept={selectedToolDefinition.accept}
+              className="hidden"
+              onChange={(event) => void handleDocumentUpload(event.target.files)}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={openFilePicker}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              void handleDroppedFiles(event.dataTransfer.files);
+            }}
+            disabled={isProcessingDocuments}
+            className={`mt-5 flex w-full flex-col items-center justify-center gap-3 rounded-[1.3rem] border-2 border-dashed px-4 py-8 text-center text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${selectedTool === "merge" ? "border-blue-300/35 bg-blue-500/10 text-blue-100 hover:bg-blue-500/15" : "border-indigo-300/35 bg-indigo-500/10 text-indigo-100 hover:bg-indigo-500/15"}`}
+          >
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-white text-slate-900 shadow-sm shadow-black/20">
+              <CloudUpload className="h-8 w-8" />
+            </span>
+            <span className="text-base font-semibold text-white">
+              {selectedTool === "merge" ? "Drop files here or choose files" : "Drop a PDF here or choose a PDF"}
+            </span>
+            <span className="max-w-xl text-sm font-medium leading-6">
+              {isProcessingDocuments
+                ? "Preparing your files..."
+                : selectedToolDefinition.multiple
+                  ? "PDF, PNG, JPEG, and WEBP files are supported for merge mode."
+                  : "Only PDF files are accepted for this operation."}
+            </span>
+          </button>
+        </div>
+
+        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            <Zap className="h-3.5 w-3.5" />
+            Step 3 Workspace
+          </div>
+
+          {processingLabel ? (
+            <div className="mt-4 flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              {processingLabel}...
+            </div>
+          ) : null}
+
+          {toolkitMessage ? (
+            <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
+              {toolkitMessage}
+            </div>
+          ) : null}
+
+          <div className="mt-4">
+            {renderActiveToolWorkbench()}
+          </div>
+        </div>
+
+        {!previewMode && supportingDocuments.length > 0 ? (
+          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+              <Tags className="h-3.5 w-3.5" />
+              Saved to packet vault
+            </div>
+            <div className="mt-3 space-y-2">
+              {supportingDocuments.map((document) => (
+                <div key={document.id} className="flex flex-col gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">{document.fileName}</p>
+                    <p className="text-xs text-slate-400">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
+                  </div>
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
+                    Saved
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-4">
@@ -925,9 +1548,9 @@ export function PacketWorkspace({
           <div className="rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Generated Files</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Step 4 Generated Files</div>
                 <p className="mt-2 text-sm leading-6 text-emerald-100/90">
-                  Finished PDFs land here automatically. The newest export is selected in preview so the result is obvious immediately after each action.
+                  Every export lands here with preview and download actions. The newest result is selected automatically.
                 </p>
               </div>
               <span className="inline-flex rounded-full border border-emerald-300/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white">
@@ -949,7 +1572,7 @@ export function PacketWorkspace({
                       onClick={() => setPreviewOutputId(output.id)}
                       className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
                     >
-                      Preview Result
+                      Preview result
                     </button>
                     <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
                       <Download className="h-4 w-4" />
@@ -967,21 +1590,31 @@ export function PacketWorkspace({
               ))}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <Download className="h-3.5 w-3.5" />
+              Step 4 Generated Files
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Your processed PDFs will appear here after each operation, with the newest result opened automatically in preview.
+            </p>
+          </div>
+        )}
 
         <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                 <Eye className="h-3.5 w-3.5" />
-                Document Preview
+                Live preview
               </div>
               <select
-                value={previewDocumentId}
+                value={previewOutputId ? "" : previewDocumentId}
                 onChange={(event) => syncDocumentSelection(event.target.value)}
                 className="min-w-[220px] rounded-full border border-white/12 bg-[#161616] px-4 py-2 text-sm text-white outline-none transition focus:border-white/30"
               >
-                <option value="">Choose a document</option>
+                <option value="">Choose uploaded file</option>
                 {documents.map((document) => (
                   <option key={document.id} value={document.id}>{document.file.name}</option>
                 ))}
@@ -991,202 +1624,61 @@ export function PacketWorkspace({
             <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-300">
               {previewOutput
                 ? `Previewing generated file: ${previewOutput.fileName}.`
-                : splitDocument && splitDocument.kind === "pdf"
-                ? `Active PDF: ${splitDocument.file.name} · ${splitDocument.pageCount} ${splitDocument.pageCount === 1 ? "page" : "pages"}`
-                : pdfDocuments.length > 0
-                  ? "Select a PDF in the preview header to use Split, Rotate, Reorder, and Sanitize."
-                  : "Upload a PDF to unlock page editing actions."}
+                : previewDocument
+                  ? `Previewing uploaded file: ${previewDocument.file.name}.`
+                  : selectedTool === "merge"
+                    ? "Choose Merge PDF first, upload at least two files, and the preview will track your selected item."
+                    : `Choose ${selectedToolDefinition.label}, upload one PDF, and the preview will open it here.`}
             </div>
           </div>
+
           <div className="mt-4 overflow-hidden rounded-[1rem] border border-white/10 bg-black/50">
             {previewOutput ? (
               <iframe
                 src={previewOutput.url}
                 title={previewOutput.fileName}
-                className="h-[420px] w-full bg-white"
+                className="h-[520px] w-full bg-white"
               />
             ) : previewDocument ? (
               previewDocument.kind === "pdf" ? (
                 <iframe
                   src={previewDocument.previewUrl}
                   title={previewDocument.file.name}
-                  className="h-[420px] w-full bg-white"
+                  className="h-[520px] w-full bg-white"
                 />
               ) : (
-                <div className="flex min-h-[420px] items-center justify-center bg-black/70 p-4">
+                <div className="flex min-h-[520px] items-center justify-center bg-black/70 p-4">
                   <Image
                     src={previewDocument.previewUrl}
                     alt={previewDocument.file.name}
-                    width={800}
-                    height={1100}
+                    width={900}
+                    height={1200}
                     unoptimized
-                    className="max-h-[390px] w-auto rounded-[0.8rem] object-contain"
+                    className="max-h-[490px] w-auto rounded-[0.8rem] object-contain"
                   />
                 </div>
               )
             ) : (
-              <div className="flex min-h-[420px] items-center justify-center px-4 text-center text-sm text-slate-400">
-                Choose a supporting document to inspect it before packet generation.
+              <div className="flex min-h-[520px] items-center justify-center px-4 text-center text-sm text-slate-400">
+                The preview opens here after you choose a tool and upload a file.
               </div>
             )}
           </div>
         </div>
 
-        <div className="space-y-4 rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
-          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-            <Zap className="h-3.5 w-3.5" />
-            Active PDF Tools
-          </div>
-
-          {processingLabel ? (
-            <div className="flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-              {processingLabel}...
+        {selectedTool !== "merge" && activePdf ? (
+          <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <FileText className="h-3.5 w-3.5" />
+              Active PDF snapshot
             </div>
-          ) : null}
-
-          <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
-            <h3 className="flex items-center gap-2 font-semibold text-white">
-              <Scissors className="h-[18px] w-[18px] text-red-500" />
-              Split PDF
-            </h3>
-            <div className="mt-4 flex flex-col gap-4">
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Page Range (e.g. 1-3)</span>
-                <input
-                  value={splitRange}
-                  onChange={(event) => setSplitRange(event.target.value)}
-                  placeholder="1-3"
-                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => void handleSplitDocument()}
-                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Extract Pages
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
-            <h3 className="flex items-center gap-2 font-semibold text-white">
-              <RotateCw className="h-[18px] w-[18px] text-amber-500" />
-              Rotate Pages
-            </h3>
-            <div className="mt-4 flex flex-col gap-4">
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Degrees</span>
-                <select
-                  value={rotationPreset}
-                  onChange={(event) => setRotationPreset(event.target.value as RotationPreset)}
-                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                >
-                  <option value="90">90°</option>
-                  <option value="180">180°</option>
-                  <option value="270">270°</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={() => void handleRotateDocument()}
-                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Apply Rotation
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
-            <h3 className="flex items-center gap-2 font-semibold text-white">
-              <ArrowDownUp className="h-[18px] w-[18px] text-violet-400" />
-              Quick Actions
-            </h3>
-            <div className="mt-4 flex flex-col gap-4">
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Page Order</span>
-                <input
-                  value={pageOrder}
-                  onChange={(event) => setPageOrder(event.target.value)}
-                  placeholder="1,2,3"
-                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
-                />
-              </label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => void handleReorderDocument()}
-                  disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-transparent px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ArrowDownUp className="h-4 w-4" />
-                  Reorder Pages
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleSanitizeDocument()}
-                  disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-transparent px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Shield className="h-4 w-4" />
-                  Sanitize Metadata
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {outputs.length > 0 ? (
-            <div className="space-y-3">
-              {outputs.map((output) => (
-                <div key={output.id} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{output.label}</p>
-                    <p className="mt-1 text-sm text-slate-400">{output.fileName}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">Generated {output.createdAtLabel}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <a href={output.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30">
-                      Preview
-                    </a>
-                    <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
-                      <Download className="h-4 w-4" />
-                      Download
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => removeOutput(output.id)}
-                      className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        {!previewMode && supportingDocuments.length > 0 ? (
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-              <Tags className="h-3.5 w-3.5" />
-              Saved to packet vault
-            </div>
-            <div className="mt-3 space-y-2">
-              {supportingDocuments.map((document) => (
-                <div key={document.id} className="flex flex-col gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-white">{document.fileName}</p>
-                    <p className="text-xs text-slate-400">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
-                  </div>
-                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
-                    Saved
-                  </span>
-                </div>
-              ))}
+            <div className="mt-3 rounded-[1rem] border border-white/10 bg-black/30 px-4 py-4 text-sm text-slate-300">
+              <p><span className="font-semibold text-white">File:</span> {activePdf.file.name}</p>
+              <p className="mt-2"><span className="font-semibold text-white">Pages:</span> {activePdf.pageCount}</p>
+              <p className="mt-2"><span className="font-semibold text-white">Size:</span> {formatBytes(activePdf.file.size)}</p>
+              {selectedTool === "rotate" ? <p className="mt-2"><span className="font-semibold text-white">Angle:</span> {rotationPreset}°</p> : null}
+              {selectedTool === "split" ? <p className="mt-2"><span className="font-semibold text-white">Range:</span> {splitRange}</p> : null}
+              {selectedTool === "reorder" ? <p className="mt-2"><span className="font-semibold text-white">Current order:</span> {pageSequence.join(", ")}</p> : null}
             </div>
           </div>
         ) : null}

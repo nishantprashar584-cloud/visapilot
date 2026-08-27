@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, FileStack, Home, LoaderCircle, Mic, MicOff, Plane, UserSquare2, Wallet } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileStack, Home, LoaderCircle, Mic, MicOff, Plane, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -645,6 +645,7 @@ export function ApplicationWizard({
   const [activeCustomLetterId, setActiveCustomLetterId] = useState<string | null>(null);
   const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [isMicrophoneHelpDismissed, setIsMicrophoneHelpDismissed] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [microphonePermission, setMicrophonePermission] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">("idle");
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
@@ -791,6 +792,8 @@ export function ApplicationWizard({
   }, []);
 
   async function requestMicrophoneAccess() {
+    setIsMicrophoneHelpDismissed(false);
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setMicrophonePermission("unsupported");
       setVoiceMessage("Microphone capture is unavailable in this browser. Use Chrome or Edge for voice autofill.");
@@ -1348,9 +1351,19 @@ export function ApplicationWizard({
 
               {voiceMessage ? <p className="mt-3 text-sm leading-6 text-slate-300">{voiceMessage}</p> : null}
 
-              {microphonePermission === "denied" ? (
+              {microphonePermission === "denied" && !isMicrophoneHelpDismissed ? (
                 <div className="mt-4 rounded-[1rem] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
-                  <p className="font-semibold text-white">How to enable microphone access</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-semibold text-white">How to enable microphone access</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsMicrophoneHelpDismissed(true)}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/20 text-rose-100/80 transition hover:border-white/20 hover:text-white"
+                      aria-label="Dismiss microphone help"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                   <p className="mt-2 leading-6">1. Click the lock or site-settings icon in your browser address bar.</p>
                   <p className="leading-6">2. Set Microphone to Allow for this site.</p>
                   <p className="leading-6">3. Choose the correct input device in your browser or system audio settings.</p>
