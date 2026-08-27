@@ -1079,7 +1079,7 @@ export function PacketWorkspace({
           <select
             value={activePdfId}
             onChange={(event) => syncDocumentSelection(event.target.value)}
-            className="min-w-[240px] rounded-full border border-white/12 bg-[#161616] px-4 py-2 text-sm text-white outline-none transition focus:border-white/30"
+            className="vp-select min-w-[240px] rounded-full py-2"
           >
             <option value="">Choose a PDF</option>
             {pdfDocuments.map((document) => (
@@ -1122,7 +1122,7 @@ export function PacketWorkspace({
                 value={splitRange}
                 onChange={(event) => setSplitRange(event.target.value)}
                 placeholder="1-3"
-                className="mt-2 w-full rounded-xl border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                className="vp-input mt-2 w-full rounded-xl px-4 py-3"
               />
             </label>
             <button
@@ -1532,7 +1532,7 @@ export function PacketWorkspace({
               <select
                 value={previewOutputId ? "" : previewDocumentId}
                 onChange={(event) => syncDocumentSelection(event.target.value)}
-                className="min-w-[220px] rounded-full border border-white/12 bg-[#161616] px-4 py-2 text-sm text-white outline-none transition focus:border-white/30"
+                className="vp-select min-w-[220px] rounded-full py-2"
               >
                 <option value="">Choose uploaded file</option>
                 {documents.map((document) => (

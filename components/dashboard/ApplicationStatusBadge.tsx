@@ -11,7 +11,11 @@ const statusClasses: Record<ApplicationStatus, string> = {
 
 export function ApplicationStatusBadge({ status }: { status: ApplicationStatus }) {
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusClasses[status]}`}>
+    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusClasses[status]}`}>
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-55" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-current" />
+      </span>
       {status}
     </span>
   );

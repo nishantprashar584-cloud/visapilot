@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { getAuthenticatedAccount } from "@/lib/auth/session";
 
 export async function Navbar() {
@@ -28,6 +29,7 @@ export async function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-4 md:flex">
+          <ThemeToggle />
           {primaryLinks.map((link) => (
             <Link key={link.label} href={link.href} className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 transition hover:text-brand-cyan">
               {link.label}
@@ -68,6 +70,9 @@ export async function Navbar() {
           </summary>
           <div className="absolute right-4 top-[calc(100%+0.75rem)] w-[min(22rem,calc(100vw-2rem))] rounded-[1.25rem] border border-white/10 bg-[#0c0f14]/95 p-4 shadow-panel backdrop-blur-xl">
             <div className="flex flex-col gap-2">
+              <div className="pb-2">
+                <ThemeToggle />
+              </div>
               {primaryLinks.map((link) => (
                 <Link key={link.label} href={link.href} className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5 hover:text-white">
                   {link.label}

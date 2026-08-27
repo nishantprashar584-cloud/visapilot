@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, WandSparkles } from "lucide-react";
+import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, Square, WandSparkles } from "lucide-react";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
@@ -395,7 +395,7 @@ export function Step5Workspace({
       heardText: "",
       typedText: baselinePrompt,
     });
-    setCustomVoiceMessage("Recording live. Speak naturally and tap stop when your brief looks right.");
+    setCustomVoiceMessage("Recording live. Speak naturally and tap the glowing red stop control when your brief looks right.");
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const session = promptDictationSessionRef.current;
@@ -624,7 +624,7 @@ export function Step5Workspace({
                                 {dictationPhase === "listening" ? (
                                   <>
                                     <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
-                                    <Mic className="relative h-4 w-4" />
+                                    <Square className="relative h-3.5 w-3.5 fill-current" />
                                   </>
                                 ) : dictationPhase === "processing" ? (
                                   <>
@@ -639,65 +639,82 @@ export function Step5Workspace({
                             ) : null}
                           </div>
 
-                          {dictationPhase ? (
+                          <div className="rounded-[0.95rem] border border-white/10 bg-black/20 p-3">
                             <div
-                              className={`flex items-center gap-2 rounded-[0.9rem] border px-3 py-2 text-sm ${
+                              className={`flex min-h-[72px] items-start gap-2 rounded-[0.9rem] border px-3 py-3 text-sm ${
                                 dictationPhase === "listening"
                                   ? "border-rose-300/20 bg-rose-400/10 text-rose-50"
-                                  : "border-emerald-300/20 bg-emerald-400/10 text-emerald-50"
+                                  : dictationPhase === "processing"
+                                    ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-50"
+                                    : "border-white/10 bg-black/20 text-slate-300"
                               }`}
                             >
                               {dictationPhase === "listening" ? (
-                                <>
-                                  <span className="relative inline-flex h-2.5 w-2.5">
-                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-300 opacity-75" />
-                                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-200" />
-                                  </span>
-                                  Listening now. Speak your letter brief clearly.
-                                </>
+                                <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-rose-300/30 bg-rose-400/12 text-rose-50 shadow-[0_0_0_1px_rgba(251,113,133,0.22),0_0_18px_rgba(251,113,133,0.22)]">
+                                  <span className="absolute inset-0 rounded-full bg-rose-300/20 animate-ping" />
+                                  <Square className="relative h-3 w-3 fill-current" />
+                                </span>
+                              ) : dictationPhase === "processing" ? (
+                                <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-400/12 text-emerald-50 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_18px_rgba(16,185,129,0.22)]">
+                                  <span className="absolute inset-0 rounded-full bg-emerald-300/20 animate-pulse" />
+                                  <Mic className="relative h-3.5 w-3.5" />
+                                </span>
                               ) : (
-                                <>
-                                  <span className="relative inline-flex h-4 w-4 items-center justify-center">
-                                    <span className="absolute inset-0 rounded-full bg-emerald-300/30 animate-pulse" />
-                                    <Mic className="relative h-3.5 w-3.5" />
-                                  </span>
-                                  Processing your brief and updating the draft
-                                </>
+                                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/20 text-slate-400">
+                                  <Mic className="h-3.5 w-3.5" />
+                                </span>
                               )}
+                              <div>
+                                <p className="font-semibold text-white">Live brief console</p>
+                                <p className="mt-1 leading-6">
+                                  {dictationPhase === "listening"
+                                    ? "Recording live. Speak naturally and tap the glowing red stop control when your brief looks right."
+                                    : dictationPhase === "processing"
+                                      ? "Processing your brief and updating the draft"
+                                      : customVoiceMessage ?? "Tap the mic to start live dictation for this brief"}
+                                </p>
+                              </div>
                             </div>
-                          ) : null}
 
-                          {promptDictationState?.letterId === letter.id ? (
-                            <div className="grid gap-3 lg:grid-cols-2">
-                              <div className="rounded-[0.9rem] border border-white/10 bg-black/40 px-3 py-3">
+                            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                              <div className="rounded-[0.9rem] border border-white/10 bg-black/30 px-3 py-3">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Heard You Say</p>
-                                <p className="mt-2 min-h-[44px] text-sm leading-6 text-white">
-                                  {promptDictationState.heardText || "Listening for your live brief"}
+                                <p className="mt-2 min-h-[56px] text-sm leading-6 text-white">
+                                  {promptDictationState?.letterId === letter.id && promptDictationState.heardText
+                                    ? promptDictationState.heardText
+                                    : "Your live transcript appears here while you speak"}
                                 </p>
                               </div>
-                              <div className="rounded-[0.9rem] border border-white/10 bg-black/40 px-3 py-3">
+                              <div className="rounded-[0.9rem] border border-white/10 bg-black/30 px-3 py-3">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Typing Into Brief</p>
-                                <p className="mt-2 min-h-[44px] text-sm leading-6 text-white">
-                                  {promptDictationState.typedText || "Your dictated brief will appear here as it is shaped"}
+                                <p className="mt-2 min-h-[56px] text-sm leading-6 text-white">
+                                  {promptDictationState?.letterId === letter.id && promptDictationState.typedText
+                                    ? promptDictationState.typedText
+                                    : "VisaPilot shows the shaped brief here before finalizing it"}
                                 </p>
                               </div>
                             </div>
-                          ) : null}
+                          </div>
 
                           <div className="flex flex-wrap gap-2">
-                            {dictationPhase === "listening" ? (
-                              <button
-                                type="button"
-                                onClick={stopPromptDictation}
-                                className="inline-flex items-center gap-2 rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-50 transition hover:border-rose-200/40 hover:bg-rose-400/15"
-                              >
-                                <span className="relative inline-flex h-2.5 w-2.5">
-                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-300 opacity-75" />
-                                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-200" />
-                                </span>
-                                Stop recording
-                              </button>
-                            ) : null}
+                            <button
+                              type="button"
+                              onClick={stopPromptDictation}
+                              disabled={dictationPhase !== "listening"}
+                              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                                dictationPhase === "listening"
+                                  ? "border-rose-300/35 bg-rose-400/12 text-rose-50 shadow-[0_0_0_1px_rgba(251,113,133,0.24),0_0_24px_rgba(251,113,133,0.28)] hover:border-rose-200/50 hover:bg-rose-400/18"
+                                  : "border-white/10 bg-white/5 text-slate-400 opacity-70"
+                              }`}
+                            >
+                              <span className="relative inline-flex h-4 w-4 items-center justify-center rounded-full">
+                                {dictationPhase === "listening" ? (
+                                  <span className="absolute inset-0 rounded-full bg-rose-300/25 animate-ping" />
+                                ) : null}
+                                <Square className="relative h-3 w-3 fill-current" />
+                              </span>
+                              {dictationPhase === "listening" ? "Stop recording" : "Stop control appears here"}
+                            </button>
                             <button
                               type="button"
                               onClick={() => onGenerateCustomLetter(letter.id, applicant)}

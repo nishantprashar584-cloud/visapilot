@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, FileStack, Home, LoaderCircle, Mic, Plane, UserSquare2, Wallet, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, FileStack, Home, LoaderCircle, Mic, Plane, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -172,7 +172,7 @@ function VoiceButtonIcon({ voicePhase }: { voicePhase: "listening" | "processing
     return (
       <>
         <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
-        <Mic className="relative h-4 w-4" />
+        <Square className="relative h-3.5 w-3.5 fill-current" />
       </>
     );
   }
@@ -214,13 +214,13 @@ function TextInput({
           type={type}
           step={step}
           placeholder={placeholder}
-          className={`w-full rounded-[1rem] border bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 ${isDate ? "date-input pr-11" : ""} ${
-            errorMessage ? "border-rose-300" : "border-white/12 focus:border-white/30"
+          className={`vp-input w-full px-4 py-3 ${isDate ? "date-input pr-11" : ""} ${
+            errorMessage ? "border-rose-300" : ""
           }`}
           {...register(name, isNumeric ? { valueAsNumber: true } : undefined)}
         />
         {isDate ? (
-          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-300">
+          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[color:var(--vp-text-muted)]">
             <CalendarDays className="h-4 w-4" />
           </span>
         ) : null}
@@ -254,18 +254,21 @@ function SelectInput({ label, name, register, errors, options }: SelectInputProp
   return (
     <label className="block space-y-2">
       <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</span>
-      <select
-        className={`w-full rounded-[1rem] border bg-[#101010] px-4 py-3 text-sm text-white outline-none transition ${
-          errorMessage ? "border-rose-300" : "border-white/12 focus:border-white/30"
-        }`}
-        {...register(name)}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <span className="relative block">
+        <select
+          className={`vp-select ${errorMessage ? "border-rose-300" : ""}`}
+          {...register(name)}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[color:var(--vp-text-muted)]">
+          <ChevronDown className="h-4 w-4" />
+        </span>
+      </span>
       {errorMessage ? <span className="text-sm text-rose-600">{errorMessage}</span> : null}
     </label>
   );
@@ -303,8 +306,8 @@ function TextAreaInput({
         <textarea
           rows={rows}
           placeholder={placeholder}
-          className={`w-full rounded-[1rem] border bg-[#101010] px-4 py-3 pr-11 text-sm text-white outline-none transition placeholder:text-slate-500 ${
-            errorMessage ? "border-rose-300" : "border-white/12 focus:border-white/30"
+          className={`vp-input w-full px-4 py-3 pr-11 ${
+            errorMessage ? "border-rose-300" : ""
           }`}
           {...register(name)}
         />
@@ -785,10 +788,10 @@ export function ApplicationWizard({
       : "Enter destination and first entry to verify the consular rule path.";
   const displayedVoiceMessage =
     voiceCaptureState?.phase === "listening"
-      ? "Listening. Speak naturally and the result will be inserted into the field."
+      ? "Recording live. Speak naturally and tap the glowing red stop control when you are done."
       : voiceCaptureState?.phase === "processing"
         ? "Processing your voice input."
-        : voiceMessage;
+        : voiceMessage ?? "Tap any microphone to start live dictation into a supported field.";
 
   useEffect(() => {
     const supported = Boolean(getSpeechRecognitionConstructor());
@@ -1574,53 +1577,59 @@ export function ApplicationWizard({
                         ? "Retry Microphone Access"
                         : "Enable Microphone Access"}
                   </button>
-                  {voiceCaptureState?.phase === "listening" ? (
-                    <button
-                      type="button"
-                      onClick={stopActiveVoiceCapture}
-                      className="inline-flex items-center gap-2 rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-50 transition hover:border-rose-200/40 hover:bg-rose-400/15"
-                    >
-                      <span className="relative inline-flex h-2.5 w-2.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-300 opacity-75" />
-                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-200" />
-                      </span>
-                      Stop recording
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={stopActiveVoiceCapture}
+                    disabled={voiceCaptureState?.phase !== "listening"}
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                      voiceCaptureState?.phase === "listening"
+                        ? "border-rose-300/35 bg-rose-400/12 text-rose-50 shadow-[0_0_0_1px_rgba(251,113,133,0.24),0_0_24px_rgba(251,113,133,0.28)] hover:border-rose-200/50 hover:bg-rose-400/18"
+                        : "border-white/10 bg-white/5 text-slate-400 opacity-70"
+                    }`}
+                  >
+                    <span className="relative inline-flex h-4 w-4 items-center justify-center rounded-full">
+                      {voiceCaptureState?.phase === "listening" ? (
+                        <span className="absolute inset-0 rounded-full bg-rose-300/25 animate-ping" />
+                      ) : null}
+                      <Square className="relative h-3 w-3 fill-current" />
+                    </span>
+                    {voiceCaptureState?.phase === "listening" ? "Stop recording" : "Stop control appears here"}
+                  </button>
                 </div>
               </div>
 
-              {displayedVoiceMessage ? (
-                <div className={`mt-3 flex items-center gap-3 rounded-[1rem] border px-4 py-3 text-sm ${
+              <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/30 p-4">
+                <div className={`flex min-h-[76px] items-start gap-3 rounded-[1rem] border px-4 py-3 text-sm ${
                   voiceCaptureState?.phase === "listening"
                     ? "border-rose-400/20 bg-rose-400/10 text-rose-50"
                     : voiceCaptureState?.phase === "processing"
                       ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-50"
-                      : "border-white/10 bg-black/30 text-slate-300"
+                      : "border-white/10 bg-black/20 text-slate-300"
                 }`}>
                   <span className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${getVoiceButtonClass(voiceCaptureState?.phase ?? null)}`}>
                     <VoiceButtonIcon voicePhase={voiceCaptureState?.phase ?? null} />
                   </span>
-                  <p className="leading-6">{displayedVoiceMessage}</p>
+                  <div>
+                    <p className="font-semibold text-white">Live voice console</p>
+                    <p className="mt-1 leading-6">{displayedVoiceMessage}</p>
+                  </div>
                 </div>
-              ) : null}
 
-              {voiceCaptureState ? (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                  <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3">
+                  <div className="rounded-[1rem] border border-white/10 bg-black/20 px-4 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Heard You Say</p>
-                    <p className="mt-2 min-h-[48px] text-sm leading-6 text-white">
-                      {voiceCaptureState.heardText || "Listening for your words in real time"}
+                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-white">
+                      {voiceCaptureState?.heardText || "Your live transcript appears here while you speak"}
                     </p>
                   </div>
-                  <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3">
+                  <div className="rounded-[1rem] border border-white/10 bg-black/20 px-4 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Typing Into Field</p>
-                    <p className="mt-2 min-h-[48px] text-sm leading-6 text-white">
-                      {voiceCaptureState.typedText || "Your dictated text will appear here as it is shaped"}
+                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-white">
+                      {voiceCaptureState?.typedText || "VisaPilot shows the shaped text here before finalizing it"}
                     </p>
                   </div>
                 </div>
-              ) : null}
+              </div>
 
               {microphonePermission === "denied" && !isMicrophoneHelpDismissed ? (
                 <div className="mt-4 rounded-[1rem] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">

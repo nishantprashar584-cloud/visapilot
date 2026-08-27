@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import {
   AlertTriangle,
   Archive,
+  BadgeCheck,
   FileText,
   Link2,
   Lock,
@@ -68,6 +69,12 @@ export default async function ApplicationDashboardPage({
   const audit = runRiskAudit(application.application_data);
   const privacyCountdownDays = getPrivacyCountdownDays(application.privacy_purge_at);
   const fullName = `${application.application_data.personal.firstName} ${application.application_data.personal.lastName}`.trim();
+  const completionItems = [
+    { label: "Application PDF ready", detail: "Form flattened and prepared for embassy submission", icon: FileText },
+    { label: "AI cover letter ready", detail: "Consular narrative aligned to itinerary and ties", icon: Sparkles },
+    { label: "Supporting packet saved", detail: "Uploaded evidence stays attached to this case", icon: Archive },
+    { label: "Vault ready to track", detail: "Status, privacy window, and tracking live in one place", icon: BadgeCheck },
+  ] as const;
 
   return (
     <section className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
@@ -113,10 +120,57 @@ export default async function ApplicationDashboardPage({
       </div>
 
       {previewMode ? (
-        <div className="rounded-[1.2rem] border border-white/10 bg-black/70 px-5 py-4 text-sm text-slate-200">
-          Preview mode is showing a realistic sample package layout with sample applicant data, sample cover letter text, and the same sections a live user will use.
+        <div className="space-y-4 rounded-[1.35rem] border border-emerald-400/15 bg-emerald-400/10 px-5 py-5 text-sm text-emerald-50">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100/80">Sample package walkthrough</p>
+            <p className="mt-2 leading-6 text-emerald-50/90">
+              Preview mode shows the same vault structure a live applicant sees after package generation, with the main outputs separated into clear actions.
+            </p>
+          </div>
+          <div className="grid gap-3 xl:grid-cols-4">
+            {completionItems.map((item, index) => {
+              const Icon = item.icon;
+
+              return (
+                <div key={item.label} className="rounded-[1rem] border border-white/10 bg-black/20 px-4 py-4">
+                  <div className="flex items-start gap-3">
+                    <span className="relative mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/12 text-emerald-50 shadow-[0_0_0_1px_rgba(110,231,183,0.18),0_0_24px_rgba(16,185,129,0.2)]">
+                      <span className="absolute inset-0 rounded-full bg-emerald-300/20 animate-pulse" />
+                      <Icon className="relative h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/80">Complete {index + 1}</p>
+                      <p className="mt-1 text-sm font-semibold text-white">{item.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-emerald-50/80">{item.detail}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : null}
+
+      <div className="grid gap-3 xl:grid-cols-4">
+        {completionItems.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <div key={item.label} className="glass-card p-4">
+              <div className="flex items-start gap-3">
+                <span className="relative mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-400/10 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.14),0_0_20px_rgba(16,185,129,0.16)]">
+                  <span className="absolute inset-0 rounded-full bg-emerald-300/20 animate-pulse" />
+                  <Icon className="relative h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
@@ -127,7 +181,7 @@ export default async function ApplicationDashboardPage({
               <p className="mt-2 text-sm leading-6 text-slate-300">37 fields filled and flattened for embassy submission.</p>
             </div>
           </div>
-          <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+          <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
             Generated from your locked identity, travel route, and application data.
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -150,7 +204,7 @@ export default async function ApplicationDashboardPage({
           <TintedIconBadge icon={Sparkles} tone="indigo" label="AI Cover Letter" />
           <h2 className="mt-4 text-xl font-semibold text-white">Consular Cover Letter</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Embassy-addressed rationale statement aligned to your itinerary and return ties.</p>
-          <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-white/10 bg-white/5 p-4">
+          <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-white/10 bg-black/20 p-4">
             <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{application.cover_letter_markdown}</pre>
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -177,7 +231,7 @@ export default async function ApplicationDashboardPage({
           <TintedIconBadge icon={Archive} tone="blue" label="Full Packet Archive" />
           <h2 className="mt-4 text-xl font-semibold text-white">Complete Embassy Submission ZIP</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Includes the PDF, cover letter, checklist, insurance slip, and saved supporting documents.</p>
-          <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+          <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
             Packet contents stay aligned with the dashboard vault and your stored supporting files.
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

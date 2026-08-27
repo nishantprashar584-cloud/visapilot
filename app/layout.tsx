@@ -33,8 +33,24 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeInitScript = `(() => {
+    try {
+      const savedTheme = window.localStorage.getItem("visapilot.theme");
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      const resolvedTheme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : systemTheme;
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+    } catch {
+      document.documentElement.dataset.theme = "dark";
+      document.documentElement.classList.add("dark");
+    }
+  })();`;
+
   return (
-    <html lang="en" className="bg-background text-foreground">
+    <html lang="en" className="bg-background text-foreground dark" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background text-foreground antialiased`}
       >
