@@ -412,11 +412,16 @@ type SpeechRecognitionAlternativeLike = {
 
 type SpeechRecognitionResultLike = {
   0: SpeechRecognitionAlternativeLike;
+  isFinal?: boolean;
+  length?: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
 };
 
 type SpeechRecognitionEventLike = {
+  resultIndex?: number;
   results: {
-    0: SpeechRecognitionResultLike;
+    length?: number;
+    [index: number]: SpeechRecognitionResultLike;
   };
 };
 
@@ -428,6 +433,7 @@ type BrowserSpeechRecognition = {
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;
+  continuous?: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
@@ -438,6 +444,20 @@ type BrowserSpeechRecognition = {
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 type VoiceCapturePhase = "listening" | "processing";
+
+type VoiceCaptureState = {
+  field: FieldPath<ApplicantInfo>;
+  phase: VoiceCapturePhase;
+  heardText: string;
+  typedText: string;
+};
+
+type VoiceCaptureSession = {
+  field: FieldPath<ApplicantInfo>;
+  baselineValue: string | number;
+  heardText: string;
+  typedValue: string | number;
+};
 
 const dateVoiceFields = new Set<FieldPath<ApplicantInfo>>([
   "personal.dateOfBirth",
@@ -620,6 +640,41 @@ function sanitizeSpeechTranscript(value: string): string {
   return value.trim().replace(/[.]+$/g, "").trim();
 }
 
+function stringifyVoiceValue(value: string | number): string {
+  return typeof value === "number" ? String(value) : value;
+}
+
+function buildVoiceFieldValue(
+  name: FieldPath<ApplicantInfo>,
+  baselineValue: string | number,
+  transcript: string,
+): { normalizedTranscript: string; nextValue: string | number | null } {
+  const normalizedTranscript = normalizeVoiceTranscript(name, transcript);
+
+  if (numericVoiceFields.has(name)) {
+    const normalizedNumber = Number(normalizedTranscript);
+    return {
+      normalizedTranscript,
+      nextValue: Number.isNaN(normalizedNumber) ? null : normalizedNumber,
+    };
+  }
+
+  const nextValue =
+    typeof baselineValue === "string" &&
+    baselineValue.trim().length > 0 &&
+    !dateVoiceFields.has(name) &&
+    !passportVoiceFields.has(name) &&
+    !phoneVoiceFields.has(name) &&
+    !countryVoiceFields.has(name)
+      ? `${baselineValue.trim()} ${normalizedTranscript}`
+      : normalizedTranscript;
+
+  return {
+    normalizedTranscript,
+    nextValue,
+  };
+}
+
 function normalizeVoiceTranscript(name: FieldPath<ApplicantInfo>, transcript: string): string {
   if (dateVoiceFields.has(name)) {
     return normalizeDateTranscript(transcript);
@@ -668,6 +723,7 @@ export function ApplicationWizard({
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const voiceProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceCaptureSessionRef = useRef<VoiceCaptureSession | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -685,7 +741,7 @@ export function ApplicationWizard({
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
   const [customLetters, setCustomLetters] = useState<CustomLetterDraft[]>(defaultCustomLetters);
   const [activeCustomLetterId, setActiveCustomLetterId] = useState<string | null>(null);
-  const [voiceCaptureState, setVoiceCaptureState] = useState<{ field: FieldPath<ApplicantInfo>; phase: VoiceCapturePhase } | null>(null);
+  const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [isMicrophoneHelpDismissed, setIsMicrophoneHelpDismissed] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -850,6 +906,23 @@ export function ApplicationWizard({
     }
   }
 
+  function stopActiveVoiceCapture() {
+    if (!speechRecognitionRef.current || voiceCaptureState?.phase !== "listening") {
+      return;
+    }
+
+    speechRecognitionRef.current.stop();
+    setVoiceCaptureState((current) =>
+      current
+        ? {
+            ...current,
+            phase: "processing",
+          }
+        : current,
+    );
+    setVoiceMessage("Processing your voice input.");
+  }
+
   function finishVoiceCapture(field: FieldPath<ApplicantInfo>, nextMessage?: string) {
     clearVoiceProcessingTimeout();
     voiceProcessingTimeoutRef.current = setTimeout(() => {
@@ -858,8 +931,62 @@ export function ApplicationWizard({
       }
 
       setVoiceCaptureState((current) => (current?.field === field ? null : current));
+      voiceCaptureSessionRef.current = null;
       voiceProcessingTimeoutRef.current = null;
     }, 900);
+  }
+
+  function finalizeVoiceCapture(field: FieldPath<ApplicantInfo>) {
+    const session = voiceCaptureSessionRef.current;
+
+    if (!session || session.field !== field) {
+      finishVoiceCapture(field);
+      return;
+    }
+
+    const transcript = sanitizeSpeechTranscript(session.heardText);
+
+    if (!transcript) {
+      form.setValue(field, session.baselineValue as never, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+      finishVoiceCapture(field, "No speech was detected. Try again and speak a little closer to the microphone.");
+      return;
+    }
+
+    const { normalizedTranscript, nextValue } = buildVoiceFieldValue(field, session.baselineValue, transcript);
+
+    if (nextValue === null) {
+      form.setValue(field, session.baselineValue as never, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+      finishVoiceCapture(field, "Voice input was heard, but the amount could not be normalized into a number.");
+      return;
+    }
+
+    form.setValue(field, nextValue as never, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    setVoiceCaptureState((current) =>
+      current?.field === field
+        ? {
+            ...current,
+            heardText: transcript,
+            typedText: stringifyVoiceValue(nextValue),
+          }
+        : current,
+    );
+
+    finishVoiceCapture(
+      field,
+      normalizedTranscript !== transcript
+        ? `Voice input inserted and normalized to ${normalizedTranscript}`
+        : "Voice input inserted into the active field",
+    );
   }
 
   async function requestMicrophoneAccess() {
@@ -898,10 +1025,7 @@ export function ApplicationWizard({
     }
 
     if (voiceCaptureState?.field === name && voiceCaptureState.phase === "listening" && speechRecognitionRef.current) {
-      speechRecognitionRef.current.stop();
-      clearVoiceProcessingTimeout();
-      setVoiceCaptureState(null);
-      setVoiceMessage("Voice capture stopped.");
+      stopActiveVoiceCapture();
       return;
     }
 
@@ -921,50 +1045,71 @@ export function ApplicationWizard({
 
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
+    recognition.continuous = true;
     speechRecognitionRef.current = recognition;
-    setVoiceCaptureState({ field: name, phase: "listening" });
-    setVoiceMessage("Listening. Speak naturally and the result will be inserted into the field.");
+    const baselineValue = (form.getValues(name) as string | number | undefined) ?? "";
+    voiceCaptureSessionRef.current = {
+      field: name,
+      baselineValue: typeof baselineValue === "number" ? baselineValue : String(baselineValue),
+      heardText: "",
+      typedValue: typeof baselineValue === "number" ? baselineValue : String(baselineValue),
+    };
+    setVoiceCaptureState({
+      field: name,
+      phase: "listening",
+      heardText: "",
+      typedText: stringifyVoiceValue(voiceCaptureSessionRef.current.typedValue),
+    });
+    setVoiceMessage("Recording live. Speak naturally and tap stop when you are done.");
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      setVoiceCaptureState({ field: name, phase: "processing" });
-      setVoiceMessage("Processing your voice input.");
+      const session = voiceCaptureSessionRef.current;
 
-      const transcript = sanitizeSpeechTranscript(event.results[0]?.[0]?.transcript ?? "");
-
-      if (!transcript) {
-        finishVoiceCapture(name, "No speech was detected. Try again and speak a little closer to the microphone.");
+      if (!session || session.field !== name) {
         return;
       }
 
-      console.log("Speech recognized:", transcript);
+      const heardSegments: string[] = [];
 
-      const currentValue = form.getValues(name);
-      const normalizedTranscript = normalizeVoiceTranscript(name, transcript);
-      const normalizedNumber = numericVoiceFields.has(name) ? Number(normalizedTranscript) : null;
+      for (let index = 0; index < (event.results.length ?? 0); index += 1) {
+        const result = event.results[index];
+        const transcript = sanitizeSpeechTranscript(result?.[0]?.transcript ?? "");
 
-      if (numericVoiceFields.has(name) && (normalizedNumber === null || Number.isNaN(normalizedNumber))) {
-        finishVoiceCapture(name, "Voice input was heard, but the amount could not be normalized into a number.");
+        if (transcript) {
+          heardSegments.push(transcript);
+        }
+      }
+
+      const heardText = heardSegments.join(" ").trim();
+      session.heardText = heardText;
+
+      if (!heardText) {
+        setVoiceCaptureState({
+          field: name,
+          phase: "listening",
+          heardText: "",
+          typedText: stringifyVoiceValue(session.baselineValue),
+        });
         return;
       }
 
-      const nextValue = numericVoiceFields.has(name)
-        ? normalizedNumber
-        : typeof currentValue === "string" && currentValue.trim().length > 0 && !dateVoiceFields.has(name) && !passportVoiceFields.has(name) && !phoneVoiceFields.has(name) && !countryVoiceFields.has(name)
-          ? `${currentValue.trim()} ${normalizedTranscript}`
-          : normalizedTranscript;
+      const preview = buildVoiceFieldValue(name, session.baselineValue, heardText);
+      const typedValue = preview.nextValue ?? session.baselineValue;
+      session.typedValue = typedValue;
 
-      form.setValue(name, nextValue as never, {
+      form.setValue(name, typedValue as never, {
         shouldDirty: true,
-        shouldValidate: true,
+        shouldValidate: false,
       });
-      finishVoiceCapture(
-        name,
-        normalizedTranscript !== transcript
-          ? `Voice input inserted and normalized to ${normalizedTranscript}`
-          : "Voice input inserted into the active field",
-      );
+
+      setVoiceCaptureState({
+        field: name,
+        phase: "listening",
+        heardText,
+        typedText: stringifyVoiceValue(typedValue),
+      });
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
@@ -979,16 +1124,11 @@ export function ApplicationWizard({
       }
       clearVoiceProcessingTimeout();
       setVoiceCaptureState(null);
+      voiceCaptureSessionRef.current = null;
     };
 
     recognition.onend = () => {
-      setVoiceCaptureState((current) => {
-        if (current?.field !== name) {
-          return current;
-        }
-
-        return current.phase === "processing" ? current : null;
-      });
+      finalizeVoiceCapture(name);
     };
 
     recognition.start();
@@ -1397,7 +1537,7 @@ export function ApplicationWizard({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Voice Autofill</p>
                   <h3 className="mt-1 text-base font-semibold text-white">Hands-free form filling</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Enable microphone access once, then dictate directly into supported fields across the wizard.
+                    Start a recording from any supported field, watch the live transcript update as you speak, then stop it manually when the phrasing looks right.
                   </p>
                 </div>
 
@@ -1422,16 +1562,31 @@ export function ApplicationWizard({
                   <button
                     type="button"
                     onClick={() => void requestMicrophoneAccess()}
-                    disabled={microphonePermission === "requesting" || microphonePermission === "granted"}
+                    disabled={microphonePermission === "requesting" || (microphonePermission === "granted" && voiceCaptureState !== null)}
                     className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
                     {microphonePermission === "granted"
-                      ? "Microphone Enabled"
+                      ? voiceCaptureState
+                        ? "Microphone Active"
+                        : "Microphone Enabled"
                       : microphonePermission === "denied"
                         ? "Retry Microphone Access"
                         : "Enable Microphone Access"}
                   </button>
+                  {voiceCaptureState?.phase === "listening" ? (
+                    <button
+                      type="button"
+                      onClick={stopActiveVoiceCapture}
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-50 transition hover:border-rose-200/40 hover:bg-rose-400/15"
+                    >
+                      <span className="relative inline-flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-300 opacity-75" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-200" />
+                      </span>
+                      Stop recording
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -1447,6 +1602,23 @@ export function ApplicationWizard({
                     <VoiceButtonIcon voicePhase={voiceCaptureState?.phase ?? null} />
                   </span>
                   <p className="leading-6">{displayedVoiceMessage}</p>
+                </div>
+              ) : null}
+
+              {voiceCaptureState ? (
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Heard You Say</p>
+                    <p className="mt-2 min-h-[48px] text-sm leading-6 text-white">
+                      {voiceCaptureState.heardText || "Listening for your words in real time"}
+                    </p>
+                  </div>
+                  <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Typing Into Field</p>
+                    <p className="mt-2 min-h-[48px] text-sm leading-6 text-white">
+                      {voiceCaptureState.typedText || "Your dictated text will appear here as it is shaped"}
+                    </p>
+                  </div>
                 </div>
               ) : null}
 

@@ -19,11 +19,16 @@ type SpeechRecognitionAlternativeLike = {
 
 type SpeechRecognitionResultLike = {
   0: SpeechRecognitionAlternativeLike;
+  isFinal?: boolean;
+  length?: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
 };
 
 type SpeechRecognitionEventLike = {
+  resultIndex?: number;
   results: {
-    0: SpeechRecognitionResultLike;
+    length?: number;
+    [index: number]: SpeechRecognitionResultLike;
   };
 };
 
@@ -35,6 +40,7 @@ type BrowserSpeechRecognition = {
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;
+  continuous?: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
@@ -45,6 +51,20 @@ type BrowserSpeechRecognition = {
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 type PromptDictationPhase = "listening" | "processing";
+
+type PromptDictationState = {
+  letterId: string;
+  phase: PromptDictationPhase;
+  heardText: string;
+  typedText: string;
+};
+
+type PromptDictationSession = {
+  letterId: string;
+  baselinePrompt: string;
+  heardText: string;
+  typedText: string;
+};
 
 function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
   if (typeof window === "undefined") {
@@ -113,7 +133,8 @@ export function Step5Workspace({
   const hasCredits = availableCredits > 0;
   const customRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [promptDictationState, setPromptDictationState] = useState<{ letterId: string; phase: PromptDictationPhase } | null>(null);
+  const promptDictationSessionRef = useRef<PromptDictationSession | null>(null);
+  const [promptDictationState, setPromptDictationState] = useState<PromptDictationState | null>(null);
   const [customVoiceMessage, setCustomVoiceMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -151,8 +172,62 @@ export function Step5Workspace({
       }
 
       setPromptDictationState((current) => (current?.letterId === letterId ? null : current));
+      promptDictationSessionRef.current = null;
       processingTimeoutRef.current = null;
     }, 900);
+  }
+
+  function stopPromptDictation() {
+    if (!customRecognitionRef.current || promptDictationState?.phase !== "listening") {
+      return;
+    }
+
+    customRecognitionRef.current.stop();
+    setPromptDictationState((current) =>
+      current
+        ? {
+            ...current,
+            phase: "processing",
+          }
+        : current,
+    );
+    setCustomVoiceMessage("Processing your voice brief.");
+  }
+
+  function finalizePromptDictation(letterId: string) {
+    const session = promptDictationSessionRef.current;
+
+    if (!session || session.letterId !== letterId) {
+      finishPromptDictation(letterId);
+      return;
+    }
+
+    const transcript = sanitizeSpeechTranscript(session.heardText);
+
+    if (!transcript) {
+      onCustomLetterChange(letterId, { prompt: session.baselinePrompt });
+      finishPromptDictation(letterId, "No speech was detected. Try again and speak a little closer to the microphone.");
+      return;
+    }
+
+    const nextPrompt = session.baselinePrompt.trim() ? `${session.baselinePrompt.trim()} ${transcript}` : transcript;
+
+    onCustomLetterChange(letterId, {
+      prompt: nextPrompt,
+      message: "Voice brief inserted. Review it, then generate the letter.",
+    });
+
+    setPromptDictationState((current) =>
+      current?.letterId === letterId
+        ? {
+            ...current,
+            heardText: transcript,
+            typedText: nextPrompt,
+          }
+        : current,
+    );
+
+    finishPromptDictation(letterId, "Voice brief inserted into the selected custom letter.");
   }
 
   function getLetterBaseName(label: string) {
@@ -290,10 +365,7 @@ export function Step5Workspace({
     }
 
     if (promptDictationState?.letterId === letterId && promptDictationState.phase === "listening" && customRecognitionRef.current) {
-      customRecognitionRef.current.stop();
-      clearPromptProcessingTimeout();
-      setPromptDictationState(null);
-      setCustomVoiceMessage("Dictation stopped.");
+      stopPromptDictation();
       return;
     }
 
@@ -305,46 +377,68 @@ export function Step5Workspace({
 
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
+    recognition.continuous = true;
     customRecognitionRef.current = recognition;
-    setPromptDictationState({ letterId, phase: "listening" });
-    setCustomVoiceMessage("Listening for your custom letter brief.");
+    const letter = customLetters.find((item) => item.id === letterId);
+    const baselinePrompt = letter?.prompt ?? "";
+    promptDictationSessionRef.current = {
+      letterId,
+      baselinePrompt,
+      heardText: "",
+      typedText: baselinePrompt,
+    };
+    setPromptDictationState({
+      letterId,
+      phase: "listening",
+      heardText: "",
+      typedText: baselinePrompt,
+    });
+    setCustomVoiceMessage("Recording live. Speak naturally and tap stop when your brief looks right.");
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      setPromptDictationState({ letterId, phase: "processing" });
-      setCustomVoiceMessage("Processing your voice brief.");
+      const session = promptDictationSessionRef.current;
 
-      const transcript = sanitizeSpeechTranscript(event.results[0]?.[0]?.transcript ?? "");
-
-      if (!transcript) {
-        finishPromptDictation(letterId, "No speech was detected. Try again and speak a little closer to the microphone.");
+      if (!session || session.letterId !== letterId) {
         return;
       }
 
-      const letter = customLetters.find((item) => item.id === letterId);
-      const nextPrompt = letter?.prompt?.trim()
-        ? `${letter.prompt.trim()} ${transcript}`
-        : transcript;
+      const heardSegments: string[] = [];
 
-      onCustomLetterChange(letterId, { prompt: nextPrompt, message: "Voice brief inserted. Review it, then generate the letter." });
-      finishPromptDictation(letterId, "Voice brief inserted into the selected custom letter.");
+      for (let index = 0; index < (event.results.length ?? 0); index += 1) {
+        const result = event.results[index];
+        const transcript = sanitizeSpeechTranscript(result?.[0]?.transcript ?? "");
+
+        if (transcript) {
+          heardSegments.push(transcript);
+        }
+      }
+
+      const heardText = heardSegments.join(" ").trim();
+      const typedText = heardText ? (session.baselinePrompt.trim() ? `${session.baselinePrompt.trim()} ${heardText}` : heardText) : session.baselinePrompt;
+
+      session.heardText = heardText;
+      session.typedText = typedText;
+
+      onCustomLetterChange(letterId, { prompt: typedText });
+      setPromptDictationState({
+        letterId,
+        phase: "listening",
+        heardText,
+        typedText,
+      });
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
       setCustomVoiceMessage(`Voice dictation could not be captured (${event.error ?? "unknown_error"}).`);
       clearPromptProcessingTimeout();
       setPromptDictationState(null);
+      promptDictationSessionRef.current = null;
     };
 
     recognition.onend = () => {
-      setPromptDictationState((current) => {
-        if (current?.letterId !== letterId) {
-          return current;
-        }
-
-        return current.phase === "processing" ? current : null;
-      });
+      finalizePromptDictation(letterId);
     };
 
     recognition.start();
@@ -476,7 +570,7 @@ export function Step5Workspace({
                         Additional AI Letters
                       </div>
                       <p className="mt-2 text-sm leading-6 text-slate-300">
-                        Generate up to two extra visa-supporting letters. You can type or dictate what should be mentioned, and VisaPilot will draft them using the same applicant context.
+                        Generate up to two extra visa-supporting letters. Start recording, watch the brief appear live as you speak, then stop when the wording feels right.
                       </p>
                     </div>
                     {speechSupported ? (
@@ -573,7 +667,37 @@ export function Step5Workspace({
                             </div>
                           ) : null}
 
+                          {promptDictationState?.letterId === letter.id ? (
+                            <div className="grid gap-3 lg:grid-cols-2">
+                              <div className="rounded-[0.9rem] border border-white/10 bg-black/40 px-3 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Heard You Say</p>
+                                <p className="mt-2 min-h-[44px] text-sm leading-6 text-white">
+                                  {promptDictationState.heardText || "Listening for your live brief"}
+                                </p>
+                              </div>
+                              <div className="rounded-[0.9rem] border border-white/10 bg-black/40 px-3 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Typing Into Brief</p>
+                                <p className="mt-2 min-h-[44px] text-sm leading-6 text-white">
+                                  {promptDictationState.typedText || "Your dictated brief will appear here as it is shaped"}
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+
                           <div className="flex flex-wrap gap-2">
+                            {dictationPhase === "listening" ? (
+                              <button
+                                type="button"
+                                onClick={stopPromptDictation}
+                                className="inline-flex items-center gap-2 rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-50 transition hover:border-rose-200/40 hover:bg-rose-400/15"
+                              >
+                                <span className="relative inline-flex h-2.5 w-2.5">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-300 opacity-75" />
+                                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-200" />
+                                </span>
+                                Stop recording
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               onClick={() => onGenerateCustomLetter(letter.id, applicant)}
