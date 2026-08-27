@@ -791,10 +791,12 @@ export function ApplicationWizard({
   availableCredits?: number;
 }) {
   const router = useRouter();
+  const wizardStepTopRef = useRef<HTMLFormElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const voiceProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCaptureSessionRef = useRef<VoiceCaptureSession | null>(null);
+  const lastRenderedStepRef = useRef<number | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1043,6 +1045,30 @@ export function ApplicationWizard({
       window.clearTimeout(timeoutId);
     };
   }, [toast]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (lastRenderedStepRef.current === null) {
+      lastRenderedStepRef.current = currentStep;
+      return;
+    }
+
+    if (lastRenderedStepRef.current === currentStep) {
+      return;
+    }
+
+    lastRenderedStepRef.current = currentStep;
+
+    requestAnimationFrame(() => {
+      wizardStepTopRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [currentStep, hasHydrated]);
 
   if (!hasHydrated) {
     return (
@@ -1787,7 +1813,7 @@ export function ApplicationWizard({
           ) : null}
         </div>
 
-        <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
+        <form ref={wizardStepTopRef} className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
           {speechSupported ? (
             <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-4 sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
