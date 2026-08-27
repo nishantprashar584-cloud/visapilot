@@ -1463,11 +1463,16 @@ export function ApplicationWizard({
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <p className="mt-2 leading-6">1. Click the lock or site-settings icon in your browser address bar.</p>
-                  <p className="leading-6">2. Set Microphone to Allow for this site.</p>
-                  <p className="leading-6">3. Choose the correct input device in your browser or system audio settings.</p>
-                  <p className="leading-6">4. Refresh this page, then use Retry Microphone Access.</p>
-                  <div className="mt-3 grid gap-2 text-xs text-rose-100/80 sm:grid-cols-2">
+                  <p className="mt-2 leading-6">1. On Windows, open Settings &gt; Privacy &amp; security &gt; Microphone and make sure both device microphone access and app microphone access are enabled.</p>
+                  <p className="leading-6">2. In your browser, click the lock or site-settings icon in the address bar and set Microphone to Allow for this site.</p>
+                  <p className="leading-6">3. If you are on a Mac, open Apple menu &gt; System Settings &gt; Privacy &amp; Security &gt; Microphone and allow your browser.</p>
+                  <p className="leading-6">4. If you are on iPhone or iPad, open Settings &gt; Privacy &amp; Security &gt; Microphone and allow the browser app you are using.</p>
+                  <p className="leading-6">5. Choose the correct input device in your browser or system audio settings, refresh this page, then use Retry Microphone Access.</p>
+                  <div className="mt-3 grid gap-2 text-xs text-rose-100/80 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Windows 11</p>
+                      <p className="mt-1">Settings &gt; Privacy &amp; security &gt; Microphone</p>
+                    </div>
                     <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
                       <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Chrome</p>
                       <p className="mt-1 break-all">chrome://settings/content/microphone</p>
@@ -1476,9 +1481,13 @@ export function ApplicationWizard({
                       <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Edge</p>
                       <p className="mt-1 break-all">edge://settings/content/microphone</p>
                     </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Mac / iPhone</p>
+                      <p className="mt-1">Privacy &amp; Security &gt; Microphone</p>
+                    </div>
                   </div>
                   <p className="mt-3 text-xs leading-5 text-rose-100/80">
-                    Browser security blocks websites from directly opening these internal settings pages, so VisaPilot can guide you but cannot force that screen to open automatically.
+                    Browser and device privacy rules block websites from directly opening all of these settings pages, so VisaPilot can guide you to the right place but cannot switch them on automatically.
                   </p>
                 </div>
               ) : null}
