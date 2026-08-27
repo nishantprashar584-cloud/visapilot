@@ -44,6 +44,8 @@ type BrowserSpeechRecognition = {
 
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
+type PromptDictationPhase = "listening" | "processing";
+
 function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
   if (typeof window === "undefined") {
     return null;
@@ -106,11 +108,16 @@ export function Step5Workspace({
 }) {
   const hasCredits = availableCredits > 0;
   const customRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const [activePromptId, setActivePromptId] = useState<string | null>(null);
+  const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [promptDictationState, setPromptDictationState] = useState<{ letterId: string; phase: PromptDictationPhase } | null>(null);
   const [customVoiceMessage, setCustomVoiceMessage] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
+
       if (customRecognitionRef.current) {
         customRecognitionRef.current.onend = null;
         customRecognitionRef.current.stop();
@@ -123,6 +130,21 @@ export function Step5Workspace({
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-");
+  }
+
+  function clearPromptProcessingTimeout() {
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+  }
+
+  function finishPromptDictation(letterId: string) {
+    clearPromptProcessingTimeout();
+    processingTimeoutRef.current = setTimeout(() => {
+      setPromptDictationState((current) => (current?.letterId === letterId ? null : current));
+      processingTimeoutRef.current = null;
+    }, 900);
   }
 
   function getLetterBaseName(label: string) {
@@ -259,9 +281,10 @@ export function Step5Workspace({
       setCustomVoiceMessage("Microphone access enabled. Speak your custom letter brief now.");
     }
 
-    if (activePromptId === letterId && customRecognitionRef.current) {
+    if (promptDictationState?.letterId === letterId && promptDictationState.phase === "listening" && customRecognitionRef.current) {
       customRecognitionRef.current.stop();
-      setActivePromptId(null);
+      clearPromptProcessingTimeout();
+      setPromptDictationState(null);
       setCustomVoiceMessage("Dictation stopped.");
       return;
     }
@@ -270,18 +293,25 @@ export function Step5Workspace({
       customRecognitionRef.current.stop();
     }
 
+    clearPromptProcessingTimeout();
+
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     customRecognitionRef.current = recognition;
-    setActivePromptId(letterId);
+    setPromptDictationState({ letterId, phase: "listening" });
     setCustomVoiceMessage("Listening for your custom letter brief.");
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
+      setPromptDictationState({ letterId, phase: "processing" });
+      setCustomVoiceMessage("Processing your voice brief.");
+
       const transcript = event.results[0]?.[0]?.transcript?.trim();
 
       if (!transcript) {
+        setCustomVoiceMessage("No speech was detected. Try again and speak a little closer to the microphone.");
+        finishPromptDictation(letterId);
         return;
       }
 
@@ -292,15 +322,23 @@ export function Step5Workspace({
 
       onCustomLetterChange(letterId, { prompt: nextPrompt, message: "Voice brief inserted. Review it, then generate the letter." });
       setCustomVoiceMessage("Voice brief inserted into the selected custom letter.");
+      finishPromptDictation(letterId);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
       setCustomVoiceMessage(`Voice dictation could not be captured (${event.error ?? "unknown_error"}).`);
-      setActivePromptId(null);
+      clearPromptProcessingTimeout();
+      setPromptDictationState(null);
     };
 
     recognition.onend = () => {
-      setActivePromptId(null);
+      setPromptDictationState((current) => {
+        if (current?.letterId !== letterId) {
+          return current;
+        }
+
+        return current.phase === "processing" ? current : null;
+      });
     };
 
     recognition.start();
@@ -451,6 +489,10 @@ export function Step5Workspace({
                   <div className="mt-4 grid gap-4 xl:grid-cols-2">
                     {customLetters.map((letter) => (
                       <div key={letter.id} className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+                        {(() => {
+                          const dictationPhase = promptDictationState?.letterId === letter.id ? promptDictationState.phase : null;
+
+                          return (
                         <div className="flex flex-col gap-3">
                           <input
                             value={letter.title}
@@ -470,13 +512,53 @@ export function Step5Workspace({
                               <button
                                 type="button"
                                 onClick={() => void handlePromptDictation(letter.id)}
-                                className="absolute right-3 top-3 text-slate-300 transition hover:text-white"
+                                className={`absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${
+                                  dictationPhase === "listening"
+                                    ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
+                                    : dictationPhase === "processing"
+                                      ? "border-sky-300/30 bg-sky-400/10 text-sky-100"
+                                      : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                                }`}
                                 aria-label={`Dictate ${letter.title}`}
                               >
-                                {activePromptId === letter.id ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                {dictationPhase === "listening" ? (
+                                  <>
+                                    <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
+                                    <MicOff className="relative h-4 w-4" />
+                                  </>
+                                ) : dictationPhase === "processing" ? (
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Mic className="h-4 w-4" />
+                                )}
                               </button>
                             ) : null}
                           </div>
+
+                          {dictationPhase ? (
+                            <div
+                              className={`flex items-center gap-2 rounded-[0.9rem] border px-3 py-2 text-sm ${
+                                dictationPhase === "listening"
+                                  ? "border-rose-300/20 bg-rose-400/10 text-rose-50"
+                                  : "border-sky-300/20 bg-sky-400/10 text-sky-50"
+                              }`}
+                            >
+                              {dictationPhase === "listening" ? (
+                                <>
+                                  <span className="relative inline-flex h-2.5 w-2.5">
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-300 opacity-75" />
+                                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-200" />
+                                  </span>
+                                  Listening now. Speak your letter brief clearly.
+                                </>
+                              ) : (
+                                <>
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                  Processing your brief and updating the draft.
+                                </>
+                              )}
+                            </div>
+                          ) : null}
 
                           <div className="flex flex-wrap gap-2">
                             <button
@@ -524,6 +606,8 @@ export function Step5Workspace({
                             className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 text-sm leading-6 text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/30"
                           />
                         </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
