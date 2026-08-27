@@ -289,8 +289,10 @@ function StepPanel({
   return (
     <div className="glass-panel p-6 sm:p-8">
       <div className="space-y-2">
-        <TintedIconBadge icon={Icon} tone={tone} label={eyebrow} />
-        <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <TintedIconBadge icon={Icon} tone={tone} label={eyebrow} />
+          <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
+        </div>
         <p className="text-sm leading-6 text-slate-300">{description}</p>
       </div>
       <div className="mt-8 space-y-6">{children}</div>

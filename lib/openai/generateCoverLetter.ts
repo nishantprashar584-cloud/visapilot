@@ -106,6 +106,17 @@ export type CoverLetterGenerationResult = {
   source: CoverLetterGenerationSource;
 };
 
+const coverLetterAiTimeoutMs = 8000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(`Cover letter generation timed out after ${timeoutMs}ms.`)), timeoutMs);
+    }),
+  ]);
+}
+
 export async function generateCoverLetterResult(
   applicant: ApplicantInfo,
 ): Promise<CoverLetterGenerationResult> {
@@ -113,32 +124,35 @@ export async function generateCoverLetterResult(
   const consulateName = buildConsulateName(destinationCountry);
 
   try {
-    const response = await createResponseWithFallback({
-      model: "gpt-4o",
-      fallbackModel: "gpt-4o-mini",
-      temperature: 0.5,
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text:
-                "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences.",
-            },
-          ],
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Include a short subject line, a respectful salutation, and concise paragraphs that explicitly confirm: 1) the applicant has complete daily financial proof aligned with the destination's stay requirements, 2) the travel itinerary is internally consistent across dates, accommodation, and entry details, and 3) the applicant has clear proof of intent to return to their home country. Avoid inventing facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
-            },
-          ],
-        },
-      ],
-    });
+    const response = await withTimeout(
+      createResponseWithFallback({
+        model: "gpt-4o",
+        fallbackModel: "gpt-4o-mini",
+        temperature: 0.5,
+        input: [
+          {
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text:
+                  "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences.",
+              },
+            ],
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Include a short subject line, a respectful salutation, and concise paragraphs that explicitly confirm: 1) the applicant has complete daily financial proof aligned with the destination's stay requirements, 2) the travel itinerary is internally consistent across dates, accommodation, and entry details, and 3) the applicant has clear proof of intent to return to their home country. Avoid inventing facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
+              },
+            ],
+          },
+        ],
+      }),
+      coverLetterAiTimeoutMs,
+    );
 
     if (!("output_text" in response)) {
       throw new Error("OpenAI returned an unexpected streaming response.");

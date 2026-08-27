@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowDownUp, ArrowUp, CloudUpload, Download, Eye, FileText, Layers3, Minimize, RotateCw, Scissors, Shield, Tags, Upload, Zap } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, CloudUpload, Download, Eye, FileText, Layers3, LoaderCircle, Minimize, RotateCw, Scissors, Shield, Tags, Upload, Zap } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
 import type { SupportingDocument } from "@/types";
 
@@ -219,6 +219,12 @@ export function PacketWorkspace({
   const [pageOrder, setPageOrder] = useState("1");
   const [rotationPreset, setRotationPreset] = useState<RotationPreset>("90");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
+  const [processingLabel, setProcessingLabel] = useState<string | null>(null);
+
+  const pdfDocuments = useMemo(
+    () => documents.filter((document) => document.kind === "pdf"),
+    [documents],
+  );
 
   const splitDocument = useMemo(
     () => documents.find((document) => document.id === splitDocumentId) ?? null,
@@ -229,6 +235,16 @@ export function PacketWorkspace({
     () => documents.find((document) => document.id === previewDocumentId) ?? null,
     [documents, previewDocumentId],
   );
+
+  function syncDocumentSelection(documentId: string) {
+    const nextDocument = documents.find((document) => document.id === documentId) ?? null;
+    setPreviewDocumentId(documentId);
+    setSplitDocumentId(nextDocument?.kind === "pdf" ? documentId : "");
+
+    if (nextDocument?.kind === "pdf") {
+      setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
+    }
+  }
 
   useEffect(() => {
     documentsRef.current = documents;
@@ -270,6 +286,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Uploading documents");
     setToolkitMessage(null);
 
     try {
@@ -301,10 +318,16 @@ export function PacketWorkspace({
         onSupportingDocumentsChange([...supportingDocuments, ...uploadedDocuments]);
       }
 
+      const nextAllDocuments = [...documentsRef.current, ...nextDocuments];
+      const firstPdfDocument = nextAllDocuments.find((document) => document.kind === "pdf") ?? null;
+
       setDocuments((currentDocuments) => [...currentDocuments, ...nextDocuments]);
-      setSplitDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
+      setSplitDocumentId((currentId) => {
+        const currentSelection = nextAllDocuments.find((document) => document.id === currentId && document.kind === "pdf");
+        return currentSelection?.id ?? firstPdfDocument?.id ?? "";
+      });
       setPreviewDocumentId((currentId) => currentId || nextDocuments[0]?.id || "");
-      setPageOrder((currentValue) => currentValue === "1" && nextDocuments[0] ? Array.from({ length: nextDocuments[0].pageCount }, (_, index) => String(index + 1)).join(",") : currentValue);
+      setPageOrder((currentValue) => currentValue === "1" && firstPdfDocument ? Array.from({ length: firstPdfDocument.pageCount }, (_, index) => String(index + 1)).join(",") : currentValue);
       setToolkitMessage(
         previewMode
           ? `${nextDocuments.length} supporting document${nextDocuments.length === 1 ? "" : "s"} added to the packet workspace.`
@@ -314,6 +337,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to add supporting documents.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
 
       if (inputRef.current) {
         inputRef.current.value = "";
@@ -389,7 +413,11 @@ export function PacketWorkspace({
 
       const nextDocuments = currentDocuments.filter((document) => document.id !== documentId);
       if (splitDocumentId === documentId) {
-        setSplitDocumentId(nextDocuments[0]?.id ?? "");
+        const nextPdfDocument = nextDocuments.find((document) => document.kind === "pdf");
+        setSplitDocumentId(nextPdfDocument?.id ?? "");
+        if (nextPdfDocument) {
+          setPageOrder(Array.from({ length: nextPdfDocument.pageCount }, (_, index) => String(index + 1)).join(","));
+        }
       }
       if (previewDocumentId === documentId) {
         setPreviewDocumentId(nextDocuments[0]?.id ?? "");
@@ -409,6 +437,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Merging document stack");
     setToolkitMessage(null);
 
     try {
@@ -436,6 +465,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to merge the selected documents.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -446,6 +476,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Splitting PDF pages");
     setToolkitMessage(null);
 
     try {
@@ -471,6 +502,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to split the selected PDF.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -481,6 +513,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Compressing PDF");
     setToolkitMessage(null);
 
     try {
@@ -511,6 +544,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to compress the selected PDF.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -521,6 +555,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Rotating PDF pages");
     setToolkitMessage(null);
 
     try {
@@ -544,6 +579,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to rotate the selected PDF.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -554,6 +590,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Reordering PDF pages");
     setToolkitMessage(null);
 
     try {
@@ -579,6 +616,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to reorder the selected PDF.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -589,6 +627,7 @@ export function PacketWorkspace({
     }
 
     setIsProcessingDocuments(true);
+    setProcessingLabel("Sanitizing PDF metadata");
     setToolkitMessage(null);
 
     try {
@@ -620,6 +659,7 @@ export function PacketWorkspace({
       setToolkitMessage(error instanceof Error ? error.message : "Unable to sanitize the selected PDF.");
     } finally {
       setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -628,11 +668,13 @@ export function PacketWorkspace({
       <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
-              <Upload className="h-3.5 w-3.5" />
-              PDF Editor
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
+                <Upload className="h-3.5 w-3.5" />
+                PDF Editor
+              </div>
+              <h4 className="text-lg font-semibold text-white">Supporting document PDF editor</h4>
             </div>
-            <h4 className="mt-3 text-lg font-semibold text-white">Supporting document PDF editor</h4>
             <p className="mt-2 text-sm leading-6 text-slate-300">
               Upload supporting files, classify them automatically, preview them, and merge them into a cleaner consular stack.
             </p>
@@ -817,33 +859,92 @@ export function PacketWorkspace({
           )}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => void handleMergeDocuments()}
+          disabled={isProcessingDocuments || documents.length === 0}
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[1rem] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Layers3 className="h-4 w-4" />
+          Merge All Documents Into Consular Stack
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <Eye className="h-3.5 w-3.5" />
+                Document Preview
+              </div>
+              <select
+                value={previewDocumentId}
+                onChange={(event) => syncDocumentSelection(event.target.value)}
+                className="min-w-[220px] rounded-full border border-white/12 bg-[#161616] px-4 py-2 text-sm text-white outline-none transition focus:border-white/30"
+              >
+                <option value="">Choose a document</option>
+                {documents.map((document) => (
+                  <option key={document.id} value={document.id}>{document.file.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-300">
+              {splitDocument && splitDocument.kind === "pdf"
+                ? `Active PDF: ${splitDocument.file.name} · ${splitDocument.pageCount} ${splitDocument.pageCount === 1 ? "page" : "pages"}`
+                : pdfDocuments.length > 0
+                  ? "Select a PDF in the preview header to use Split, Rotate, Reorder, and Sanitize."
+                  : "Upload a PDF to unlock page editing actions."}
+            </div>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-[1rem] border border-white/10 bg-black/50">
+            {previewDocument ? (
+              previewDocument.kind === "pdf" ? (
+                <iframe
+                  src={previewDocument.previewUrl}
+                  title={previewDocument.file.name}
+                  className="h-[420px] w-full bg-white"
+                />
+              ) : (
+                <div className="flex min-h-[420px] items-center justify-center bg-black/70 p-4">
+                  <Image
+                    src={previewDocument.previewUrl}
+                    alt={previewDocument.file.name}
+                    width={800}
+                    height={1100}
+                    unoptimized
+                    className="max-h-[390px] w-auto rounded-[0.8rem] object-contain"
+                  />
+                </div>
+              )
+            ) : (
+              <div className="flex min-h-[420px] items-center justify-center px-4 text-center text-sm text-slate-400">
+                Choose a supporting document to inspect it before packet generation.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            <Zap className="h-3.5 w-3.5" />
+            Active PDF Tools
+          </div>
+
+          {processingLabel ? (
+            <div className="flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              {processingLabel}...
+            </div>
+          ) : null}
+
           <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
             <h3 className="flex items-center gap-2 font-semibold text-white">
               <Scissors className="h-[18px] w-[18px] text-red-500" />
               Split PDF
             </h3>
             <div className="mt-4 flex flex-col gap-4">
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Select Document</span>
-                <select
-                  value={splitDocumentId}
-                  onChange={(event) => {
-                    const nextDocumentId = event.target.value;
-                    const nextDocument = documents.find((document) => document.id === nextDocumentId) ?? null;
-                    setSplitDocumentId(nextDocumentId);
-                    if (nextDocument?.kind === "pdf") {
-                      setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
-                    }
-                  }}
-                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                >
-                  <option value="">Choose a PDF</option>
-                  {documents.filter((document) => document.kind === "pdf").map((document) => (
-                    <option key={document.id} value={document.id}>{document.file.name}</option>
-                  ))}
-                </select>
-              </label>
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-slate-200">Page Range (e.g. 1-3)</span>
                 <input
@@ -857,7 +958,7 @@ export function PacketWorkspace({
                 type="button"
                 onClick={() => void handleSplitDocument()}
                 disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
+                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Extract Pages
               </button>
@@ -870,26 +971,6 @@ export function PacketWorkspace({
               Rotate Pages
             </h3>
             <div className="mt-4 flex flex-col gap-4">
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Select Document</span>
-                <select
-                  value={splitDocumentId}
-                  onChange={(event) => {
-                    const nextDocumentId = event.target.value;
-                    const nextDocument = documents.find((document) => document.id === nextDocumentId) ?? null;
-                    setSplitDocumentId(nextDocumentId);
-                    if (nextDocument?.kind === "pdf") {
-                      setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
-                    }
-                  }}
-                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                >
-                  <option value="">Choose a PDF</option>
-                  {documents.filter((document) => document.kind === "pdf").map((document) => (
-                    <option key={document.id} value={document.id}>{document.file.name}</option>
-                  ))}
-                </select>
-              </label>
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-slate-200">Degrees</span>
                 <select
@@ -906,16 +987,16 @@ export function PacketWorkspace({
                 type="button"
                 onClick={() => void handleRotateDocument()}
                 disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
+                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Apply Rotation
               </button>
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-[#111111] p-5 md:col-span-2">
+          <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
             <h3 className="flex items-center gap-2 font-semibold text-white">
-              <Zap className="h-[18px] w-[18px] text-indigo-500" />
+              <ArrowDownUp className="h-[18px] w-[18px] text-violet-400" />
               Quick Actions
             </h3>
             <div className="mt-4 flex flex-col gap-4">
@@ -950,73 +1031,28 @@ export function PacketWorkspace({
               </div>
             </div>
           </div>
-        </div>
 
-        {outputs.length > 0 ? (
-          <div className="mt-5 space-y-3">
-            {outputs.map((output) => (
-              <div key={`${output.fileName}-${output.url}`} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-white">{output.label}</p>
-                  <p className="mt-1 text-sm text-slate-400">{output.fileName}</p>
+          {outputs.length > 0 ? (
+            <div className="space-y-3">
+              {outputs.map((output) => (
+                <div key={`${output.fileName}-${output.url}`} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{output.label}</p>
+                    <p className="mt-1 text-sm text-slate-400">{output.fileName}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <a href={output.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30">
+                      Preview
+                    </a>
+                    <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
+                      <Download className="h-4 w-4" />
+                      Download
+                    </a>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <a href={output.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30">
-                    Preview
-                  </a>
-                  <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
-                    <Download className="h-4 w-4" />
-                    Download
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() => void handleMergeDocuments()}
-          disabled={isProcessingDocuments || documents.length === 0}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[1rem] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Layers3 className="h-4 w-4" />
-          Merge All Documents Into Consular Stack
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-            <Eye className="h-3.5 w-3.5" />
-            Document Preview
-          </div>
-          <div className="mt-4 overflow-hidden rounded-[1rem] border border-white/10 bg-black/50">
-            {previewDocument ? (
-              previewDocument.kind === "pdf" ? (
-                <iframe
-                  src={previewDocument.previewUrl}
-                  title={previewDocument.file.name}
-                  className="h-[420px] w-full bg-white"
-                />
-              ) : (
-                <div className="flex min-h-[420px] items-center justify-center bg-black/70 p-4">
-                  <Image
-                    src={previewDocument.previewUrl}
-                    alt={previewDocument.file.name}
-                    width={800}
-                    height={1100}
-                    unoptimized
-                    className="max-h-[390px] w-auto rounded-[0.8rem] object-contain"
-                  />
-                </div>
-              )
-            ) : (
-              <div className="flex min-h-[420px] items-center justify-center px-4 text-center text-sm text-slate-400">
-                Choose a supporting document to inspect it before packet generation.
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {!previewMode && supportingDocuments.length > 0 ? (
