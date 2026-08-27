@@ -21,9 +21,10 @@ import {
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
 import { previewWizardApplicant } from "@/lib/mock/applications";
+import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
 import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
-import type { ApplicantInfo, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
+import type { ApplicantInfo, ParsedVoiceContextResult, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
 import { consultantDailyMinimumEur, employmentStatusOptions, fundingSourceOptions, visaKnowledgeBaseSections } from "@/config/schengen-rules";
 import { runRiskAudit } from "@/lib/riskAudit";
 
@@ -467,6 +468,11 @@ type VoiceCaptureSession = {
   stopRequested: boolean;
 };
 
+type ToastState = {
+  id: string;
+  message: string;
+};
+
 const knowledgeBaseIcons = {
   clock: HelpCircle,
   camera: Camera,
@@ -728,6 +734,25 @@ function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor 
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
+function appendUniqueSentence(currentValue: string, incomingValue: string): string {
+  const trimmedCurrent = currentValue.trim();
+  const trimmedIncoming = incomingValue.trim();
+
+  if (!trimmedIncoming) {
+    return trimmedCurrent;
+  }
+
+  if (!trimmedCurrent) {
+    return trimmedIncoming;
+  }
+
+  if (trimmedCurrent.toLowerCase().includes(trimmedIncoming.toLowerCase())) {
+    return trimmedCurrent;
+  }
+
+  return `${trimmedCurrent} ${trimmedIncoming}`.trim();
+}
+
 export function ApplicationWizard({
   previewMode = false,
   availableCredits = 0,
@@ -763,6 +788,7 @@ export function ApplicationWizard({
   const [speechSupported, setSpeechSupported] = useState(false);
   const [microphonePermission, setMicrophonePermission] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">("idle");
   const [isKnowledgeDrawerOpen, setIsKnowledgeDrawerOpen] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<ApplicantInfo>({
@@ -939,6 +965,20 @@ export function ApplicationWizard({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast((current) => (current?.id === toast.id ? null : current));
+    }, 3600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [toast]);
 
   function clearVoiceProcessingTimeout() {
     if (voiceProcessingTimeoutRef.current) {
@@ -1396,6 +1436,87 @@ export function ApplicationWizard({
     }
   }
 
+  function applyVoiceIntake(result: ParsedVoiceContextResult) {
+    let updatedFieldCount = 0;
+
+    function setFieldIfDifferent<TField extends FieldPath<ApplicantInfo>>(
+      field: TField,
+      nextValue: ApplicantInfo extends never ? never : unknown,
+    ) {
+      if (nextValue === undefined || nextValue === null) {
+        return;
+      }
+
+      if (typeof nextValue === "string" && nextValue.trim().length === 0) {
+        return;
+      }
+
+      const currentValue = form.getValues(field);
+
+      if (currentValue === nextValue) {
+        return;
+      }
+
+      form.setValue(field, nextValue as never, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      updatedFieldCount += 1;
+    }
+
+    setFieldIfDifferent("trip.destinationCountry", result.destinationCountry);
+    setFieldIfDifferent("trip.firstEntryCountry", result.firstEntryCountry || result.destinationCountry);
+    setFieldIfDifferent("trip.purpose", result.tripPurpose === "conference" ? "business" : result.tripPurpose);
+    setFieldIfDifferent("employment.employmentStatus", result.employmentStatus);
+    setFieldIfDifferent("sponsor.fundingSource", result.fundingSource);
+
+    if (result.arrivalDate) {
+      setFieldIfDifferent("trip.arrivalDate", result.arrivalDate);
+    }
+
+    if (result.departureDate) {
+      setFieldIfDifferent("trip.departureDate", result.departureDate);
+    }
+
+    if (result.accommodationSummary) {
+      setFieldIfDifferent(
+        "trip.accommodations",
+        appendUniqueSentence(form.getValues("trip.accommodations"), result.accommodationSummary),
+      );
+    }
+
+    if (result.hostContext) {
+      setFieldIfDifferent(
+        "homeTies.dependentInformation",
+        appendUniqueSentence(form.getValues("homeTies.dependentInformation") ?? "", result.hostContext),
+      );
+    }
+
+    if (result.returnTieSignal) {
+      setFieldIfDifferent(
+        "homeTies.returnIntentEvidence",
+        appendUniqueSentence(form.getValues("homeTies.returnIntentEvidence"), result.returnTieSignal),
+      );
+    }
+
+    if (result.tripPurpose === "conference" && !form.getValues("employment.occupation").trim()) {
+      setFieldIfDifferent("employment.occupation", "Conference attendee");
+    }
+
+    if (updatedFieldCount === 0) {
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Voice intake was understood, but there were no new fields to update.",
+      });
+      return;
+    }
+
+    setToast({
+      id: crypto.randomUUID(),
+      message: `Wizard Updated! We pre-filled ${updatedFieldCount} field${updatedFieldCount === 1 ? "" : "s"} from your voice notes.`,
+    });
+  }
+
   async function handleGenerateCoverLetter(applicant: ApplicantInfo) {
     setIsGeneratingCoverLetter(true);
     setCoverLetterMessage(null);
@@ -1794,6 +1915,8 @@ export function ApplicationWizard({
                   {identityLockMessage}
                 </div>
               ) : null}
+
+              <VoiceIntakeCard onApply={applyVoiceIntake} />
 
               <div className="grid gap-4 md:grid-cols-2">
                 <TextInput label="First name" name="personal.firstName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.firstName" ? voiceCaptureState.phase : null} />
@@ -2233,6 +2356,20 @@ export function ApplicationWizard({
                   </details>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div className="fixed bottom-5 left-5 z-50 max-w-sm rounded-[1rem] border border-emerald-300/20 bg-[#0f172a]/95 px-4 py-3 text-sm text-emerald-50 shadow-panel backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
+              <CheckCircle2 className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-semibold text-white">Smart Intake Applied</p>
+              <p className="mt-1 leading-6">{toast.message}</p>
             </div>
           </div>
         </div>

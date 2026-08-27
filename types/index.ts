@@ -39,6 +39,8 @@ export type SponsorType = "self" | "host" | "inviting_company" | "other";
 
 export type FundingSource = "self_funded" | "family_sponsored" | "company_sponsored";
 
+export type VoiceIntakeTripPurpose = "tourism" | "business" | "family_visit" | "conference";
+
 export type EmploymentStatus =
   | "employed"
   | "self_employed"
@@ -145,6 +147,21 @@ export interface ApplicantInfo {
     finalDestinationPermitValidUntil?: string;
   };
   supportingDocuments?: SupportingDocument[];
+}
+
+export interface ParsedVoiceContextResult {
+  transcript: string;
+  destinationCountry: string;
+  firstEntryCountry: string;
+  tripPurpose: VoiceIntakeTripPurpose;
+  employmentStatus: EmploymentStatus;
+  fundingSource: FundingSource;
+  arrivalDate?: string;
+  departureDate?: string;
+  accommodationSummary?: string;
+  hostContext?: string;
+  returnTieSignal?: string;
+  specialCircumstances: string;
 }
 
 export interface SchengenFormFields {
