@@ -3,11 +3,8 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown,
   ArrowDownUp,
-  ArrowUp,
   CheckCircle2,
-  CloudUpload,
   Download,
   Eye,
   FileText,
@@ -553,43 +550,6 @@ export function PacketWorkspace({
     setToolkitMessage("Generated PDF removed from the workspace outputs.");
   }
 
-  function moveDocument(documentId: string, direction: -1 | 1) {
-    const currentDocuments = documentsRef.current;
-    const index = currentDocuments.findIndex((document) => document.id === documentId);
-
-    if (index < 0) {
-      return;
-    }
-
-    const targetIndex = index + direction;
-
-    if (targetIndex < 0 || targetIndex >= currentDocuments.length) {
-      return;
-    }
-
-    const nextDocuments = reorderItems(currentDocuments, index, targetIndex);
-    commitDocuments(nextDocuments);
-    setToolkitMessage("Document order updated for the merge export.");
-  }
-
-  function movePage(pageNumber: number, direction: -1 | 1) {
-    setPageSequence((currentSequence) => {
-      const index = currentSequence.findIndex((value) => value === pageNumber);
-
-      if (index < 0) {
-        return currentSequence;
-      }
-
-      const targetIndex = index + direction;
-
-      if (targetIndex < 0 || targetIndex >= currentSequence.length) {
-        return currentSequence;
-      }
-
-      return reorderItems(currentSequence, index, targetIndex);
-    });
-  }
-
   async function handleDroppedFiles(files: FileList | null) {
     await handleDocumentUpload(files);
   }
@@ -1041,7 +1001,7 @@ export function PacketWorkspace({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-white">Merge order</p>
-            <p className="mt-1 text-sm text-slate-400">Drag cards up or down to control the exported stack.</p>
+            <p className="mt-1 text-sm text-slate-400">Drag cards to control the exported stack, then create one merged PDF.</p>
           </div>
           <button
             type="button"
@@ -1091,22 +1051,6 @@ export function PacketWorkspace({
                   >
                     <Eye className="h-4 w-4" />
                     Preview
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveDocument(document.id, -1)}
-                    disabled={index === 0}
-                    className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveDocument(document.id, 1)}
-                    disabled={index === documents.length - 1}
-                    className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
-                  >
-                    <ArrowDown className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -1314,7 +1258,10 @@ export function PacketWorkspace({
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Position {index + 1}</p>
                       <p className="text-sm font-semibold text-white">Page {pageNumber}</p>
                     </div>
-                    <GripVertical className="h-4 w-4 text-slate-400" />
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                      <GripVertical className="h-3.5 w-3.5" />
+                      Drag
+                    </div>
                   </div>
                   <div className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white">
                     {previewMap.get(pageNumber) ? (
@@ -1326,24 +1273,6 @@ export function PacketWorkspace({
                     ) : (
                       <div className="flex h-[220px] items-center justify-center text-sm text-slate-400">Page preview unavailable</div>
                     )}
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => movePage(pageNumber, -1)}
-                      disabled={index === 0}
-                      className="inline-flex flex-1 items-center justify-center rounded-full border border-white/12 bg-[#101010] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => movePage(pageNumber, 1)}
-                      disabled={index === pageSequence.length - 1}
-                      className="inline-flex flex-1 items-center justify-center rounded-full border border-white/12 bg-[#101010] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30 disabled:opacity-40"
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -1453,53 +1382,44 @@ export function PacketWorkspace({
         </div>
 
         <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Step 2</p>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <Zap className="h-3.5 w-3.5" />
+                Workspace
+              </div>
               <h4 className="mt-2 text-lg font-semibold text-white">{selectedToolDefinition.uploadTitle}</h4>
               <p className="mt-2 text-sm leading-6 text-slate-300">{selectedToolDefinition.uploadDescription}</p>
             </div>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple={selectedToolDefinition.multiple}
-              accept={selectedToolDefinition.accept}
-              className="hidden"
-              onChange={(event) => void handleDocumentUpload(event.target.files)}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={openFilePicker}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              void handleDroppedFiles(event.dataTransfer.files);
-            }}
-            disabled={isProcessingDocuments}
-            className={`mt-5 flex w-full flex-col items-center justify-center gap-3 rounded-[1.3rem] border-2 border-dashed px-4 py-8 text-center text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${selectedTool === "merge" ? "border-blue-300/35 bg-blue-500/10 text-blue-100 hover:bg-blue-500/15" : "border-indigo-300/35 bg-indigo-500/10 text-indigo-100 hover:bg-indigo-500/15"}`}
-          >
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-white text-slate-900 shadow-sm shadow-black/20">
-              <CloudUpload className="h-8 w-8" />
-            </span>
-            <span className="text-base font-semibold text-white">
-              {selectedTool === "merge" ? "Drop files here or choose files" : "Drop a PDF here or choose a PDF"}
-            </span>
-            <span className="max-w-xl text-sm font-medium leading-6">
-              {isProcessingDocuments
-                ? "Preparing your files..."
-                : selectedToolDefinition.multiple
-                  ? "PDF, PNG, JPEG, and WEBP files are supported for merge mode."
-                  : "Only PDF files are accepted for this operation."}
-            </span>
-          </button>
-        </div>
-
-        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
-          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-            <Zap className="h-3.5 w-3.5" />
-            Step 3 Workspace
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              <input
+                ref={inputRef}
+                type="file"
+                multiple={selectedToolDefinition.multiple}
+                accept={selectedToolDefinition.accept}
+                className="hidden"
+                onChange={(event) => void handleDocumentUpload(event.target.files)}
+              />
+              <button
+                type="button"
+                onClick={openFilePicker}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void handleDroppedFiles(event.dataTransfer.files);
+                }}
+                disabled={isProcessingDocuments}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Upload className="h-4 w-4" />
+                {selectedTool === "merge" ? "Upload Files" : "Upload PDF"}
+              </button>
+              <p className="text-xs leading-5 text-slate-400 lg:max-w-[18rem] lg:text-right">
+                {selectedToolDefinition.multiple
+                  ? "Add multiple PDFs or images for merge mode."
+                  : "Upload one PDF, then configure and export from this workspace."}
+              </p>
+            </div>
           </div>
 
           {processingLabel ? (
@@ -1548,7 +1468,7 @@ export function PacketWorkspace({
           <div className="rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Step 4 Generated Files</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Generated Files</div>
                 <p className="mt-2 text-sm leading-6 text-emerald-100/90">
                   Every export lands here with preview and download actions. The newest result is selected automatically.
                 </p>
@@ -1594,7 +1514,7 @@ export function PacketWorkspace({
           <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
               <Download className="h-3.5 w-3.5" />
-              Step 4 Generated Files
+              Generated Files
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-300">
               Your processed PDFs will appear here after each operation, with the newest result opened automatically in preview.
