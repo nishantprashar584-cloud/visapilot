@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, FileStack, Home, LoaderCircle, Mic, MicOff, Plane, UserSquare2, Wallet, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileStack, Home, LoaderCircle, Mic, Plane, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -152,7 +152,42 @@ interface InputProps {
   step?: string;
   enableVoice?: boolean;
   onVoiceCapture?: (name: FieldPath<ApplicantInfo>) => void;
-  isVoiceActive?: boolean;
+  voicePhase?: "listening" | "processing" | null;
+}
+
+function getVoiceButtonClass(voicePhase: "listening" | "processing" | null) {
+  if (voicePhase === "listening") {
+    return "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]";
+  }
+
+  if (voicePhase === "processing") {
+    return "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]";
+  }
+
+  return "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white";
+}
+
+function VoiceButtonIcon({ voicePhase }: { voicePhase: "listening" | "processing" | null }) {
+  if (voicePhase === "listening") {
+    return (
+      <>
+        <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
+        <Mic className="relative h-4 w-4" />
+      </>
+    );
+  }
+
+  if (voicePhase === "processing") {
+    return (
+      <>
+        <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-pulse" />
+        <span className="absolute inset-0 rounded-full border border-emerald-300/40 border-t-transparent animate-spin" />
+        <Mic className="relative h-4 w-4" />
+      </>
+    );
+  }
+
+  return <Mic className="h-4 w-4" />;
 }
 
 function TextInput({
@@ -165,7 +200,7 @@ function TextInput({
   step,
   enableVoice = false,
   onVoiceCapture,
-  isVoiceActive = false,
+  voicePhase = null,
 }: InputProps) {
   const errorMessage = getErrorMessage(errors, name);
   const isNumeric = type === "number";
@@ -193,10 +228,10 @@ function TextInput({
           <button
             type="button"
             onClick={() => onVoiceCapture?.(name)}
-            className={`absolute inset-y-0 ${isDate ? "right-12" : "right-4"} flex items-center text-slate-300 transition hover:text-white`}
+            className={`absolute ${isDate ? "right-12 top-1/2 -translate-y-1/2" : "right-3 top-1/2 -translate-y-1/2"} inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${getVoiceButtonClass(voicePhase)}`}
             aria-label={`Voice fill ${label}`}
           >
-            {isVoiceActive ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            <VoiceButtonIcon voicePhase={voicePhase} />
           </button>
         ) : null}
       </span>
@@ -245,7 +280,7 @@ interface TextAreaInputProps {
   placeholder?: string;
   enableVoice?: boolean;
   onVoiceCapture?: (name: FieldPath<ApplicantInfo>) => void;
-  isVoiceActive?: boolean;
+  voicePhase?: "listening" | "processing" | null;
 }
 
 function TextAreaInput({
@@ -257,7 +292,7 @@ function TextAreaInput({
   placeholder,
   enableVoice = false,
   onVoiceCapture,
-  isVoiceActive = false,
+  voicePhase = null,
 }: TextAreaInputProps) {
   const errorMessage = getErrorMessage(errors, name);
 
@@ -277,10 +312,10 @@ function TextAreaInput({
           <button
             type="button"
             onClick={() => onVoiceCapture?.(name)}
-            className="absolute right-4 top-4 text-slate-300 transition hover:text-white"
+            className={`absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${getVoiceButtonClass(voicePhase)}`}
             aria-label={`Voice fill ${label}`}
           >
-            {isVoiceActive ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            <VoiceButtonIcon voicePhase={voicePhase} />
           </button>
         ) : null}
       </span>
@@ -401,6 +436,8 @@ type BrowserSpeechRecognition = {
 };
 
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+type VoiceCapturePhase = "listening" | "processing";
 
 const dateVoiceFields = new Set<FieldPath<ApplicantInfo>>([
   "personal.dateOfBirth",
@@ -579,6 +616,10 @@ function normalizePassportTranscript(value: string): string {
   return cleaned || value;
 }
 
+function sanitizeSpeechTranscript(value: string): string {
+  return value.trim().replace(/[.]+$/g, "").trim();
+}
+
 function normalizeVoiceTranscript(name: FieldPath<ApplicantInfo>, transcript: string): string {
   if (dateVoiceFields.has(name)) {
     return normalizeDateTranscript(transcript);
@@ -626,6 +667,7 @@ export function ApplicationWizard({
   const router = useRouter();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const voiceProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -643,7 +685,7 @@ export function ApplicationWizard({
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
   const [customLetters, setCustomLetters] = useState<CustomLetterDraft[]>(defaultCustomLetters);
   const [activeCustomLetterId, setActiveCustomLetterId] = useState<string | null>(null);
-  const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
+  const [voiceCaptureState, setVoiceCaptureState] = useState<{ field: FieldPath<ApplicantInfo>; phase: VoiceCapturePhase } | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [isMicrophoneHelpDismissed, setIsMicrophoneHelpDismissed] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -685,6 +727,12 @@ export function ApplicationWizard({
         ? `Consular rule check passes: your first Schengen entry matches ${destinationCountry}, which supports filing with that consulate.`
         : `First entry is ${firstEntryCountry}. Apply through ${destinationCountry} only if it remains the country of longest stay under Schengen consular rules.`
       : "Enter destination and first entry to verify the consular rule path.";
+  const displayedVoiceMessage =
+    voiceCaptureState?.phase === "listening"
+      ? "Listening. Speak naturally and the result will be inserted into the field."
+      : voiceCaptureState?.phase === "processing"
+        ? "Processing your voice input."
+        : voiceMessage;
 
   useEffect(() => {
     const supported = Boolean(getSpeechRecognitionConstructor());
@@ -784,12 +832,35 @@ export function ApplicationWizard({
 
   useEffect(() => {
     return () => {
+      if (voiceProcessingTimeoutRef.current) {
+        clearTimeout(voiceProcessingTimeoutRef.current);
+      }
+
       if (speechRecognitionRef.current) {
         speechRecognitionRef.current.onend = null;
         speechRecognitionRef.current.stop();
       }
     };
   }, []);
+
+  function clearVoiceProcessingTimeout() {
+    if (voiceProcessingTimeoutRef.current) {
+      clearTimeout(voiceProcessingTimeoutRef.current);
+      voiceProcessingTimeoutRef.current = null;
+    }
+  }
+
+  function finishVoiceCapture(field: FieldPath<ApplicantInfo>, nextMessage?: string) {
+    clearVoiceProcessingTimeout();
+    voiceProcessingTimeoutRef.current = setTimeout(() => {
+      if (nextMessage) {
+        setVoiceMessage(nextMessage);
+      }
+
+      setVoiceCaptureState((current) => (current?.field === field ? null : current));
+      voiceProcessingTimeoutRef.current = null;
+    }, 900);
+  }
 
   async function requestMicrophoneAccess() {
     setIsMicrophoneHelpDismissed(false);
@@ -826,9 +897,10 @@ export function ApplicationWizard({
       return;
     }
 
-    if (activeVoiceField === name && speechRecognitionRef.current) {
+    if (voiceCaptureState?.field === name && voiceCaptureState.phase === "listening" && speechRecognitionRef.current) {
       speechRecognitionRef.current.stop();
-      setActiveVoiceField(null);
+      clearVoiceProcessingTimeout();
+      setVoiceCaptureState(null);
       setVoiceMessage("Voice capture stopped.");
       return;
     }
@@ -836,6 +908,8 @@ export function ApplicationWizard({
     if (speechRecognitionRef.current) {
       speechRecognitionRef.current.stop();
     }
+
+    clearVoiceProcessingTimeout();
 
     if (microphonePermission !== "granted") {
       const accessGranted = await requestMicrophoneAccess();
@@ -850,13 +924,17 @@ export function ApplicationWizard({
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     speechRecognitionRef.current = recognition;
-    setActiveVoiceField(name);
+    setVoiceCaptureState({ field: name, phase: "listening" });
     setVoiceMessage("Listening. Speak naturally and the result will be inserted into the field.");
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      setVoiceCaptureState({ field: name, phase: "processing" });
+      setVoiceMessage("Processing your voice input.");
+
+      const transcript = sanitizeSpeechTranscript(event.results[0]?.[0]?.transcript ?? "");
 
       if (!transcript) {
+        finishVoiceCapture(name, "No speech was detected. Try again and speak a little closer to the microphone.");
         return;
       }
 
@@ -867,7 +945,7 @@ export function ApplicationWizard({
       const normalizedNumber = numericVoiceFields.has(name) ? Number(normalizedTranscript) : null;
 
       if (numericVoiceFields.has(name) && (normalizedNumber === null || Number.isNaN(normalizedNumber))) {
-        setVoiceMessage("Voice input was heard, but the amount could not be normalized into a number.");
+        finishVoiceCapture(name, "Voice input was heard, but the amount could not be normalized into a number.");
         return;
       }
 
@@ -881,10 +959,11 @@ export function ApplicationWizard({
         shouldDirty: true,
         shouldValidate: true,
       });
-      setVoiceMessage(
+      finishVoiceCapture(
+        name,
         normalizedTranscript !== transcript
-          ? `Voice input inserted and normalized to ${normalizedTranscript}.`
-          : "Voice input inserted into the active field.",
+          ? `Voice input inserted and normalized to ${normalizedTranscript}`
+          : "Voice input inserted into the active field",
       );
     };
 
@@ -898,11 +977,18 @@ export function ApplicationWizard({
       if (errorCode === "not-allowed") {
         setMicrophonePermission("denied");
       }
-      setActiveVoiceField(null);
+      clearVoiceProcessingTimeout();
+      setVoiceCaptureState(null);
     };
 
     recognition.onend = () => {
-      setActiveVoiceField(null);
+      setVoiceCaptureState((current) => {
+        if (current?.field !== name) {
+          return current;
+        }
+
+        return current.phase === "processing" ? current : null;
+      });
     };
 
     recognition.start();
@@ -1349,7 +1435,20 @@ export function ApplicationWizard({
                 </div>
               </div>
 
-              {voiceMessage ? <p className="mt-3 text-sm leading-6 text-slate-300">{voiceMessage}</p> : null}
+              {displayedVoiceMessage ? (
+                <div className={`mt-3 flex items-center gap-3 rounded-[1rem] border px-4 py-3 text-sm ${
+                  voiceCaptureState?.phase === "listening"
+                    ? "border-rose-400/20 bg-rose-400/10 text-rose-50"
+                    : voiceCaptureState?.phase === "processing"
+                      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-50"
+                      : "border-white/10 bg-black/30 text-slate-300"
+                }`}>
+                  <span className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${getVoiceButtonClass(voiceCaptureState?.phase ?? null)}`}>
+                    <VoiceButtonIcon voicePhase={voiceCaptureState?.phase ?? null} />
+                  </span>
+                  <p className="leading-6">{displayedVoiceMessage}</p>
+                </div>
+              ) : null}
 
               {microphonePermission === "denied" && !isMicrophoneHelpDismissed ? (
                 <div className="mt-4 rounded-[1rem] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
@@ -1459,23 +1558,23 @@ export function ApplicationWizard({
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
-                <TextInput label="First name" name="personal.firstName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "personal.firstName"} />
-                <TextInput label="Last name" name="personal.lastName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "personal.lastName"} />
+                <TextInput label="First name" name="personal.firstName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.firstName" ? voiceCaptureState.phase : null} />
+                <TextInput label="Last name" name="personal.lastName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.lastName" ? voiceCaptureState.phase : null} />
                 <TextInput label="Date of birth" name="personal.dateOfBirth" type="date" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Place of birth" name="personal.placeOfBirth" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "personal.placeOfBirth"} />
-                <TextInput label="Country of birth" name="personal.countryOfBirth" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "personal.countryOfBirth"} />
-                <TextInput label="Current nationality" name="personal.currentNationality" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "personal.currentNationality"} />
+                <TextInput label="Place of birth" name="personal.placeOfBirth" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.placeOfBirth" ? voiceCaptureState.phase : null} />
+                <TextInput label="Country of birth" name="personal.countryOfBirth" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.countryOfBirth" ? voiceCaptureState.phase : null} />
+                <TextInput label="Current nationality" name="personal.currentNationality" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.currentNationality" ? voiceCaptureState.phase : null} />
                 <TextInput label="Email address" name="contact.email" type="email" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Phone number" name="contact.phone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "contact.phone"} />
-                <TextInput label="Address line 1" name="contact.addressLine1" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "contact.addressLine1"} />
-                <TextInput label="City" name="contact.city" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "contact.city"} />
+                <TextInput label="Phone number" name="contact.phone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.phone" ? voiceCaptureState.phase : null} />
+                <TextInput label="Address line 1" name="contact.addressLine1" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.addressLine1" ? voiceCaptureState.phase : null} />
+                <TextInput label="City" name="contact.city" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.city" ? voiceCaptureState.phase : null} />
                 <TextInput label="Postal code" name="contact.postalCode" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Country of residence" name="contact.country" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "contact.country"} />
-                <TextInput label="Passport number" name="passport.number" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "passport.number"} />
+                <TextInput label="Country of residence" name="contact.country" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.country" ? voiceCaptureState.phase : null} />
+                <TextInput label="Passport number" name="passport.number" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.number" ? voiceCaptureState.phase : null} />
                 <TextInput label="Passport issue date" name="passport.dateOfIssue" type="date" register={form.register} errors={form.formState.errors} />
                 <TextInput label="Passport expiry date" name="passport.dateOfExpiry" type="date" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Issuing authority" name="passport.issuedBy" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "passport.issuedBy"} />
-                <TextInput label="Issuing country" name="passport.issuingCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "passport.issuingCountry"} />
+                <TextInput label="Issuing authority" name="passport.issuedBy" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.issuedBy" ? voiceCaptureState.phase : null} />
+                <TextInput label="Issuing country" name="passport.issuingCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.issuingCountry" ? voiceCaptureState.phase : null} />
                 <SelectInput
                   label="Gender"
                   name="personal.gender"
@@ -1514,10 +1613,10 @@ export function ApplicationWizard({
               tone="indigo"
             >
               <div className="grid gap-4 md:grid-cols-2">
-                <TextInput label="Destination country" name="trip.destinationCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.destinationCountry"} />
-                <TextInput label="First Schengen entry country" name="trip.firstEntryCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.firstEntryCountry"} />
-                <TextInput label="Port of entry" name="trip.portOfEntry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.portOfEntry"} />
-                <TextInput label="Transit countries" name="trip.transitCountries" register={form.register} errors={form.formState.errors} placeholder="Optional transit countries, comma separated" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.transitCountries"} />
+                <TextInput label="Destination country" name="trip.destinationCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.destinationCountry" ? voiceCaptureState.phase : null} />
+                <TextInput label="First Schengen entry country" name="trip.firstEntryCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.firstEntryCountry" ? voiceCaptureState.phase : null} />
+                <TextInput label="Port of entry" name="trip.portOfEntry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.portOfEntry" ? voiceCaptureState.phase : null} />
+                <TextInput label="Transit countries" name="trip.transitCountries" register={form.register} errors={form.formState.errors} placeholder="Optional transit countries, comma separated" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.transitCountries" ? voiceCaptureState.phase : null} />
                 <SelectInput
                   label="Purpose of visit"
                   name="trip.purpose"
@@ -1550,7 +1649,7 @@ export function ApplicationWizard({
                 />
                 <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} />
                 <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} />
-                <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} placeholder="Hotel name, address, or host accommodation summary" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.accommodations"} />
+                <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} placeholder="Hotel name, address, or host accommodation summary" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.accommodations" ? voiceCaptureState.phase : null} />
                 <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white">
                   Trip duration is calculated automatically from the entry and exit dates to drive the destination-specific funds audit.
                 </div>
@@ -1674,12 +1773,12 @@ export function ApplicationWizard({
                     { label: "Other", value: "other" },
                   ]}
                 />
-                <TextInput label="Occupation" name="employment.occupation" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "employment.occupation"} />
-                <TextInput label="Employer name" name="employment.employerName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "employment.employerName"} />
-                <TextInput label="Employer address" name="employment.employerAddress" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "employment.employerAddress"} />
+                <TextInput label="Occupation" name="employment.occupation" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.occupation" ? voiceCaptureState.phase : null} />
+                <TextInput label="Employer name" name="employment.employerName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerName" ? voiceCaptureState.phase : null} />
+                <TextInput label="Employer address" name="employment.employerAddress" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerAddress" ? voiceCaptureState.phase : null} />
                 <TextInput label="Monthly income (EUR)" name="employment.monthlyIncomeEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} />
                 <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Employer phone" name="employment.employerPhone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "employment.employerPhone"} />
+                <TextInput label="Employer phone" name="employment.employerPhone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerPhone" ? voiceCaptureState.phase : null} />
                 <SelectInput
                   label="Primary trip sponsor"
                   name="sponsor.type"
@@ -1727,9 +1826,9 @@ export function ApplicationWizard({
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <TextInput label="Hotel booking reference" name="trip.hotelBookingReference" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.hotelBookingReference"} />
-                  <TextInput label="Place of visa application" name="application.placeOfApplication" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "application.placeOfApplication"} />
-                  <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} rows={4} placeholder="Hotel, host address, or full stay details" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "trip.accommodations"} />
+                  <TextInput label="Hotel booking reference" name="trip.hotelBookingReference" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.hotelBookingReference" ? voiceCaptureState.phase : null} />
+                  <TextInput label="Place of visa application" name="application.placeOfApplication" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "application.placeOfApplication" ? voiceCaptureState.phase : null} />
+                  <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} rows={4} placeholder="Hotel, host address, or full stay details" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.accommodations" ? voiceCaptureState.phase : null} />
                   <SelectInput
                     label="Property ownership selector"
                     name="homeTies.propertyOwnership"
@@ -1742,8 +1841,8 @@ export function ApplicationWizard({
                       { label: "No property", value: "none" },
                     ]}
                   />
-                  <TextAreaInput label="Dependents & family notes" name="homeTies.dependentInformation" register={form.register} errors={form.formState.errors} placeholder="Dependents, caregiving duties, or similar obligations" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.dependentInformation"} />
-                  <TextAreaInput label="Return-intent evidence notes" name="homeTies.returnIntentEvidence" register={form.register} errors={form.formState.errors} rows={5} placeholder="Employment continuity, family obligations, property, education, or other ties to return home" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} isVoiceActive={activeVoiceField === "homeTies.returnIntentEvidence"} />
+                  <TextAreaInput label="Dependents & family notes" name="homeTies.dependentInformation" register={form.register} errors={form.formState.errors} placeholder="Dependents, caregiving duties, or similar obligations" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "homeTies.dependentInformation" ? voiceCaptureState.phase : null} />
+                  <TextAreaInput label="Return-intent evidence notes" name="homeTies.returnIntentEvidence" register={form.register} errors={form.formState.errors} rows={5} placeholder="Employment continuity, family obligations, property, education, or other ties to return home" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "homeTies.returnIntentEvidence" ? voiceCaptureState.phase : null} />
                 </div>
 
                 <div className="mt-4 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">

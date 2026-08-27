@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, FileStack, LoaderCircle, Mic, MicOff, PackageCheck, Sparkles, WandSparkles } from "lucide-react";
+import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, WandSparkles } from "lucide-react";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
@@ -57,6 +57,10 @@ function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor 
   };
 
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function sanitizeSpeechTranscript(value: string): string {
+  return value.trim().replace(/[.]+$/g, "").trim();
 }
 
 export function Step5Workspace({
@@ -139,9 +143,13 @@ export function Step5Workspace({
     }
   }
 
-  function finishPromptDictation(letterId: string) {
+  function finishPromptDictation(letterId: string, nextMessage?: string) {
     clearPromptProcessingTimeout();
     processingTimeoutRef.current = setTimeout(() => {
+      if (nextMessage) {
+        setCustomVoiceMessage(nextMessage);
+      }
+
       setPromptDictationState((current) => (current?.letterId === letterId ? null : current));
       processingTimeoutRef.current = null;
     }, 900);
@@ -307,11 +315,10 @@ export function Step5Workspace({
       setPromptDictationState({ letterId, phase: "processing" });
       setCustomVoiceMessage("Processing your voice brief.");
 
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      const transcript = sanitizeSpeechTranscript(event.results[0]?.[0]?.transcript ?? "");
 
       if (!transcript) {
-        setCustomVoiceMessage("No speech was detected. Try again and speak a little closer to the microphone.");
-        finishPromptDictation(letterId);
+        finishPromptDictation(letterId, "No speech was detected. Try again and speak a little closer to the microphone.");
         return;
       }
 
@@ -321,8 +328,7 @@ export function Step5Workspace({
         : transcript;
 
       onCustomLetterChange(letterId, { prompt: nextPrompt, message: "Voice brief inserted. Review it, then generate the letter." });
-      setCustomVoiceMessage("Voice brief inserted into the selected custom letter.");
-      finishPromptDictation(letterId);
+      finishPromptDictation(letterId, "Voice brief inserted into the selected custom letter.");
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
@@ -516,7 +522,7 @@ export function Step5Workspace({
                                   dictationPhase === "listening"
                                     ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
                                     : dictationPhase === "processing"
-                                      ? "border-sky-300/30 bg-sky-400/10 text-sky-100"
+                                      ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
                                       : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
                                 }`}
                                 aria-label={`Dictate ${letter.title}`}
@@ -524,10 +530,14 @@ export function Step5Workspace({
                                 {dictationPhase === "listening" ? (
                                   <>
                                     <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
-                                    <MicOff className="relative h-4 w-4" />
+                                    <Mic className="relative h-4 w-4" />
                                   </>
                                 ) : dictationPhase === "processing" ? (
-                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                  <>
+                                    <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-pulse" />
+                                    <span className="absolute inset-0 rounded-full border border-emerald-300/40 border-t-transparent animate-spin" />
+                                    <Mic className="relative h-4 w-4" />
+                                  </>
                                 ) : (
                                   <Mic className="h-4 w-4" />
                                 )}
@@ -540,7 +550,7 @@ export function Step5Workspace({
                               className={`flex items-center gap-2 rounded-[0.9rem] border px-3 py-2 text-sm ${
                                 dictationPhase === "listening"
                                   ? "border-rose-300/20 bg-rose-400/10 text-rose-50"
-                                  : "border-sky-300/20 bg-sky-400/10 text-sky-50"
+                                  : "border-emerald-300/20 bg-emerald-400/10 text-emerald-50"
                               }`}
                             >
                               {dictationPhase === "listening" ? (
@@ -553,8 +563,11 @@ export function Step5Workspace({
                                 </>
                               ) : (
                                 <>
-                                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                                  Processing your brief and updating the draft.
+                                  <span className="relative inline-flex h-4 w-4 items-center justify-center">
+                                    <span className="absolute inset-0 rounded-full bg-emerald-300/30 animate-pulse" />
+                                    <Mic className="relative h-3.5 w-3.5" />
+                                  </span>
+                                  Processing your brief and updating the draft
                                 </>
                               )}
                             </div>
