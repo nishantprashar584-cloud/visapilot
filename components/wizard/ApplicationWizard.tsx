@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -102,6 +102,8 @@ const stepFieldGroups: FieldPath<ApplicantInfo>[][] = [
     "trip.entriesRequested",
     "trip.arrivalDate",
     "trip.departureDate",
+    "trip.previousSchengenVisasIssued",
+    "application.visFingerprintStatus",
     "employment.employmentStatus",
     "sponsor.fundingSource",
   ],
@@ -209,6 +211,7 @@ function TextInput({
   const errorMessage = getErrorMessage(errors, name);
   const isNumeric = type === "number";
   const isDate = type === "date";
+  const voiceEnabled = enableVoice && !isDate;
 
   return (
     <label className="block space-y-2">
@@ -219,21 +222,16 @@ function TextInput({
           type={type}
           step={step}
           placeholder={placeholder}
-          className={`vp-input w-full px-4 py-3 ${isDate ? "date-input pr-11" : ""} ${
+          className={`vp-input w-full px-4 py-3 ${isDate ? "date-input" : ""} ${
             errorMessage ? "border-rose-300" : ""
           }`}
           {...register(name, isNumeric ? { valueAsNumber: true } : undefined)}
         />
-        {isDate ? (
-          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[color:var(--vp-text-muted)]">
-            <CalendarDays className="h-4 w-4" />
-          </span>
-        ) : null}
-        {enableVoice ? (
+        {voiceEnabled ? (
           <button
             type="button"
             onClick={() => onVoiceCapture?.(name)}
-            className={`absolute ${isDate ? "right-12 top-1/2 -translate-y-1/2" : "right-3 top-1/2 -translate-y-1/2"} inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${getVoiceButtonClass(voicePhase)}`}
+            className={`absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${getVoiceButtonClass(voicePhase)}`}
             aria-label={`Voice fill ${label}`}
           >
             <VoiceButtonIcon voicePhase={voicePhase} />
@@ -753,6 +751,37 @@ function appendUniqueSentence(currentValue: string, incomingValue: string): stri
   return `${trimmedCurrent} ${trimmedIncoming}`.trim();
 }
 
+function formatVisaHistoryDate(value: string): string {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function buildPreviousVisaSummary(
+  visas: Array<{ validFrom: string; validTo: string; visaNumber?: string }>,
+): string {
+  return visas
+    .filter((visa) => visa.validFrom && visa.validTo)
+    .map((visa) => {
+      const validityWindow = `${formatVisaHistoryDate(visa.validFrom)} to ${formatVisaHistoryDate(visa.validTo)}`;
+      return visa.visaNumber?.trim() ? `${validityWindow} (${visa.visaNumber.trim()})` : validityWindow;
+    })
+    .join("; ");
+}
+
 export function ApplicationWizard({
   previewMode = false,
   availableCredits = 0,
@@ -807,6 +836,10 @@ export function ApplicationWizard({
   const savingsBalance = useWatch({ control: form.control, name: "employment.savingsBalanceEur" });
   const transitCountries = useWatch({ control: form.control, name: "trip.transitCountries" });
   const fundingSource = useWatch({ control: form.control, name: "sponsor.fundingSource" });
+  const previousSchengenVisasIssued = useWatch({ control: form.control, name: "trip.previousSchengenVisasIssued" });
+  const watchedPreviousSchengenVisas = useWatch({ control: form.control, name: "trip.previousSchengenVisas" });
+  const visFingerprintStatus = useWatch({ control: form.control, name: "application.visFingerprintStatus" });
+  const previousSchengenVisas = useMemo(() => watchedPreviousSchengenVisas ?? [], [watchedPreviousSchengenVisas]);
 
   const completionPercent = Math.round(((currentStep + 1) / stepLabels.length) * 100);
   const displayName = [firstName, lastName].filter(Boolean).join(" ").trim() || "Applicant profile";
@@ -922,6 +955,42 @@ export function ApplicationWizard({
       setSubmitError(null);
     }
   }, [financialStepBlocked, submitError]);
+
+  useEffect(() => {
+    if (!previousSchengenVisasIssued && previousSchengenVisas.length > 0) {
+      form.setValue("trip.previousSchengenVisas", [], {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+    }
+
+    form.setValue(
+      "application.previousSchengenVisasSummary",
+      previousSchengenVisasIssued ? buildPreviousVisaSummary(previousSchengenVisas) : "",
+      {
+        shouldDirty: false,
+        shouldValidate: false,
+      },
+    );
+  }, [form, previousSchengenVisas, previousSchengenVisasIssued]);
+
+  useEffect(() => {
+    form.setValue("application.fingerprintsTakenBefore", visFingerprintStatus === "yes", {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
+
+    if (visFingerprintStatus !== "yes") {
+      form.setValue("application.visFingerprintApproximateDate", "", {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      form.setValue("application.visFingerprintStickerNumber", "", {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+    }
+  }, [form, visFingerprintStatus]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -1220,7 +1289,20 @@ export function ApplicationWizard({
       return;
     }
 
-    const isValid = await form.trigger(stepFieldGroups[currentStep], { shouldFocus: true });
+    const validationFields = [...stepFieldGroups[currentStep]];
+
+    if (currentStep === 1) {
+      previousSchengenVisas.forEach((_, index) => {
+        validationFields.push(`trip.previousSchengenVisas.${index}.validFrom` as FieldPath<ApplicantInfo>);
+        validationFields.push(`trip.previousSchengenVisas.${index}.validTo` as FieldPath<ApplicantInfo>);
+      });
+
+      if (visFingerprintStatus === "yes") {
+        validationFields.push("application.visFingerprintApproximateDate");
+      }
+    }
+
+    const isValid = await form.trigger(validationFields, { shouldFocus: true });
 
     if (!isValid) {
       return;
@@ -1968,14 +2050,150 @@ export function ApplicationWizard({
                   errors={form.formState.errors}
                   options={[...fundingSourceOptions]}
                 />
-                <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.arrivalDate" ? voiceCaptureState.phase : null} />
-                <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.departureDate" ? voiceCaptureState.phase : null} />
+                <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} />
                 <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} placeholder="Hotel name, address, or host accommodation summary" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.accommodations" ? voiceCaptureState.phase : null} />
                 <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white">
                   Trip duration is calculated automatically from the entry and exit dates to drive the destination-specific funds audit.
                 </div>
                 <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white">
                   VisaPilot automatically aligns the destination list and calculates stay duration from your travel dates.
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    <Plane className="h-3.5 w-3.5" />
+                    Item 26 · Previous Schengen visas
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    The harmonized form asks whether you were issued any Schengen visas in the last 3 years. Add up to three entries so Item 26 is not left blank.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {[
+                      { label: "No", value: false },
+                      { label: "Yes", value: true },
+                    ].map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => {
+                          form.setValue("trip.previousSchengenVisasIssued", option.value, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+
+                          if (option.value && previousSchengenVisas.length === 0) {
+                            form.setValue("trip.previousSchengenVisas", [{ validFrom: "", validTo: "", visaNumber: "" }], {
+                              shouldDirty: true,
+                              shouldValidate: false,
+                            });
+                          }
+                        }}
+                        className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          previousSchengenVisasIssued === option.value
+                            ? "border-white/30 bg-white text-slate-950"
+                            : "border-white/10 bg-black/30 text-slate-300 hover:border-white/20 hover:text-white"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  {getErrorMessage(form.formState.errors, "trip.previousSchengenVisas") ? (
+                    <p className="mt-3 text-sm text-rose-600">{getErrorMessage(form.formState.errors, "trip.previousSchengenVisas")}</p>
+                  ) : null}
+
+                  {previousSchengenVisasIssued ? (
+                    <div className="mt-4 space-y-4">
+                      {previousSchengenVisas.map((_, index) => (
+                        <div key={`previous-visa-${index}`} className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-white">Previous visa {index + 1}</p>
+                            {previousSchengenVisas.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  form.setValue(
+                                    "trip.previousSchengenVisas",
+                                    previousSchengenVisas.filter((_, visaIndex) => visaIndex !== index),
+                                    { shouldDirty: true, shouldValidate: true },
+                                  );
+                                }}
+                                className="text-sm font-semibold text-slate-300 transition hover:text-white"
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                          <div className="mt-4 grid gap-4 md:grid-cols-2">
+                            <TextInput label="Valid from" name={`trip.previousSchengenVisas.${index}.validFrom` as const} type="date" register={form.register} errors={form.formState.errors} />
+                            <TextInput label="Valid to" name={`trip.previousSchengenVisas.${index}.validTo` as const} type="date" register={form.register} errors={form.formState.errors} />
+                            <div className="md:col-span-2">
+                              <TextInput label="Visa sticker number" name={`trip.previousSchengenVisas.${index}.visaNumber` as const} register={form.register} errors={form.formState.errors} placeholder="Optional visa number" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === (`trip.previousSchengenVisas.${index}.visaNumber` as const) ? voiceCaptureState.phase : null} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {previousSchengenVisas.length < 3 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            form.setValue(
+                              "trip.previousSchengenVisas",
+                              [...previousSchengenVisas, { validFrom: "", validTo: "", visaNumber: "" }],
+                              { shouldDirty: true, shouldValidate: false },
+                            );
+                          }}
+                          className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:text-white"
+                        >
+                          Add another previous visa
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    <Fingerprint className="h-3.5 w-3.5" />
+                    Item 27 · VIS fingerprints
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Declare whether your fingerprints were collected for a Schengen visa within the last 59 months. If yes, add the approximate date or year and any sticker number you still have.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {[
+                      { label: "No", value: "no" },
+                      { label: "Yes", value: "yes" },
+                      { label: "Don't know", value: "unknown" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => form.setValue("application.visFingerprintStatus", option.value as "yes" | "no" | "unknown", {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })}
+                        className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          visFingerprintStatus === option.value
+                            ? "border-white/30 bg-white text-slate-950"
+                            : "border-white/10 bg-black/30 text-slate-300 hover:border-white/20 hover:text-white"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {visFingerprintStatus === "yes" ? (
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <TextInput label="Approximate collection date or year" name="application.visFingerprintApproximateDate" register={form.register} errors={form.formState.errors} placeholder="2024-06-15 or 2024" />
+                      <TextInput label="Previous visa sticker number" name="application.visFingerprintStickerNumber" register={form.register} errors={form.formState.errors} placeholder="Optional sticker number" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "application.visFingerprintStickerNumber" ? voiceCaptureState.phase : null} />
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

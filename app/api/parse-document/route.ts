@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { openai } from "@/lib/openai";
+import { applyRateLimitHeaders, enforcePersistentRateLimit } from "@/lib/security/rateLimit";
 import type { ParsedDocumentResult, ParsedDocumentType } from "@/types";
 
 const jsonPayloadSchema = z.object({
@@ -106,10 +107,28 @@ export async function POST(request: Request) {
   let documentBuffer: Buffer | null = null;
 
   try {
+    const rateLimit = await enforcePersistentRateLimit(request, {
+      scope: "api:parse-document",
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          error: "Rate limit exceeded. Retry later.",
+        },
+        { status: 429 },
+      );
+
+      applyRateLimitHeaders(response, rateLimit, 10);
+      return response;
+    }
+
     const { documentType, fileName, mimeType, buffer } = await readRequestFile(request);
     documentBuffer = buffer;
 
-    const response = await openai.responses.create({
+    const aiResponse = await openai.responses.create({
       model: "gpt-4o-mini",
       input: [
         {
@@ -125,13 +144,15 @@ export async function POST(request: Request) {
       ],
     });
 
-    const parsedResult = parseStructuredResult(response.output_text.trim(), documentType);
+    const parsedResult = parseStructuredResult(aiResponse.output_text.trim(), documentType);
 
     scrubBuffer(buffer);
     documentBuffer = null;
     triggerGarbageCollection();
 
-    return NextResponse.json({ result: parsedResult });
+    const response = NextResponse.json({ result: parsedResult });
+    applyRateLimitHeaders(response, rateLimit, 10);
+    return response;
   } catch (error) {
     if (documentBuffer) {
       scrubBuffer(documentBuffer);

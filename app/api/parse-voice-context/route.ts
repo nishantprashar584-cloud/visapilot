@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { schengenCountryRules } from "@/config/schengen-rules";
 import { openai } from "@/lib/openai";
+import { applyRateLimitHeaders, enforcePersistentRateLimit } from "@/lib/security/rateLimit";
 import type { ParsedVoiceContextResult } from "@/types";
 
 const jsonRequestSchema = z.object({
@@ -361,6 +362,24 @@ export async function POST(request: Request) {
   let buffersToScrub: Buffer[] = [];
 
   try {
+    const rateLimit = await enforcePersistentRateLimit(request, {
+      scope: "api:parse-voice-context",
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          error: "Rate limit exceeded. Retry later.",
+        },
+        { status: 429 },
+      );
+
+      applyRateLimitHeaders(response, rateLimit, 10);
+      return response;
+    }
+
     const { transcript, buffers } = await extractTranscript(request);
     buffersToScrub = buffers;
 
@@ -374,7 +393,9 @@ export async function POST(request: Request) {
     buffersToScrub = [];
     triggerGarbageCollection();
 
-    return NextResponse.json({ result });
+    const response = NextResponse.json({ result });
+    applyRateLimitHeaders(response, rateLimit, 10);
+    return response;
   } catch (error) {
     buffersToScrub.forEach(scrubBuffer);
     triggerGarbageCollection();

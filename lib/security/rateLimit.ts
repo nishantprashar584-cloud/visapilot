@@ -1,67 +1,77 @@
-type RateLimitRecord = {
-  count: number;
-  resetAt: number;
-};
+import "server-only";
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type RateLimitResult = {
+export type RateLimitResult = {
   allowed: boolean;
   remaining: number;
   resetAt: number;
   retryAfterSeconds: number;
 };
 
-const rateLimitStore = new Map<string, RateLimitRecord>();
+function getRequestIp(request: Request): string {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const realIp = request.headers.get("x-real-ip");
 
-function cleanupExpiredEntries(now: number): void {
-  for (const [key, record] of Array.from(rateLimitStore.entries())) {
-    if (record.resetAt <= now) {
-      rateLimitStore.delete(key);
-    }
+  if (forwardedFor?.trim()) {
+    return forwardedFor.split(",")[0]?.trim() || "unknown";
   }
+
+  if (realIp?.trim()) {
+    return realIp.trim();
+  }
+
+  return "unknown";
 }
 
-export function buildRateLimitKey(identifier: string, routeKey: string): string {
-  return `${routeKey}:${identifier}`;
-}
+export async function enforcePersistentRateLimit(
+  request: Request,
+  options: {
+    scope: string;
+    limit: number;
+    windowMs: number;
+  },
+): Promise<RateLimitResult> {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export function enforceRateLimit(options: {
-  key: string;
-  limit: number;
-  windowMs: number;
-}): RateLimitResult {
-  const now = Date.now();
-  cleanupExpiredEntries(now);
+  const identifier = user ? `user:${user.id}` : `ip:${getRequestIp(request)}`;
+  const { data, error } = await supabase.rpc("consume_api_rate_limit", {
+    p_scope: options.scope,
+    p_identifier: identifier,
+    p_limit: options.limit,
+    p_window_seconds: Math.max(1, Math.ceil(options.windowMs / 1000)),
+  });
 
-  const currentRecord = rateLimitStore.get(options.key);
-
-  if (!currentRecord || currentRecord.resetAt <= now) {
-    const resetAt = now + options.windowMs;
-    rateLimitStore.set(options.key, { count: 1, resetAt });
-
-    return {
-      allowed: true,
-      remaining: Math.max(0, options.limit - 1),
-      resetAt,
-      retryAfterSeconds: Math.ceil(options.windowMs / 1000),
-    };
+  if (error || !data || typeof data !== "object") {
+    throw new Error(error?.message ?? "Persistent rate limit check failed.");
   }
 
-  if (currentRecord.count >= options.limit) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: currentRecord.resetAt,
-      retryAfterSeconds: Math.max(1, Math.ceil((currentRecord.resetAt - now) / 1000)),
-    };
-  }
-
-  currentRecord.count += 1;
-  rateLimitStore.set(options.key, currentRecord);
+  const result = data as {
+    allowed: boolean;
+    remaining: number;
+    resetAt: number;
+    retryAfterSeconds: number;
+  };
 
   return {
-    allowed: true,
-    remaining: Math.max(0, options.limit - currentRecord.count),
-    resetAt: currentRecord.resetAt,
-    retryAfterSeconds: Math.max(1, Math.ceil((currentRecord.resetAt - now) / 1000)),
+    allowed: Boolean(result.allowed),
+    remaining: Number.isFinite(result.remaining) ? Number(result.remaining) : 0,
+    resetAt: Number.isFinite(result.resetAt) ? Number(result.resetAt) : Date.now(),
+    retryAfterSeconds: Number.isFinite(result.retryAfterSeconds) ? Number(result.retryAfterSeconds) : 60,
   };
+}
+
+export function applyRateLimitHeaders(
+  response: NextResponse,
+  rateLimit: RateLimitResult,
+  limit: number,
+): NextResponse {
+  response.headers.set("Retry-After", `${rateLimit.retryAfterSeconds}`);
+  response.headers.set("X-RateLimit-Limit", `${limit}`);
+  response.headers.set("X-RateLimit-Remaining", `${rateLimit.remaining}`);
+  response.headers.set("X-RateLimit-Reset", `${Math.floor(rateLimit.resetAt / 1000)}`);
+  return response;
 }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildSupportingDocumentStoragePath, supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
 import type { SupportingDocument, SupportingDocumentKind } from "@/types";
@@ -41,9 +40,8 @@ export async function POST(request: Request) {
 
     const documentId = requestedDocumentId ?? crypto.randomUUID();
     const storagePath = buildSupportingDocumentStoragePath(user.id, documentId, file.name);
-    const admin = createSupabaseAdminClient();
 
-    const { error } = await admin.storage
+    const { error } = await supabase.storage
       .from(supportingDocumentsBucket)
       .upload(storagePath, file, {
         cacheControl: "3600",
@@ -99,8 +97,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "You do not have permission to remove this document." }, { status: 403 });
     }
 
-    const admin = createSupabaseAdminClient();
-    const { error } = await admin.storage.from(supportingDocumentsBucket).remove([parsedPayload.data.storagePath]);
+    const { error } = await supabase.storage.from(supportingDocumentsBucket).remove([parsedPayload.data.storagePath]);
 
     if (error) {
       throw new Error(error.message);

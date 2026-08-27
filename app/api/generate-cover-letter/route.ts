@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { applicantInfoSchema } from "@/lib/applications/schema";
 import { generateCoverLetterResult } from "@/lib/openai/generateCoverLetter";
+import { applyRateLimitHeaders, enforcePersistentRateLimit } from "@/lib/security/rateLimit";
 
 const aiLetterRequestSchema = z.object({
   applicant: applicantInfoSchema,
@@ -12,12 +13,32 @@ const aiLetterRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await enforcePersistentRateLimit(request, {
+      scope: "api:generate-cover-letter",
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          error: "Rate limit exceeded. Retry later.",
+        },
+        { status: 429 },
+      );
+
+      applyRateLimitHeaders(response, rateLimit, 10);
+      return response;
+    }
+
     const requestBody = await request.json();
     const parsedApplicant = applicantInfoSchema.safeParse(requestBody);
 
     if (parsedApplicant.success) {
       const result = await generateCoverLetterResult(parsedApplicant.data);
-      return NextResponse.json(result);
+      const response = NextResponse.json(result);
+      applyRateLimitHeaders(response, rateLimit, 10);
+      return response;
     }
 
     const parsedRequest = aiLetterRequestSchema.safeParse(requestBody);
@@ -38,7 +59,9 @@ export async function POST(request: Request) {
       customInstructions: parsedRequest.data.customInstructions,
     });
 
-    return NextResponse.json(result);
+    const response = NextResponse.json(result);
+    applyRateLimitHeaders(response, rateLimit, 10);
+    return response;
   } catch (error) {
     return NextResponse.json(
       {

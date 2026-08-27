@@ -238,18 +238,55 @@
       "candidates": ["departure_date", "DepartureDate", "date_depart"]
     },
     {
+      "key": "previousSchengenVisasNo",
+      "kind": "checkbox",
+      "source": "trip.previousSchengenVisasIssued",
+      "equals": false,
+      "required": false,
+      "candidates": ["previous_schengen_visas_no", "PreviousSchengenVisasNo", "visas_precedents_non"]
+    },
+    {
+      "key": "previousSchengenVisasYes",
+      "kind": "checkbox",
+      "source": "trip.previousSchengenVisasIssued",
+      "equals": true,
+      "required": false,
+      "candidates": ["previous_schengen_visas_yes", "PreviousSchengenVisasYes", "visas_precedents_oui"]
+    },
+    {
+      "key": "previousSchengenVisasDetails",
+      "kind": "text",
+      "source": "application.previousSchengenVisasSummary",
+      "required": false,
+      "candidates": ["previous_schengen_visas_details", "PreviousSchengenVisasDetails", "visas_precedents_details"]
+    },
+    {
       "key": "fingerprintsTakenNo",
       "kind": "checkbox",
-      "source": "application.fingerprintsTakenBefore",
-      "equals": false,
+      "source": "application.visFingerprintStatus",
+      "equals": "no",
       "candidates": ["fingerprints_taken_no", "FingerprintsTakenNo", "empreintes_non"]
     },
     {
       "key": "fingerprintsTakenYes",
       "kind": "checkbox",
-      "source": "application.fingerprintsTakenBefore",
-      "equals": true,
+      "source": "application.visFingerprintStatus",
+      "equals": "yes",
       "candidates": ["fingerprints_taken_yes", "FingerprintsTakenYes", "empreintes_oui"]
+    },
+    {
+      "key": "fingerprintsTakenDate",
+      "kind": "text",
+      "source": "application.visFingerprintApproximateDate",
+      "required": false,
+      "candidates": ["fingerprints_taken_date", "FingerprintsTakenDate", "empreintes_date"]
+    },
+    {
+      "key": "fingerprintsTakenStickerNumber",
+      "kind": "text",
+      "source": "application.visFingerprintStickerNumber",
+      "required": false,
+      "candidates": ["fingerprints_taken_sticker_number", "FingerprintsTakenStickerNumber", "empreintes_numero_vignette"]
     },
     {
       "key": "permitForFinalDestinationNo",

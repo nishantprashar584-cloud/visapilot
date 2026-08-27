@@ -63,6 +63,9 @@ const coordinateFallbackByKey: Partial<Record<keyof SchengenFormFields, Coordina
   durationOfStayDays: { pageIndex: 1, x: 357, y: 707, maxWidth: 60 },
   arrivalDate: { pageIndex: 1, x: 110, y: 682, maxWidth: 95 },
   departureDate: { pageIndex: 1, x: 250, y: 682, maxWidth: 95 },
+  previousSchengenVisasNo: { pageIndex: 1, x: 111, y: 558 },
+  previousSchengenVisasYes: { pageIndex: 1, x: 160, y: 558 },
+  previousSchengenVisasDetails: { pageIndex: 1, x: 245, y: 558, maxWidth: 285, size: 8 },
   travelPurposeTourism: { pageIndex: 1, x: 112, y: 633 },
   travelPurposeBusiness: { pageIndex: 1, x: 180, y: 633 },
   travelPurposeFamilyVisit: { pageIndex: 1, x: 253, y: 633 },
@@ -74,6 +77,8 @@ const coordinateFallbackByKey: Partial<Record<keyof SchengenFormFields, Coordina
   travelPurposeTransit: { pageIndex: 1, x: 360, y: 610 },
   fingerprintsTakenNo: { pageIndex: 1, x: 111, y: 534 },
   fingerprintsTakenYes: { pageIndex: 1, x: 160, y: 534 },
+  fingerprintsTakenDate: { pageIndex: 1, x: 250, y: 534, maxWidth: 110, size: 8 },
+  fingerprintsTakenStickerNumber: { pageIndex: 1, x: 390, y: 534, maxWidth: 135, size: 8 },
   permitForFinalDestinationNo: { pageIndex: 1, x: 111, y: 474 },
   permitForFinalDestinationYes: { pageIndex: 1, x: 160, y: 474 },
   invitingPersonName: { pageIndex: 1, x: 110, y: 392, maxWidth: 420, size: 8 },
@@ -282,11 +287,11 @@ function wrapLines(page: PDFPage, value: string, maxWidth: number, fontSize: num
 async function drawCoordinateFallback(
   pdfDoc: PDFDocument,
   applicant: ApplicantInfo,
-  mappingConfig: PdfMapConfig,
+  mappings: PdfMapConfig["fields"],
 ): Promise<void> {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  for (const mapping of mappingConfig.fields) {
+  for (const mapping of mappings) {
     const coordinates = coordinateFallbackByKey[mapping.key];
 
     if (!coordinates) {
@@ -332,6 +337,14 @@ async function drawCoordinateFallback(
   }
 }
 
+async function drawCoordinateFallbackForMapping(
+  pdfDoc: PDFDocument,
+  applicant: ApplicantInfo,
+  mapping: PdfMapConfig["fields"][number],
+): Promise<void> {
+  await drawCoordinateFallback(pdfDoc, applicant, [mapping]);
+}
+
 export async function fillSchengenPdf(
   applicant: ApplicantInfo,
   mappingConfig: PdfMapConfig,
@@ -344,7 +357,7 @@ export async function fillSchengenPdf(
   const formFields = form.getFields();
 
   if (formFields.length === 0) {
-    await drawCoordinateFallback(pdfDoc, applicant, mappingConfig);
+    await drawCoordinateFallback(pdfDoc, applicant, mappingConfig.fields);
     return Buffer.from(await pdfDoc.save());
   }
 
@@ -356,6 +369,11 @@ export async function fillSchengenPdf(
     const field = findField(fieldsByName, mapping);
 
     if (!field) {
+      if (coordinateFallbackByKey[mapping.key]) {
+        await drawCoordinateFallbackForMapping(pdfDoc, applicant, mapping);
+        continue;
+      }
+
       if (mapping.required === false) {
         continue;
       }

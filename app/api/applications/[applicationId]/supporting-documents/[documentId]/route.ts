@@ -1,23 +1,7 @@
 import { NextResponse } from "next/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
 import type { ApplicationRow } from "@/types";
-
-async function getApplication(applicationId: string): Promise<ApplicationRow | null> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("applications")
-    .select("id, user_id, application_data")
-    .eq("id", applicationId)
-    .single();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return data as ApplicationRow;
-}
 
 export async function GET(
   _request: Request,
@@ -33,7 +17,13 @@ export async function GET(
       return NextResponse.json({ error: "Sign in is required to open supporting documents." }, { status: 401 });
     }
 
-    const application = await getApplication(params.applicationId);
+    const { data: applicationData, error: applicationError } = await supabase
+      .from("applications")
+      .select("id, user_id, application_data")
+      .eq("id", params.applicationId)
+      .single();
+
+    const application = !applicationError && applicationData ? applicationData as ApplicationRow : null;
 
     if (!application || application.user_id !== user.id) {
       return NextResponse.json({ error: "Application not found." }, { status: 404 });
@@ -45,8 +35,7 @@ export async function GET(
       return NextResponse.json({ error: "Supporting document not found." }, { status: 404 });
     }
 
-    const admin = createSupabaseAdminClient();
-    const { data, error } = await admin.storage.from(supportingDocumentsBucket).download(document.storagePath);
+    const { data, error } = await supabase.storage.from(supportingDocumentsBucket).download(document.storagePath);
 
     if (error || !data) {
       throw new Error(error?.message ?? "Unable to load supporting document.");

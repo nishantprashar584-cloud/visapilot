@@ -14,6 +14,25 @@ const supportingDocumentSchema = z.object({
   uploadedAt: z.string().trim().min(1),
 });
 
+const previousSchengenVisaEntrySchema = z
+  .object({
+    validFrom: isoDateSchema,
+    validTo: isoDateSchema,
+    visaNumber: z.string().trim().max(64).optional().or(z.literal("")),
+  })
+  .superRefine((value, context) => {
+    const validFrom = new Date(value.validFrom);
+    const validTo = new Date(value.validTo);
+
+    if (!Number.isNaN(validFrom.getTime()) && !Number.isNaN(validTo.getTime()) && validTo < validFrom) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Visa validity end date must be on or after the start date.",
+        path: ["validTo"],
+      });
+    }
+  });
+
 export const applicantInfoSchema = z
   .object({
     personal: z.object({
@@ -91,6 +110,8 @@ export const applicantInfoSchema = z
       arrivalDate: isoDateSchema,
       departureDate: isoDateSchema,
       stayDurationDays: z.number().int().min(1, "Stay duration must be at least one day."),
+      previousSchengenVisasIssued: z.boolean(),
+      previousSchengenVisas: z.array(previousSchengenVisaEntrySchema).max(3),
       hostName: z.string().trim().optional().or(z.literal("")),
       hostAddress: z.string().trim().optional().or(z.literal("")),
       hostEmail: z.string().trim().email().optional().or(z.literal("")),
@@ -117,6 +138,10 @@ export const applicantInfoSchema = z
       placeOfApplication: z.string().trim().min(2, "Place of application is required."),
       applicationDate: isoDateSchema,
       fingerprintsTakenBefore: z.boolean(),
+      previousSchengenVisasSummary: z.string().trim().optional().or(z.literal("")),
+      visFingerprintStatus: z.enum(["yes", "no", "unknown"]),
+      visFingerprintApproximateDate: z.string().trim().optional().or(z.literal("")),
+      visFingerprintStickerNumber: z.string().trim().optional().or(z.literal("")),
       finalDestinationPermitRequired: z.boolean(),
       finalDestinationPermitNumber: z.string().trim().optional().or(z.literal("")),
       finalDestinationPermitValidUntil: z.string().trim().optional().or(z.literal("")),
@@ -150,6 +175,22 @@ export const applicantInfoSchema = z
         code: z.ZodIssueCode.custom,
         message: "Departure must be later than arrival.",
         path: ["trip", "departureDate"],
+      });
+    }
+
+    if (value.trip.previousSchengenVisasIssued && value.trip.previousSchengenVisas.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Add at least one previous Schengen visa from the last 3 years.",
+        path: ["trip", "previousSchengenVisas"],
+      });
+    }
+
+    if (value.application.visFingerprintStatus === "yes" && !value.application.visFingerprintApproximateDate?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Add the approximate date or year when VIS fingerprints were collected.",
+        path: ["application", "visFingerprintApproximateDate"],
       });
     }
   });
@@ -209,6 +250,8 @@ export const defaultApplicantInfo: ApplicantInfo = {
     arrivalDate: "",
     departureDate: "",
     stayDurationDays: 0,
+    previousSchengenVisasIssued: false,
+    previousSchengenVisas: [],
     hostName: "",
     hostAddress: "",
     hostEmail: "",
@@ -235,6 +278,10 @@ export const defaultApplicantInfo: ApplicantInfo = {
     placeOfApplication: "",
     applicationDate: new Date().toISOString().slice(0, 10),
     fingerprintsTakenBefore: false,
+    previousSchengenVisasSummary: "",
+    visFingerprintStatus: "unknown",
+    visFingerprintApproximateDate: "",
+    visFingerprintStickerNumber: "",
     finalDestinationPermitRequired: false,
     finalDestinationPermitNumber: "",
     finalDestinationPermitValidUntil: "",

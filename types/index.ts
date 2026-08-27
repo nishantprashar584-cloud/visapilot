@@ -52,6 +52,14 @@ export type EmploymentStatus =
 
 export type PropertyOwnershipStatus = "owned" | "family_owned" | "rented" | "none";
 
+export type VisFingerprintStatus = "yes" | "no" | "unknown";
+
+export interface PreviousSchengenVisaEntry {
+  validFrom: string;
+  validTo: string;
+  visaNumber?: string;
+}
+
 export type SupportingDocumentKind = "pdf" | "image";
 
 export interface SupportingDocument {
@@ -116,6 +124,8 @@ export interface ApplicantInfo {
     arrivalDate: string;
     departureDate: string;
     stayDurationDays: number;
+    previousSchengenVisasIssued: boolean;
+    previousSchengenVisas: PreviousSchengenVisaEntry[];
     hostName?: string;
     hostAddress?: string;
     hostEmail?: string;
@@ -142,6 +152,10 @@ export interface ApplicantInfo {
     placeOfApplication: string;
     applicationDate: string;
     fingerprintsTakenBefore: boolean;
+    previousSchengenVisasSummary?: string;
+    visFingerprintStatus: VisFingerprintStatus;
+    visFingerprintApproximateDate?: string;
+    visFingerprintStickerNumber?: string;
     finalDestinationPermitRequired: boolean;
     finalDestinationPermitNumber?: string;
     finalDestinationPermitValidUntil?: string;
@@ -199,8 +213,13 @@ export interface SchengenFormFields {
   durationOfStayDays: string;
   arrivalDate: string;
   departureDate: string;
+  previousSchengenVisasNo: string;
+  previousSchengenVisasYes: string;
+  previousSchengenVisasDetails: string;
   fingerprintsTakenNo: string;
   fingerprintsTakenYes: string;
+  fingerprintsTakenDate: string;
+  fingerprintsTakenStickerNumber: string;
   permitForFinalDestinationNo: string;
   permitForFinalDestinationYes: string;
   travelPurposeTourism: string;
@@ -262,6 +281,11 @@ export type ApplicantValuePath =
   | "trip.arrivalDate"
   | "trip.departureDate"
   | "trip.stayDurationDays"
+  | "trip.previousSchengenVisasIssued"
+  | "trip.previousSchengenVisas"
+  | `trip.previousSchengenVisas.${number}.validFrom`
+  | `trip.previousSchengenVisas.${number}.validTo`
+  | `trip.previousSchengenVisas.${number}.visaNumber`
   | "trip.hostName"
   | "trip.hostAddress"
   | "trip.hostEmail"
@@ -282,6 +306,10 @@ export type ApplicantValuePath =
   | "application.placeOfApplication"
   | "application.applicationDate"
   | "application.fingerprintsTakenBefore"
+  | "application.previousSchengenVisasSummary"
+  | "application.visFingerprintStatus"
+  | "application.visFingerprintApproximateDate"
+  | "application.visFingerprintStickerNumber"
   | "application.finalDestinationPermitRequired"
   | "application.finalDestinationPermitNumber"
   | "application.finalDestinationPermitValidUntil";

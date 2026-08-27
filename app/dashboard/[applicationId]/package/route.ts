@@ -6,7 +6,6 @@ import {
   buildRegionalFormGuidance,
 } from "@/lib/applications/packetArtifacts";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(
@@ -56,10 +55,8 @@ export async function GET(
   }
 
   if (Array.isArray(data.application_data.supportingDocuments) && data.application_data.supportingDocuments.length > 0) {
-    const admin = createSupabaseAdminClient();
-
     for (const document of data.application_data.supportingDocuments) {
-      const { data: fileData, error: fileError } = await admin.storage
+      const { data: fileData, error: fileError } = await supabase.storage
         .from("visapilot-supporting-documents")
         .download(document.storagePath);
 
