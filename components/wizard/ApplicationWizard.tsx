@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -196,6 +196,38 @@ function VoiceButtonIcon({ voicePhase }: { voicePhase: "listening" | "processing
   return <Mic className="h-4 w-4" />;
 }
 
+function scrollStepViewportToTop(anchor: HTMLElement | null) {
+  const scrollTargets: Array<HTMLElement | Window> = [window, document.documentElement, document.body];
+  let currentNode = anchor?.parentElement ?? null;
+
+  while (currentNode) {
+    const styles = window.getComputedStyle(currentNode);
+    const isScrollable = /(auto|scroll)/.test(styles.overflowY) && currentNode.scrollHeight > currentNode.clientHeight;
+
+    if (isScrollable) {
+      scrollTargets.push(currentNode);
+      break;
+    }
+
+    currentNode = currentNode.parentElement;
+  }
+
+  scrollTargets.forEach((target) => {
+    if (target === window) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    target.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  if (anchor) {
+    requestAnimationFrame(() => {
+      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+}
+
 function TextInput({
   label,
   name,
@@ -223,11 +255,16 @@ function TextInput({
           type={type}
           step={step}
           placeholder={placeholder}
-          className={`vp-input w-full px-4 py-3 ${isDate ? "date-input" : ""} ${
+          className={`vp-input w-full px-4 py-3 ${isDate ? "date-input pr-12" : ""} ${
             errorMessage ? "border-rose-300" : ""
           }`}
           {...register(name, isNumeric ? { valueAsNumber: true } : undefined)}
         />
+        {isDate ? (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-white/80">
+            <CalendarDays className="h-4 w-4" />
+          </span>
+        ) : null}
         {voiceEnabled ? (
           <button
             type="button"
@@ -1063,10 +1100,7 @@ export function ApplicationWizard({
     lastRenderedStepRef.current = currentStep;
 
     requestAnimationFrame(() => {
-      wizardStepTopRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      scrollStepViewportToTop(wizardStepTopRef.current);
     });
   }, [currentStep, hasHydrated]);
 

@@ -65,17 +65,20 @@ html input[type="date"] {
   color-scheme: dark;
 }
 
-input[type="date"].date-input::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.35) contrast(1.2);
-  background-color: rgba(255, 255, 255, 0.16);
-  border-radius: 9999px;
-  opacity: 1;
-  padding: 0.18rem;
-  cursor: pointer;
+input[type="date"].date-input {
+  position: relative;
+  color-scheme: dark;
 }
 
-input[type="date"].date-input::-webkit-calendar-picker-indicator:hover {
-  background-color: rgba(255, 255, 255, 0.24);
+input[type="date"].date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 input[type="date"].date-input::-webkit-datetime-edit,
