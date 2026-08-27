@@ -17,6 +17,7 @@ import {
   Shield,
   Tags,
   Upload,
+  X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -26,7 +27,7 @@ import type { SupportingDocument } from "@/types";
 type WorkspaceDocument = {
   id: string;
   file: File;
-  kind: "pdf" | "image";
+  kind: "pdf" | "image" | "word";
   category: "travel" | "financial" | "employment" | "insurance" | "identity" | "general";
   pageCount: number;
   previewUrl: string;
@@ -39,6 +40,7 @@ type WorkspaceOutput = {
   fileName: string;
   createdAtLabel: string;
   sizeLabel: string;
+  mimeType: string;
 };
 
 type WorkspacePagePreview = {
@@ -47,7 +49,9 @@ type WorkspacePagePreview = {
 };
 
 type RotationPreset = "90" | "180" | "270";
-type ToolkitMode = "merge" | "split" | "compress" | "reorder" | "rotate" | "sanitize";
+type ToolkitMode = "merge" | "split" | "compress" | "reorder" | "rotate" | "sanitize" | "wordToPdf" | "pdfToWord";
+type ToolSourceKind = "mixed" | "pdf" | "word";
+type WorkspaceModal = "preview" | "reorder" | null;
 
 type ToolDefinition = {
   id: ToolkitMode;
@@ -58,11 +62,21 @@ type ToolDefinition = {
   uploadDescription: string;
   accept: string;
   multiple: boolean;
-  requiresPdf: boolean;
+  sourceKind: ToolSourceKind;
+  persistUploads: boolean;
   icon: LucideIcon;
   accentClass: string;
   iconClass: string;
 };
+
+const wordMimeTypes = new Set([
+  "application/msword",
+  "application/rtf",
+  "application/vnd.ms-word.document.macroEnabled.12",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/rtf",
+]);
 
 const toolDefinitions: ToolDefinition[] = [
   {
@@ -74,7 +88,8 @@ const toolDefinitions: ToolDefinition[] = [
     uploadDescription: "Add two or more PDFs or images. Drag to change the merge order before exporting.",
     accept: "application/pdf,image/png,image/jpeg,image/webp",
     multiple: true,
-    requiresPdf: false,
+    sourceKind: "mixed",
+    persistUploads: true,
     icon: Layers3,
     accentClass: "border-blue-300/20 bg-blue-500/10 text-blue-100",
     iconClass: "bg-blue-100 text-blue-600",
@@ -88,7 +103,8 @@ const toolDefinitions: ToolDefinition[] = [
     uploadDescription: "Choose a PDF, preview it, then enter page ranges like 1-3 or 2,5.",
     accept: "application/pdf",
     multiple: false,
-    requiresPdf: true,
+    sourceKind: "pdf",
+    persistUploads: true,
     icon: Scissors,
     accentClass: "border-rose-300/20 bg-rose-500/10 text-rose-100",
     iconClass: "bg-rose-100 text-rose-600",
@@ -102,7 +118,8 @@ const toolDefinitions: ToolDefinition[] = [
     uploadDescription: "Use this for VFS, TLS, or BLS upload limits when a file needs cleanup and compaction.",
     accept: "application/pdf",
     multiple: false,
-    requiresPdf: true,
+    sourceKind: "pdf",
+    persistUploads: true,
     icon: Minimize,
     accentClass: "border-emerald-300/20 bg-emerald-500/10 text-emerald-100",
     iconClass: "bg-emerald-100 text-emerald-600",
@@ -116,7 +133,8 @@ const toolDefinitions: ToolDefinition[] = [
     uploadDescription: "Drag the page cards into the exact embassy order before exporting the rebuilt PDF.",
     accept: "application/pdf",
     multiple: false,
-    requiresPdf: true,
+    sourceKind: "pdf",
+    persistUploads: true,
     icon: ArrowDownUp,
     accentClass: "border-violet-300/20 bg-violet-500/10 text-violet-100",
     iconClass: "bg-violet-100 text-violet-600",
@@ -130,7 +148,8 @@ const toolDefinitions: ToolDefinition[] = [
     uploadDescription: "Preview the current scan, set the rotation angle, and create a corrected copy.",
     accept: "application/pdf",
     multiple: false,
-    requiresPdf: true,
+    sourceKind: "pdf",
+    persistUploads: true,
     icon: RotateCw,
     accentClass: "border-amber-300/20 bg-amber-500/10 text-amber-100",
     iconClass: "bg-amber-100 text-amber-600",
@@ -144,12 +163,70 @@ const toolDefinitions: ToolDefinition[] = [
     uploadDescription: "Use this when you want a cleaner export without author, subject, or editing metadata.",
     accept: "application/pdf",
     multiple: false,
-    requiresPdf: true,
+    sourceKind: "pdf",
+    persistUploads: true,
     icon: Shield,
     accentClass: "border-slate-300/20 bg-slate-500/10 text-slate-100",
     iconClass: "bg-slate-100 text-slate-700",
   },
+  {
+    id: "wordToPdf",
+    label: "Word to PDF",
+    shortLabel: "Word to PDF",
+    description: "Upload a DOC, DOCX, RTF, or ODT file and convert it on the server into a real PDF.",
+    uploadTitle: "Select a Word document",
+    uploadDescription: "Use a real server conversion pipeline to turn Word files into embassy-ready PDFs.",
+    accept: ".doc,.docx,.odt,.rtf,application/msword,application/rtf,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/rtf",
+    multiple: false,
+    sourceKind: "word",
+    persistUploads: false,
+    icon: FileText,
+    accentClass: "border-cyan-300/20 bg-cyan-500/10 text-cyan-100",
+    iconClass: "bg-cyan-100 text-cyan-700",
+  },
+  {
+    id: "pdfToWord",
+    label: "PDF to Word",
+    shortLabel: "PDF to Word",
+    description: "Upload a PDF and convert it on the server into a DOCX file you can edit.",
+    uploadTitle: "Select a PDF to convert",
+    uploadDescription: "VisaPilot sends the PDF through a real server pipeline and returns a DOCX export for editing.",
+    accept: "application/pdf",
+    multiple: false,
+    sourceKind: "pdf",
+    persistUploads: true,
+    icon: Download,
+    accentClass: "border-fuchsia-300/20 bg-fuchsia-500/10 text-fuchsia-100",
+    iconClass: "bg-fuchsia-100 text-fuchsia-700",
+  },
 ];
+
+function isWordProcessingDocument(file: File): boolean {
+  return wordMimeTypes.has(file.type) || /\.(doc|docx|odt|rtf)$/i.test(file.name);
+}
+
+function buildUploadButtonLabel(toolDefinition: ToolDefinition): string {
+  if (toolDefinition.multiple) {
+    return "Upload Files";
+  }
+
+  return toolDefinition.sourceKind === "word" ? "Upload Word file" : "Upload PDF";
+}
+
+function parseDownloadFileName(contentDisposition: string | null, fallback: string): string {
+  if (!contentDisposition) {
+    return fallback;
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1]);
+  }
+
+  const quotedMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return quotedMatch?.[1] ?? fallback;
+}
 
 function classifyDocumentCategory(file: File): WorkspaceDocument["category"] {
   const normalizedName = file.name.toLowerCase();
@@ -300,8 +377,19 @@ async function readDocumentMetadata(file: File): Promise<WorkspaceDocument> {
     };
   }
 
+  if (isWordProcessingDocument(file)) {
+    return {
+      id: crypto.randomUUID(),
+      file,
+      kind: "word",
+      category: classifyDocumentCategory(file),
+      pageCount: 1,
+      previewUrl,
+    };
+  }
+
   URL.revokeObjectURL(previewUrl);
-  throw new Error(`${file.name} is not a supported PDF or image file.`);
+  throw new Error(`${file.name} is not a supported PDF, image, or Word file.`);
 }
 
 async function appendFileToPdf(targetBytesOwner: PdfDocument, document: WorkspaceDocument) {
@@ -356,6 +444,7 @@ export function PacketWorkspace({
   const [draggedPageNumber, setDraggedPageNumber] = useState<number | null>(null);
   const [pagePreviews, setPagePreviews] = useState<WorkspacePagePreview[]>([]);
   const [isPreparingPageBoard, setIsPreparingPageBoard] = useState(false);
+  const [activeModal, setActiveModal] = useState<WorkspaceModal>(null);
 
   const selectedToolDefinition = useMemo(
     () => toolDefinitions.find((tool) => tool.id === selectedTool) ?? toolDefinitions[0],
@@ -380,6 +469,16 @@ export function PacketWorkspace({
   const previewOutput = useMemo(
     () => outputs.find((output) => output.id === previewOutputId) ?? null,
     [outputs, previewOutputId],
+  );
+
+  const wordDocuments = useMemo(
+    () => documents.filter((document) => document.kind === "word"),
+    [documents],
+  );
+
+  const activeWordDocument = useMemo(
+    () => documents.find((document) => document.id === previewDocumentId && document.kind === "word") ?? wordDocuments[0] ?? null,
+    [documents, previewDocumentId, wordDocuments],
   );
 
   useEffect(() => {
@@ -432,6 +531,35 @@ export function PacketWorkspace({
       setPreviewDocumentId(activePdf.id);
     }
   }, [activePdf, selectedTool]);
+
+  useEffect(() => {
+    if (selectedTool !== "wordToPdf") {
+      return;
+    }
+
+    if (wordDocuments.length === 0) {
+      return;
+    }
+
+    if (!wordDocuments.some((document) => document.id === previewDocumentId)) {
+      setPreviewDocumentId(wordDocuments[0].id);
+    }
+  }, [previewDocumentId, selectedTool, wordDocuments]);
+
+  useEffect(() => {
+    if (!activeModal) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActiveModal(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [activeModal]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -547,7 +675,22 @@ export function PacketWorkspace({
     });
 
     setPreviewOutputId((currentId) => (currentId === outputId ? "" : currentId));
-    setToolkitMessage("Generated PDF removed from the workspace outputs.");
+    setToolkitMessage("Generated file removed from the workspace outputs.");
+  }
+
+  function openDocumentPreview(documentId: string) {
+    syncDocumentSelection(documentId);
+    setActiveModal("preview");
+  }
+
+  function openOutputPreview(outputId: string) {
+    setPreviewDocumentId("");
+    setPreviewOutputId(outputId);
+    setActiveModal("preview");
+  }
+
+  function closeModal() {
+    setActiveModal(null);
   }
 
   async function handleDroppedFiles(files: FileList | null) {
@@ -561,8 +704,16 @@ export function PacketWorkspace({
 
     const nextFiles = Array.from(files).slice(0, selectedToolDefinition.multiple ? undefined : 1);
 
-    if (selectedToolDefinition.requiresPdf && nextFiles.some((file) => file.type !== "application/pdf")) {
+    if (selectedToolDefinition.sourceKind === "pdf" && nextFiles.some((file) => file.type !== "application/pdf")) {
       setToolkitMessage(`${selectedToolDefinition.label} accepts PDF files only.`);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (selectedToolDefinition.sourceKind === "word" && nextFiles.some((file) => !isWordProcessingDocument(file))) {
+      setToolkitMessage(`${selectedToolDefinition.label} accepts DOC, DOCX, ODT, and RTF files only.`);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -576,7 +727,7 @@ export function PacketWorkspace({
     try {
       const uploadedWorkspaceDocuments = await Promise.all(nextFiles.map(readDocumentMetadata));
 
-      if (!previewMode) {
+      if (!previewMode && selectedToolDefinition.persistUploads) {
         const uploadedDocuments: SupportingDocument[] = [];
 
         for (const document of uploadedWorkspaceDocuments) {
@@ -620,7 +771,9 @@ export function PacketWorkspace({
       setToolkitMessage(
         previewMode
           ? `${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} added for ${selectedToolDefinition.shortLabel.toLowerCase()}.`
-          : `${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} uploaded, saved, and ready for ${selectedToolDefinition.shortLabel.toLowerCase()}.`,
+          : selectedToolDefinition.persistUploads
+            ? `${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} uploaded, saved, and ready for ${selectedToolDefinition.shortLabel.toLowerCase()}.`
+            : `${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} added to the workspace for ${selectedToolDefinition.shortLabel.toLowerCase()}.`,
       );
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to add supporting documents.");
@@ -631,6 +784,68 @@ export function PacketWorkspace({
       if (inputRef.current) {
         inputRef.current.value = "";
       }
+    }
+  }
+
+  async function handleServerConversion(mode: "word-to-pdf" | "pdf-to-word") {
+    const sourceDocument = mode === "word-to-pdf" ? activeWordDocument : activePdf;
+
+    if (!sourceDocument) {
+      setToolkitMessage(mode === "word-to-pdf" ? "Choose a Word document before converting it to PDF." : "Choose a PDF before converting it to Word.");
+      return;
+    }
+
+    setIsProcessingDocuments(true);
+    setProcessingLabel(mode === "word-to-pdf" ? "Converting Word to PDF" : "Converting PDF to Word");
+    setToolkitMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("mode", mode);
+      formData.append("file", sourceDocument.file);
+
+      const response = await fetch("/api/document-convert", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Conversion failed.");
+      }
+
+      const outputBuffer = await response.arrayBuffer();
+      const mimeType = response.headers.get("content-type") ?? (mode === "word-to-pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      const fallbackName = mode === "word-to-pdf"
+        ? `${sourceDocument.file.name.replace(/\.(doc|docx|odt|rtf)$/i, "") || "converted-document"}.pdf`
+        : `${sourceDocument.file.name.replace(/\.pdf$/i, "") || "converted-document"}.docx`;
+      const fileName = parseDownloadFileName(response.headers.get("content-disposition"), fallbackName);
+      const url = URL.createObjectURL(new Blob([outputBuffer], { type: mimeType }));
+
+      upsertOutput({
+        id: crypto.randomUUID(),
+        label: mode === "word-to-pdf" ? `PDF export for ${sourceDocument.file.name}` : `Word export for ${sourceDocument.file.name}`,
+        url,
+        fileName,
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sizeLabel: formatBytes(outputBuffer.byteLength),
+        mimeType,
+      });
+
+      setToolkitMessage(mode === "word-to-pdf"
+        ? `${sourceDocument.file.name} has been converted to PDF.`
+        : `${sourceDocument.file.name} has been converted to Word.`);
+
+      if (mimeType === "application/pdf") {
+        setActiveModal("preview");
+      }
+    } catch (error) {
+      setToolkitMessage(error instanceof Error ? error.message : "Unable to convert the selected document.");
+    } finally {
+      setIsProcessingDocuments(false);
+      setProcessingLabel(null);
     }
   }
 
@@ -714,6 +929,7 @@ export function PacketWorkspace({
         fileName: "visapilot-merged-supporting-docs.pdf",
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(mergedBytes.length),
+        mimeType: "application/pdf",
       });
 
       setToolkitMessage("Merged PDF is ready to preview or download.");
@@ -754,6 +970,7 @@ export function PacketWorkspace({
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(splitBytes.length),
+        mimeType: "application/pdf",
       });
 
       setToolkitMessage(`Split output for pages ${splitRange} is ready.`);
@@ -800,6 +1017,7 @@ export function PacketWorkspace({
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(compressedBytes.length),
+        mimeType: "application/pdf",
       });
 
       setToolkitMessage(
@@ -842,6 +1060,7 @@ export function PacketWorkspace({
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(rotatedBytes.length),
+        mimeType: "application/pdf",
       });
 
       setToolkitMessage(`Rotated all pages in ${activePdf.file.name} by ${rotation} degrees.`);
@@ -886,6 +1105,7 @@ export function PacketWorkspace({
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(reorderedBytes.length),
+        mimeType: "application/pdf",
       });
 
       setToolkitMessage(`Page order for ${activePdf.file.name} has been rebuilt as ${pageSequence.join(", ")}.`);
@@ -932,6 +1152,7 @@ export function PacketWorkspace({
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         sizeLabel: formatBytes(sanitizedBytes.length),
+        mimeType: "application/pdf",
       });
 
       setToolkitMessage(`Sanitized output for ${activePdf.file.name} is ready.`);
@@ -1046,11 +1267,11 @@ export function PacketWorkspace({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => syncDocumentSelection(document.id)}
+                    onClick={() => openDocumentPreview(document.id)}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
                   >
                     <Eye className="h-4 w-4" />
-                    Preview
+                    Open preview
                   </button>
                   <button
                     type="button"
@@ -1206,8 +1427,6 @@ export function PacketWorkspace({
   }
 
   function renderReorderWorkbench() {
-    const previewMap = new Map(pagePreviews.map((preview) => [preview.pageNumber, preview.url]));
-
     return (
       <div className="space-y-4">
         {renderSinglePdfSelector()}
@@ -1219,17 +1438,27 @@ export function PacketWorkspace({
                 Drag pages into final order
               </h4>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Rearrange page tiles to match the final embassy packet. Use Reset if you want to restore the original order.
+                Keep the workspace compact, then open the full drag-and-drop board only when you are ready to finalize the packet order.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
-              disabled={!activePdf}
-              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:opacity-50"
-            >
-              Reset order
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
+                disabled={!activePdf}
+                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:opacity-50"
+              >
+                Reset order
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveModal("reorder")}
+                disabled={!activePdf || isPreparingPageBoard}
+                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Open reorder board
+              </button>
+            </div>
           </div>
 
           {isPreparingPageBoard ? (
@@ -1242,51 +1471,14 @@ export function PacketWorkspace({
               Upload and choose a PDF to build the reorder board.
             </div>
           ) : (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {pageSequence.map((pageNumber, index) => (
-                <div
-                  key={`${pageNumber}-${index}`}
-                  draggable
-                  onDragStart={() => setDraggedPageNumber(pageNumber)}
-                  onDragEnd={() => setDraggedPageNumber(null)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => handlePageDropReorder(pageNumber)}
-                  className="rounded-[1rem] border border-white/10 bg-[#141414] p-3"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Position {index + 1}</p>
-                      <p className="text-sm font-semibold text-white">Page {pageNumber}</p>
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
-                      <GripVertical className="h-3.5 w-3.5" />
-                      Drag
-                    </div>
-                  </div>
-                  <div className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white">
-                    {previewMap.get(pageNumber) ? (
-                      <iframe
-                        src={previewMap.get(pageNumber)}
-                        title={`Page ${pageNumber}`}
-                        className="h-[220px] w-full bg-white"
-                      />
-                    ) : (
-                      <div className="flex h-[220px] items-center justify-center text-sm text-slate-400">Page preview unavailable</div>
-                    )}
-                  </div>
-                </div>
-              ))}
+            <div className="mt-4 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-4 text-sm text-slate-300">
+              <p className="font-semibold text-white">Current page order</p>
+              <p className="mt-2 leading-6 text-slate-400">{pageSequence.join(", ")}</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">
+                {activePdf.pageCount} page{activePdf.pageCount === 1 ? "" : "s"} ready for drag-and-drop reordering in the modal board.
+              </p>
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={() => void handleReorderDocument()}
-            disabled={isProcessingDocuments || !activePdf || pageSequence.length === 0}
-            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Create reordered PDF
-          </button>
         </div>
       </div>
     );
@@ -1317,6 +1509,168 @@ export function PacketWorkspace({
     );
   }
 
+  function renderWordSelector() {
+    return (
+      <div className="space-y-3 rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Working document</p>
+            <p className="mt-1 text-sm text-slate-400">Pick the Word file you want to convert.</p>
+          </div>
+          <select
+            value={activeWordDocument?.id ?? ""}
+            onChange={(event) => setPreviewDocumentId(event.target.value)}
+            className="vp-select min-w-[240px] rounded-full py-2"
+          >
+            <option value="">Choose a Word document</option>
+            {wordDocuments.map((document) => (
+              <option key={document.id} value={document.id}>{document.file.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {!activeWordDocument ? (
+          <div className="rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+            Upload a DOC, DOCX, ODT, or RTF file to start the server-side conversion.
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-3 text-sm text-slate-300">
+            <span className="font-semibold text-white">{activeWordDocument.file.name}</span>
+            <span>{formatBytes(activeWordDocument.file.size)}</span>
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
+              Server conversion
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderWordToPdfWorkbench() {
+    return (
+      <div className="space-y-4">
+        {renderWordSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+            <FileText className="h-4 w-4 text-cyan-300" />
+            Convert Word file into PDF
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            This uses a server-side office engine so the PDF is rendered from the actual document structure, not guessed in the browser.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleServerConversion("word-to-pdf")}
+            disabled={isProcessingDocuments || !activeWordDocument}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Convert to PDF
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderPdfToWordWorkbench() {
+    return (
+      <div className="space-y-4">
+        {renderSinglePdfSelector()}
+        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <h4 className="flex items-center gap-2 text-base font-semibold text-white">
+            <Download className="h-4 w-4 text-fuchsia-300" />
+            Convert PDF into editable DOCX
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            The server extracts the PDF into a Word document so you can revise the content outside VisaPilot and re-upload when needed.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleServerConversion("pdf-to-word")}
+            disabled={isProcessingDocuments || !activePdf}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Convert to Word
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderPreviewContent() {
+    if (previewOutput) {
+      if (previewOutput.mimeType === "application/pdf") {
+        return (
+          <iframe
+            src={previewOutput.url}
+            title={previewOutput.fileName}
+            className="h-[72vh] w-full bg-white"
+          />
+        );
+      }
+
+      return (
+        <div className="flex min-h-[32rem] flex-col items-center justify-center gap-4 px-6 py-10 text-center text-slate-300">
+          <FileText className="h-10 w-10 text-cyan-200" />
+          <div>
+            <p className="text-base font-semibold text-white">DOCX export ready</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+              Word files are generated correctly but are not rendered inline here. Download the DOCX to review or edit it in Word.
+            </p>
+          </div>
+          <a href={previewOutput.url} download={previewOutput.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
+            <Download className="h-4 w-4" />
+            Download DOCX
+          </a>
+        </div>
+      );
+    }
+
+    if (previewDocument?.kind === "pdf") {
+      return (
+        <iframe
+          src={previewDocument.previewUrl}
+          title={previewDocument.file.name}
+          className="h-[72vh] w-full bg-white"
+        />
+      );
+    }
+
+    if (previewDocument?.kind === "image") {
+      return (
+        <div className="flex min-h-[32rem] items-center justify-center bg-black/70 p-4">
+          <Image
+            src={previewDocument.previewUrl}
+            alt={previewDocument.file.name}
+            width={900}
+            height={1200}
+            unoptimized
+            className="max-h-[70vh] w-auto rounded-[0.8rem] object-contain"
+          />
+        </div>
+      );
+    }
+
+    if (previewDocument?.kind === "word") {
+      return (
+        <div className="flex min-h-[32rem] flex-col items-center justify-center gap-4 px-6 py-10 text-center text-slate-300">
+          <FileText className="h-10 w-10 text-cyan-200" />
+          <div>
+            <p className="text-base font-semibold text-white">Word source loaded</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+              Source Word files stay compact in the workspace. Convert this file to PDF to inspect the rendered layout inside VisaPilot.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex min-h-[32rem] items-center justify-center px-6 py-10 text-center text-sm text-slate-400">
+        Choose a source file or generated export to preview it here.
+      </div>
+    );
+  }
+
   function renderActiveToolWorkbench() {
     switch (selectedTool) {
       case "merge":
@@ -1331,13 +1685,18 @@ export function PacketWorkspace({
         return renderRotateWorkbench();
       case "sanitize":
         return renderSanitizeWorkbench();
+      case "wordToPdf":
+        return renderWordToPdfWorkbench();
+      case "pdfToWord":
+        return renderPdfToWordWorkbench();
       default:
         return null;
     }
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+    <>
+      <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
       <div className="space-y-4">
         <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1412,12 +1771,14 @@ export function PacketWorkspace({
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Upload className="h-4 w-4" />
-                {selectedTool === "merge" ? "Upload Files" : "Upload PDF"}
+                {buildUploadButtonLabel(selectedToolDefinition)}
               </button>
               <p className="text-xs leading-5 text-slate-400 lg:max-w-[18rem] lg:text-right">
-                {selectedToolDefinition.multiple
-                  ? "Add multiple PDFs or images for merge mode."
-                  : "Upload one PDF, then configure and export from this workspace."}
+                {selectedToolDefinition.sourceKind === "word"
+                  ? "Word source files stay local to this workspace and convert through the server when you export."
+                  : selectedToolDefinition.multiple
+                    ? "Add multiple PDFs or images for merge mode."
+                    : "Upload one source file, then configure and export from this workspace."}
               </p>
             </div>
           </div>
@@ -1489,10 +1850,10 @@ export function PacketWorkspace({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setPreviewOutputId(output.id)}
+                      onClick={() => openOutputPreview(output.id)}
                       className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
                     >
-                      Preview result
+                      Open preview
                     </button>
                     <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
                       <Download className="h-4 w-4" />
@@ -1527,7 +1888,7 @@ export function PacketWorkspace({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                 <Eye className="h-3.5 w-3.5" />
-                Live preview
+                Focus preview
               </div>
               <select
                 value={previewOutputId ? "" : previewDocumentId}
@@ -1547,42 +1908,37 @@ export function PacketWorkspace({
                 : previewDocument
                   ? `Previewing uploaded file: ${previewDocument.file.name}.`
                   : selectedTool === "merge"
-                    ? "Choose Merge PDF first, upload at least two files, and the preview will track your selected item."
-                    : `Choose ${selectedToolDefinition.label}, upload one PDF, and the preview will open it here.`}
+                    ? "Choose Merge PDF first, upload at least two files, and open the focused preview only when you need it."
+                    : `Choose ${selectedToolDefinition.label}, upload one source file, then open the focused preview when you need it.`}
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-[1rem] border border-white/10 bg-black/50">
-            {previewOutput ? (
-              <iframe
-                src={previewOutput.url}
-                title={previewOutput.fileName}
-                className="h-[520px] w-full bg-white"
-              />
-            ) : previewDocument ? (
-              previewDocument.kind === "pdf" ? (
-                <iframe
-                  src={previewDocument.previewUrl}
-                  title={previewDocument.file.name}
-                  className="h-[520px] w-full bg-white"
-                />
-              ) : (
-                <div className="flex min-h-[520px] items-center justify-center bg-black/70 p-4">
-                  <Image
-                    src={previewDocument.previewUrl}
-                    alt={previewDocument.file.name}
-                    width={900}
-                    height={1200}
-                    unoptimized
-                    className="max-h-[490px] w-auto rounded-[0.8rem] object-contain"
-                  />
-                </div>
-              )
-            ) : (
-              <div className="flex min-h-[520px] items-center justify-center px-4 text-center text-sm text-slate-400">
-                The preview opens here after you choose a tool and upload a file.
-              </div>
-            )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-white/10 bg-[#141414] px-4 py-4 text-sm text-slate-300">
+            <div>
+              <p className="font-semibold text-white">
+                {previewOutput?.fileName ?? previewDocument?.file.name ?? "No file selected"}
+              </p>
+              <p className="mt-1 text-slate-400">
+                {previewOutput
+                  ? (previewOutput.mimeType === "application/pdf" ? "Generated PDF is ready to inspect in a focused modal." : "Generated DOCX is ready to download.")
+                  : previewDocument?.kind === "pdf"
+                    ? "Uploaded PDF ready for focused preview."
+                    : previewDocument?.kind === "image"
+                      ? "Uploaded image ready for focused preview."
+                      : previewDocument?.kind === "word"
+                        ? "Word source loaded. Convert it to PDF to inspect the rendered output here."
+                        : "Select a file to unlock preview actions."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveModal("preview")}
+              disabled={!previewOutput && !previewDocument}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Eye className="h-4 w-4" />
+              Open preview
+            </button>
           </div>
         </div>
 
@@ -1602,7 +1958,131 @@ export function PacketWorkspace({
             </div>
           </div>
         ) : null}
+
+        {selectedTool === "wordToPdf" && activeWordDocument ? (
+          <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <FileText className="h-3.5 w-3.5" />
+              Active document snapshot
+            </div>
+            <div className="mt-3 rounded-[1rem] border border-white/10 bg-black/30 px-4 py-4 text-sm text-slate-300">
+              <p><span className="font-semibold text-white">File:</span> {activeWordDocument.file.name}</p>
+              <p className="mt-2"><span className="font-semibold text-white">Size:</span> {formatBytes(activeWordDocument.file.size)}</p>
+              <p className="mt-2"><span className="font-semibold text-white">Pipeline:</span> LibreOffice server conversion</p>
+            </div>
+          </div>
+        ) : null}
       </div>
-    </div>
+
+      </div>
+
+      {activeModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
+          <div className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#090909] shadow-panel">
+            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  {activeModal === "preview" ? "Focused preview" : "Reorder board"}
+                </p>
+                <p className="mt-1 text-lg font-semibold text-white">
+                  {activeModal === "preview"
+                    ? (previewOutput?.fileName ?? previewDocument?.file.name ?? "Preview")
+                    : (activePdf?.file.name ?? "Reorder pages")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/30 hover:text-white"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {activeModal === "preview" ? (
+              <div className="overflow-auto">{renderPreviewContent()}</div>
+            ) : (
+              <div className="flex max-h-[calc(92vh-5.5rem)] flex-col overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 text-sm text-slate-300">
+                  <p>Drag page cards into the final embassy order, then export the rebuilt PDF.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
+                      disabled={!activePdf}
+                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:opacity-50"
+                    >
+                      Reset order
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleReorderDocument()}
+                      disabled={isProcessingDocuments || !activePdf || pageSequence.length === 0}
+                      className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Create reordered PDF
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-auto px-5 py-5">
+                  {isPreparingPageBoard ? (
+                    <div className="flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Preparing page previews...
+                    </div>
+                  ) : !activePdf ? (
+                    <div className="rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+                      Upload and choose a PDF to build the reorder board.
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {pageSequence.map((pageNumber, index) => {
+                        const previewUrl = pagePreviews.find((preview) => preview.pageNumber === pageNumber)?.url;
+
+                        return (
+                          <div
+                            key={`${pageNumber}-${index}`}
+                            draggable
+                            onDragStart={() => setDraggedPageNumber(pageNumber)}
+                            onDragEnd={() => setDraggedPageNumber(null)}
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={() => handlePageDropReorder(pageNumber)}
+                            className="rounded-[1rem] border border-white/10 bg-[#141414] p-3"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Position {index + 1}</p>
+                                <p className="text-sm font-semibold text-white">Page {pageNumber}</p>
+                              </div>
+                              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                                <GripVertical className="h-3.5 w-3.5" />
+                                Drag
+                              </div>
+                            </div>
+                            <div className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white">
+                              {previewUrl ? (
+                                <iframe
+                                  src={previewUrl}
+                                  title={`Page ${pageNumber}`}
+                                  className="h-[240px] w-full bg-white"
+                                />
+                              ) : (
+                                <div className="flex h-[240px] items-center justify-center text-sm text-slate-400">Page preview unavailable</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
