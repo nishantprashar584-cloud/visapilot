@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowDownUp, ArrowUp, CloudUpload, Download, Eye, FileText, Layers3, Minimize, RotateCw, Scissors, Shield, Tags, Upload } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, CloudUpload, Download, Eye, FileText, Layers3, Minimize, RotateCw, Scissors, Shield, Tags, Upload, Zap } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
 import type { SupportingDocument } from "@/types";
 
@@ -817,11 +817,14 @@ export function PacketWorkspace({
           )}
         </div>
 
-        <div className="mt-5 grid gap-3 xl:grid-cols-2">
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Split PDF</p>
-            <div className="mt-3 flex flex-col gap-4 rounded-[1rem] border border-white/10 bg-[#111111] p-4 md:flex-row md:items-end">
-              <label className="flex flex-1 flex-col gap-2">
+        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
+            <h3 className="flex items-center gap-2 font-semibold text-white">
+              <Scissors className="h-[18px] w-[18px] text-red-500" />
+              Split PDF
+            </h3>
+            <div className="mt-4 flex flex-col gap-4">
+              <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-slate-200">Select Document</span>
                 <select
                   value={splitDocumentId}
@@ -833,7 +836,7 @@ export function PacketWorkspace({
                       setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
                     }
                   }}
-                  className="w-full rounded-[0.9rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
                 >
                   <option value="">Choose a PDF</option>
                   {documents.filter((document) => document.kind === "pdf").map((document) => (
@@ -841,81 +844,110 @@ export function PacketWorkspace({
                   ))}
                 </select>
               </label>
-              <label className="flex flex-1 flex-col gap-2">
+              <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-slate-200">Page Range (e.g. 1-3)</span>
                 <input
                   value={splitRange}
                   onChange={(event) => setSplitRange(event.target.value)}
-                  placeholder="1-2 or 1,3"
-                  className="w-full rounded-[0.9rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                  placeholder="1-3"
+                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
                 />
               </label>
               <button
                 type="button"
                 onClick={() => void handleSplitDocument()}
                 disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="inline-flex items-center justify-center gap-2 rounded-[0.9rem] bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
               >
-                <Scissors className="h-4 w-4" />
-                Split
+                Extract Pages
               </button>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Rotate</span>
-                <select
-                  value={rotationPreset}
-                  onChange={(event) => setRotationPreset(event.target.value as RotationPreset)}
-                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                >
-                  <option value="90">90 degrees</option>
-                  <option value="180">180 degrees</option>
-                  <option value="270">270 degrees</option>
-                </select>
-              </label>
-              <label className="block space-y-2 sm:col-span-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Page order</span>
-                <input
-                  value={pageOrder}
-                  onChange={(event) => setPageOrder(event.target.value)}
-                  placeholder="1,2,3"
-                  className="w-full rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
-                />
-              </label>
             </div>
           </div>
 
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Quick actions</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-[#111111] p-5">
+            <h3 className="flex items-center gap-2 font-semibold text-white">
+              <RotateCw className="h-[18px] w-[18px] text-amber-500" />
+              Rotate Pages
+            </h3>
+            <div className="mt-4 flex flex-col gap-4">
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-slate-200">Select Document</span>
+                <select
+                  value={splitDocumentId}
+                  onChange={(event) => {
+                    const nextDocumentId = event.target.value;
+                    const nextDocument = documents.find((document) => document.id === nextDocumentId) ?? null;
+                    setSplitDocumentId(nextDocumentId);
+                    if (nextDocument?.kind === "pdf") {
+                      setPageOrder(Array.from({ length: nextDocument.pageCount }, (_, index) => String(index + 1)).join(","));
+                    }
+                  }}
+                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                >
+                  <option value="">Choose a PDF</option>
+                  {documents.filter((document) => document.kind === "pdf").map((document) => (
+                    <option key={document.id} value={document.id}>{document.file.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-slate-200">Degrees</span>
+                <select
+                  value={rotationPreset}
+                  onChange={(event) => setRotationPreset(event.target.value as RotationPreset)}
+                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
+                >
+                  <option value="90">90°</option>
+                  <option value="180">180°</option>
+                  <option value="270">270°</option>
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => void handleRotateDocument()}
                 disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg bg-zinc-100 py-2.5 text-sm font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
               >
-                <RotateCw className="h-4 w-4" />
-                Rotate PDF
+                Apply Rotation
               </button>
-              <button
-                type="button"
-                onClick={() => void handleReorderDocument()}
-                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <ArrowDownUp className="h-4 w-4" />
-                Reorder PDF
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSanitizeDocument()}
-                disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Shield className="h-4 w-4" />
-                Sanitize PDF
-              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-[#111111] p-5 md:col-span-2">
+            <h3 className="flex items-center gap-2 font-semibold text-white">
+              <Zap className="h-[18px] w-[18px] text-indigo-500" />
+              Quick Actions
+            </h3>
+            <div className="mt-4 flex flex-col gap-4">
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-slate-200">Page Order</span>
+                <input
+                  value={pageOrder}
+                  onChange={(event) => setPageOrder(event.target.value)}
+                  placeholder="1,2,3"
+                  className="w-full rounded-lg border border-white/12 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                />
+              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => void handleReorderDocument()}
+                  disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-transparent px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ArrowDownUp className="h-4 w-4" />
+                  Reorder Pages
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSanitizeDocument()}
+                  disabled={isProcessingDocuments || !splitDocument || splitDocument.kind !== "pdf"}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-transparent px-4 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Shield className="h-4 w-4" />
+                  Sanitize Metadata
+                </button>
+              </div>
             </div>
           </div>
         </div>
