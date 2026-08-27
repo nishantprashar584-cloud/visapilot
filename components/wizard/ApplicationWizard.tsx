@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, ChevronDown, FileStack, Home, LoaderCircle, Mic, Plane, Square, UserSquare2, Wallet, X } from "lucide-react";
+import { CalendarDays, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -24,6 +24,7 @@ import { previewWizardApplicant } from "@/lib/mock/applications";
 import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 import type { ApplicantInfo, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
+import { consultantDailyMinimumEur, employmentStatusOptions, fundingSourceOptions, visaKnowledgeBaseSections } from "@/config/schengen-rules";
 import { runRiskAudit } from "@/lib/riskAudit";
 
 const draftStorageKey = "visapilot.applicationDraft";
@@ -100,13 +101,13 @@ const stepFieldGroups: FieldPath<ApplicantInfo>[][] = [
     "trip.entriesRequested",
     "trip.arrivalDate",
     "trip.departureDate",
+    "employment.employmentStatus",
+    "sponsor.fundingSource",
   ],
   [
-    "employment.employmentStatus",
     "employment.occupation",
     "employment.monthlyIncomeEur",
     "employment.savingsBalanceEur",
-    "sponsor.type",
   ],
   [
     "trip.hotelBookingReference",
@@ -150,6 +151,7 @@ interface InputProps {
   type?: "text" | "email" | "date" | "number";
   placeholder?: string;
   step?: string;
+  helper?: React.ReactNode;
   enableVoice?: boolean;
   onVoiceCapture?: (name: FieldPath<ApplicantInfo>) => void;
   voicePhase?: "listening" | "processing" | null;
@@ -198,6 +200,7 @@ function TextInput({
   type = "text",
   placeholder,
   step,
+  helper,
   enableVoice = false,
   onVoiceCapture,
   voicePhase = null,
@@ -209,6 +212,7 @@ function TextInput({
   return (
     <label className="block space-y-2">
       <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</span>
+      {helper ? <span className="block text-sm leading-6 text-slate-400">{helper}</span> : null}
       <span className="relative block">
         <input
           type={type}
@@ -460,7 +464,16 @@ type VoiceCaptureSession = {
   baselineValue: string | number;
   heardText: string;
   typedValue: string | number;
+  stopRequested: boolean;
 };
+
+const knowledgeBaseIcons = {
+  clock: HelpCircle,
+  camera: Camera,
+  fingerprint: Fingerprint,
+  repeat: Repeat2,
+  handshake: Handshake,
+} as const;
 
 const dateVoiceFields = new Set<FieldPath<ApplicantInfo>>([
   "personal.dateOfBirth",
@@ -749,6 +762,7 @@ export function ApplicationWizard({
   const [isMicrophoneHelpDismissed, setIsMicrophoneHelpDismissed] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [microphonePermission, setMicrophonePermission] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">("idle");
+  const [isKnowledgeDrawerOpen, setIsKnowledgeDrawerOpen] = useState(false);
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<ApplicantInfo>({
@@ -766,6 +780,7 @@ export function ApplicationWizard({
   const lastName = useWatch({ control: form.control, name: "personal.lastName" });
   const savingsBalance = useWatch({ control: form.control, name: "employment.savingsBalanceEur" });
   const transitCountries = useWatch({ control: form.control, name: "trip.transitCountries" });
+  const fundingSource = useWatch({ control: form.control, name: "sponsor.fundingSource" });
 
   const completionPercent = Math.round(((currentStep + 1) / stepLabels.length) * 100);
   const displayName = [firstName, lastName].filter(Boolean).join(" ").trim() || "Applicant profile";
@@ -792,6 +807,10 @@ export function ApplicationWizard({
       : voiceCaptureState?.phase === "processing"
         ? "Processing your voice input."
         : voiceMessage ?? "Tap any microphone to start live dictation into a supported field.";
+  const financialStepBlocked = currentStep === 2 && liveAudit.hasExactCountryRule && !liveAudit.statutoryFundsSatisfied;
+  const financialCalculatorMessage = `${liveAudit.statutoryRuleSummary} Your current liquid funds show EUR ${liveAudit.availableLiquidBalanceEur.toFixed(2)}.`;
+  const tripDailyBudgetLabel = stayDuration > 0 ? `EUR ${liveAudit.dailyBudgetEur.toFixed(2)} per day` : "Pending";
+  const statutoryFundsGap = Math.max(0, liveAudit.requiredLiquidBalanceEur - liveAudit.availableLiquidBalanceEur);
 
   useEffect(() => {
     const supported = Boolean(getSpeechRecognitionConstructor());
@@ -866,6 +885,25 @@ export function ApplicationWizard({
   }, [destinationCountry, form]);
 
   useEffect(() => {
+    const mappedSponsorType = fundingSource === "family_sponsored"
+      ? "host"
+      : fundingSource === "company_sponsored"
+        ? "inviting_company"
+        : "self";
+
+    form.setValue("sponsor.type", mappedSponsorType, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  }, [form, fundingSource]);
+
+  useEffect(() => {
+    if (!financialStepBlocked && submitError?.includes("Insufficient statutory funds")) {
+      setSubmitError(null);
+    }
+  }, [financialStepBlocked, submitError]);
+
+  useEffect(() => {
     if (!hasHydrated) {
       return;
     }
@@ -912,6 +950,10 @@ export function ApplicationWizard({
   function stopActiveVoiceCapture() {
     if (!speechRecognitionRef.current || voiceCaptureState?.phase !== "listening") {
       return;
+    }
+
+    if (voiceCaptureSessionRef.current) {
+      voiceCaptureSessionRef.current.stopRequested = true;
     }
 
     speechRecognitionRef.current.stop();
@@ -1058,6 +1100,7 @@ export function ApplicationWizard({
       baselineValue: typeof baselineValue === "number" ? baselineValue : String(baselineValue),
       heardText: "",
       typedValue: typeof baselineValue === "number" ? baselineValue : String(baselineValue),
+      stopRequested: false,
     };
     setVoiceCaptureState({
       field: name,
@@ -1070,7 +1113,7 @@ export function ApplicationWizard({
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const session = voiceCaptureSessionRef.current;
 
-      if (!session || session.field !== name) {
+      if (!session || session.field !== name || session.stopRequested) {
         return;
       }
 
@@ -1138,6 +1181,11 @@ export function ApplicationWizard({
   }
 
   async function handleNextStep() {
+    if (currentStep === 2 && liveAudit.hasExactCountryRule && !liveAudit.statutoryFundsSatisfied) {
+      setSubmitError(`Insufficient statutory funds for ${destinationCountry}. Add EUR ${statutoryFundsGap.toFixed(2)} more or update the travel funding plan before continuing.`);
+      return;
+    }
+
     const isValid = await form.trigger(stepFieldGroups[currentStep], { shouldFocus: true });
 
     if (!isValid) {
@@ -1837,6 +1885,20 @@ export function ApplicationWizard({
                     { label: "Multiple", value: "multiple" },
                   ]}
                 />
+                <SelectInput
+                  label="Employment status"
+                  name="employment.employmentStatus"
+                  register={form.register}
+                  errors={form.formState.errors}
+                  options={[...employmentStatusOptions]}
+                />
+                <SelectInput
+                  label="Funding source"
+                  name="sponsor.fundingSource"
+                  register={form.register}
+                  errors={form.formState.errors}
+                  options={[...fundingSourceOptions]}
+                />
                 <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} />
                 <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} />
                 <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} placeholder="Hotel name, address, or host accommodation summary" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.accommodations" ? voiceCaptureState.phase : null} />
@@ -1922,13 +1984,28 @@ export function ApplicationWizard({
                     <p className="text-sm text-slate-300">Required today: EUR {liveAudit.requiredLiquidBalanceEur.toFixed(2)}</p>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    {destinationCountry}: EUR {liveAudit.appliedDailyFundsRuleEur.toFixed(0)} per day.
-                    {destinationCountry === "Spain" ? " Spain also enforces a EUR 1,020 minimum balance." : ""}
-                    {destinationCountry === "France" ? " France uses the higher no-hotel threshold until accommodation proof is in place." : ""}
+                    {liveAudit.statutoryRuleSummary}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    Available EUR {liveAudit.availableLiquidBalanceEur.toFixed(2)}. Safer target with buffer: EUR {liveAudit.recommendedLiquidBalanceEur.toFixed(2)}.
+                    Available EUR {liveAudit.availableLiquidBalanceEur.toFixed(2)}. Daily budget: {tripDailyBudgetLabel}. Safer target with buffer: EUR {liveAudit.recommendedLiquidBalanceEur.toFixed(2)}.
                   </p>
+                  {liveAudit.consultantWarningMessage ? (
+                    <div className="mt-4 rounded-[1rem] border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-50">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <HelpCircle className="h-4 w-4" />
+                        [High Refusal Risk]
+                      </div>
+                      <p className="mt-2 leading-6">{liveAudit.consultantWarningMessage}</p>
+                    </div>
+                  ) : null}
+                  {financialStepBlocked ? (
+                    <div className="mt-4 rounded-[1rem] border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+                      <div className="font-semibold">[Insufficient Statutory Funds for {destinationCountry}]</div>
+                      <p className="mt-2 leading-6">
+                        Add at least EUR {statutoryFundsGap.toFixed(2)} more in liquid funds before continuing.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1948,39 +2025,18 @@ export function ApplicationWizard({
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
-                <SelectInput
-                  label="Employment status"
-                  name="employment.employmentStatus"
-                  register={form.register}
-                  errors={form.formState.errors}
-                  options={[
-                    { label: "Employed", value: "employed" },
-                    { label: "Self-employed", value: "self_employed" },
-                    { label: "Student", value: "student" },
-                    { label: "Retired", value: "retired" },
-                    { label: "Unemployed", value: "unemployed" },
-                    { label: "Contractor", value: "contractor" },
-                    { label: "Other", value: "other" },
-                  ]}
-                />
                 <TextInput label="Occupation" name="employment.occupation" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.occupation" ? voiceCaptureState.phase : null} />
                 <TextInput label="Employer name" name="employment.employerName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerName" ? voiceCaptureState.phase : null} />
                 <TextInput label="Employer address" name="employment.employerAddress" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerAddress" ? voiceCaptureState.phase : null} />
                 <TextInput label="Monthly income (EUR)" name="employment.monthlyIncomeEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} helper={<span className="inline-flex items-start gap-2"><HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /> <span>{financialCalculatorMessage}</span></span>} />
                 <TextInput label="Employer phone" name="employment.employerPhone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerPhone" ? voiceCaptureState.phase : null} />
-                <SelectInput
-                  label="Primary trip sponsor"
-                  name="sponsor.type"
-                  register={form.register}
-                  errors={form.formState.errors}
-                  options={[
-                    { label: "Self-funded", value: "self" },
-                    { label: "Host-funded", value: "host" },
-                    { label: "Inviting company", value: "inviting_company" },
-                    { label: "Other", value: "other" },
-                  ]}
-                />
+                <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-slate-300">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Consultant triage</p>
+                  <p className="mt-2 leading-6">
+                    Employment profile: {form.getValues("employment.employmentStatus").replace(/_/g, " ")}. Funding source: {form.getValues("sponsor.fundingSource").replace(/_/g, " ")}.
+                  </p>
+                </div>
               </div>
 
               <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
@@ -2103,6 +2159,7 @@ export function ApplicationWizard({
               <button
                 type="button"
                 onClick={handleNextStep}
+                disabled={isSubmitting || financialStepBlocked}
                 className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
                 {currentStep === 3 ? "Continue to Document Studio" : "Save and continue"}
@@ -2111,8 +2168,75 @@ export function ApplicationWizard({
               <div />
             )}
           </div>
+
+          {financialStepBlocked ? (
+            <div className="rounded-[1rem] border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+              Continue is disabled because your current funds are below the configured statutory minimum for {destinationCountry}.
+            </div>
+          ) : null}
         </form>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setIsKnowledgeDrawerOpen(true)}
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[#111827]/95 px-4 py-3 text-sm font-semibold text-cyan-50 shadow-panel backdrop-blur-xl transition hover:border-cyan-200/35 hover:bg-[#162033]"
+      >
+        <HelpCircle className="h-4 w-4" />
+        Visa Guide
+      </button>
+
+      {isKnowledgeDrawerOpen ? (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+          <button type="button" aria-label="Close visa guide" className="flex-1" onClick={() => setIsKnowledgeDrawerOpen(false)} />
+          <div className="relative h-full w-full max-w-[420px] overflow-y-auto border-l border-white/10 bg-[#0b0d11] p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Knowledge Base</p>
+                <h3 className="mt-2 text-xl font-semibold text-white">Visa Guide</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Country-specific fund rules, biometric reminders, and document guidance without leaving your application.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsKnowledgeDrawerOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/25 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-[1rem] border border-cyan-300/15 bg-cyan-500/10 p-4 text-sm text-cyan-50">
+              <p className="font-semibold">Destination funds calculator</p>
+              <p className="mt-2 leading-6">{liveAudit.statutoryRuleSummary}</p>
+              <p className="mt-2 leading-6">
+                Consultant baseline: EUR {consultantDailyMinimumEur.toFixed(0)} per day. Your current daily budget: {tripDailyBudgetLabel}.
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-3 prose prose-sm prose-invert max-w-none">
+              {visaKnowledgeBaseSections.map((section) => {
+                const Icon = knowledgeBaseIcons[section.icon];
+
+                return (
+                  <details key={section.id} className="rounded-[1rem] border border-white/10 bg-[#101010] p-4" open={section.id === "rule-90-180"}>
+                    <summary className="flex cursor-pointer list-none items-center gap-3 text-sm font-semibold text-white">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-cyan-100">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      {section.title}
+                    </summary>
+                    <div className="mt-3 text-sm leading-7 text-slate-300">
+                      {section.body}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </FormProvider>
   );
 }

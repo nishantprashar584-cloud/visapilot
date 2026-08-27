@@ -37,6 +37,8 @@ export type EntryCount = "single" | "double" | "multiple";
 
 export type SponsorType = "self" | "host" | "inviting_company" | "other";
 
+export type FundingSource = "self_funded" | "family_sponsored" | "company_sponsored";
+
 export type EmploymentStatus =
   | "employed"
   | "self_employed"
@@ -123,6 +125,7 @@ export interface ApplicantInfo {
   };
   sponsor: {
     type: SponsorType;
+    fundingSource: FundingSource;
     name?: string;
     address?: string;
     phone?: string;
@@ -251,6 +254,7 @@ export type ApplicantValuePath =
   | "trip.accommodations"
   | "trip.hotelBookingReference"
   | "sponsor.type"
+  | "sponsor.fundingSource"
   | "sponsor.name"
   | "sponsor.address"
   | "sponsor.phone"
@@ -294,6 +298,7 @@ export interface PdfMapConfig {
 }
 
 export interface CountryRiskRule {
+  displayName: string;
   dailyFundsEur: number;
   dailyFundsWithoutAccommodationEur?: number;
   minimumBalanceEur?: number;
@@ -301,6 +306,7 @@ export interface CountryRiskRule {
   minimumInsuranceCoverageEur: number;
   requireRoundTripReservation: boolean;
   requireAccommodationProof: boolean;
+  hasExactStatutoryRule: boolean;
   documentRules: string[];
 }
 
@@ -378,13 +384,20 @@ export type ParsedDocumentResult =
 export interface RiskAuditResult {
   status: AuditSeverity;
   destinationCountry: string;
+  hasExactCountryRule: boolean;
   appliedDailyFundsRuleEur: number;
   requiredLiquidBalanceEur: number;
   recommendedLiquidBalanceEur: number;
   availableLiquidBalanceEur: number;
+  dailyBudgetEur: number;
+  consultantDailyMinimumEur: number;
+  statutoryRuleSummary: string;
+  consultantWarning: boolean;
+  consultantWarningMessage: string | null;
   passportValidThrough: string;
   passportValiditySatisfied: boolean;
   financialBufferSatisfied: boolean;
+  statutoryFundsSatisfied: boolean;
   missingDocuments: string[];
   fixInstructions: string[];
   checks: {

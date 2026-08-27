@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "inspect:pdf": "tsx scripts/inspect-pdf.ts"
+    "inspect:pdf": "tsx scripts/inspect-pdf.ts",
+    "extract:pdf-fields": "tsx scripts/extract-pdf-fields.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

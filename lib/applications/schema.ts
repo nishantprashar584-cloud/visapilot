@@ -102,6 +102,7 @@ export const applicantInfoSchema = z
     }),
     sponsor: z.object({
       type: z.enum(["self", "host", "inviting_company", "other"]),
+      fundingSource: z.enum(["self_funded", "family_sponsored", "company_sponsored"]),
       name: z.string().trim().optional().or(z.literal("")),
       address: z.string().trim().optional().or(z.literal("")),
       phone: z.string().trim().optional().or(z.literal("")),
@@ -219,6 +220,7 @@ export const defaultApplicantInfo: ApplicantInfo = {
   },
   sponsor: {
     type: "self",
+    fundingSource: "self_funded",
     name: "",
     address: "",
     phone: "",

@@ -1,5 +1,6 @@
 import "server-only";
 import { createResponseWithFallback } from "@/lib/openai";
+import { buildConsultantContext, isSponsoredFundingSource } from "@/lib/consultantIntelligence";
 import type { ApplicantInfo } from "@/types";
 
 function buildConsulateName(destinationCountry: string): string {
@@ -7,6 +8,8 @@ function buildConsulateName(destinationCountry: string): string {
 }
 
 function buildApplicantSummary(applicant: ApplicantInfo): string {
+  const consultantContext = buildConsultantContext(applicant);
+
   return JSON.stringify(
     {
       applicantName: `${applicant.personal.firstName} ${applicant.personal.lastName}`,
@@ -25,11 +28,17 @@ function buildApplicantSummary(applicant: ApplicantInfo): string {
       },
       finances: {
         employmentStatus: applicant.employment.employmentStatus,
+        employmentStatusLabel: consultantContext.employmentStatusLabel,
         occupation: applicant.employment.occupation,
         monthlyIncomeEur: applicant.employment.monthlyIncomeEur,
         savingsBalanceEur: applicant.employment.savingsBalanceEur,
         sponsorType: applicant.sponsor.type,
+        fundingSource: applicant.sponsor.fundingSource,
+        fundingSourceLabel: consultantContext.fundingSourceLabel,
+        statutoryFundsRequirement: consultantContext.financialRule.requiredTotalEur,
+        statutoryFundsSummary: consultantContext.financialRule.summary,
       },
+      requiredDocuments: consultantContext.requiredDocuments,
       homeTies: applicant.homeTies,
     },
     null,
@@ -73,6 +82,7 @@ function cleanSentence(value: string): string {
 }
 
 function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
+  const consultantContext = buildConsultantContext(applicant);
   const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim();
   const destinationCountry = applicant.trip.destinationCountry;
   const consulateName = buildConsulateName(destinationCountry);
@@ -92,9 +102,9 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const placeOfApplication = applicant.application.placeOfApplication.trim();
   const sponsorLine = applicant.sponsor.type === "self"
     ? "I will personally cover my travel, accommodation, and daily expenses."
-    : `My trip support arrangement is recorded under ${applicant.sponsor.type.replace(/_/g, " ")}.`;
+    : `My trip is ${consultantContext.fundingSourceLabel.toLowerCase()}, and the supporting financial guarantees are enclosed with this application.`;
   const employmentLine = employerName || occupation
-    ? `I am currently employed${occupation ? ` as ${occupation}` : ""}${employerName ? ` with ${employerName}` : ""}, which supports the continuity of my obligations after travel.`
+    ? `I am a ${consultantContext.employmentStatusLabel.toLowerCase()}${occupation ? ` working as ${occupation}` : ""}${employerName ? ` with ${employerName}` : ""}, which supports the continuity of my obligations after travel.`
     : "My current professional and personal commitments support my planned return after travel.";
   const accommodationLine = accommodations
     ? `My accommodation arrangements for this trip are confirmed as ${cleanSentence(accommodations).replace(/[.]$/, "")}${bookingReference ? ` under booking reference ${bookingReference}` : ""}.`
@@ -105,6 +115,11 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const dependentLine = dependentInformation
     ? `I also maintain ongoing family responsibilities, including ${dependentInformation.replace(/[.]$/, "")}.`
     : null;
+  const consultantRiskLine = applicant.employment.employmentStatus === "self_employed"
+    ? "My active client relationships and continuing work commitments in my home country are part of the enclosed professional evidence and reinforce my return intent."
+    : isSponsoredFundingSource(applicant.sponsor.fundingSource)
+      ? "The enclosed sponsor documents confirm the financial backing for this trip and should be read together with my own itinerary and return-tie evidence."
+      : null;
 
   return [
     fullName || "Applicant",
@@ -126,6 +141,8 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     "",
     employmentLine,
     "",
+    consultantRiskLine,
+    consultantRiskLine ? "" : null,
     dependentLine,
     dependentLine ? "" : null,
     `I maintain clear ties to my home country and fully intend to return after my temporary visit. ${returnIntent}`,
@@ -201,6 +218,7 @@ export async function generateCoverLetterResult(
   applicant: ApplicantInfo,
   options: LetterGenerationOptions = {},
 ): Promise<CoverLetterGenerationResult> {
+  const consultantContext = buildConsultantContext(applicant);
   const destinationCountry = applicant.trip.destinationCountry;
   const consulateName = buildConsulateName(destinationCountry);
   const letterKind = options.letterKind ?? "cover_letter";
@@ -221,7 +239,7 @@ export async function generateCoverLetterResult(
                 text:
                   isCustomLetter
                     ? "You write formal supporting letters for Schengen visa applications. Output polished markdown only, with no preamble and no code fences. The result must read like a real applicant submission and follow the requested purpose precisely."
-                    : "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences. The result must read like a real consular submission, not generic AI copy.",
+                    : "You are an expert immigration lawyer writing Schengen cover letters. Output polished markdown only, with no preamble and no code fences. The result must read like a real consular submission, not generic AI copy. Preemptively address reasonable doubts tied to the applicant's employment profile, funding source, finances, and return intent without inventing facts.",
               },
             ],
           },
@@ -232,7 +250,7 @@ export async function generateCoverLetterResult(
                 type: "input_text",
                 text: isCustomLetter
                   ? `Draft a formal Schengen visa supporting letter addressed to ${consulateName}. The requested letter title is: ${options.customTitle ?? "Additional supporting letter"}. The user wants this letter to cover the following points: ${options.customInstructions ?? ""}. Use the applicant context below to make the letter specific, factual, and visa-relevant. Keep it formal and credible. Do not invent facts. If a requested point is not present in the applicant record, acknowledge it carefully without fabricating details. Applicant record:\n${buildApplicantSummary(applicant)}`
-                  : `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Use the structure typically seen in real Schengen cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
+                  : `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The applicant is a ${consultantContext.employmentStatusLabel} and the trip is ${consultantContext.fundingSourceLabel.toLowerCase()}. If the applicant is a freelancer, emphasize home-country client ties and continuing professional obligations. If the trip is sponsored, explicitly reference the sponsor's attached financial guarantees. Use the structure typically seen in real Schengen cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Preemptively address any doubts a consular officer may have about return intent or financial sufficiency based on this specific profile. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
               },
             ],
           },

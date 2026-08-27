@@ -64,6 +64,7 @@ type PromptDictationSession = {
   baselinePrompt: string;
   heardText: string;
   typedText: string;
+  stopRequested: boolean;
 };
 
 function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
@@ -180,6 +181,10 @@ export function Step5Workspace({
   function stopPromptDictation() {
     if (!customRecognitionRef.current || promptDictationState?.phase !== "listening") {
       return;
+    }
+
+    if (promptDictationSessionRef.current) {
+      promptDictationSessionRef.current.stopRequested = true;
     }
 
     customRecognitionRef.current.stop();
@@ -388,6 +393,7 @@ export function Step5Workspace({
       baselinePrompt,
       heardText: "",
       typedText: baselinePrompt,
+      stopRequested: false,
     };
     setPromptDictationState({
       letterId,
@@ -400,7 +406,7 @@ export function Step5Workspace({
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const session = promptDictationSessionRef.current;
 
-      if (!session || session.letterId !== letterId) {
+      if (!session || session.letterId !== letterId || session.stopRequested) {
         return;
       }
 
@@ -787,6 +793,7 @@ export function Step5Workspace({
 
         <div className={activeTab === "toolkit" ? "mt-6 xl:col-span-2" : "mt-6 hidden"}>
           <PacketWorkspace
+            applicant={applicant}
             previewMode={previewMode}
             supportingDocuments={supportingDocuments}
             onSupportingDocumentsChange={onSupportingDocumentsChange}

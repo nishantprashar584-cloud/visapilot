@@ -1,17 +1,5 @@
-import riskRules from "@/config/risk-rules.json";
-import type { ApplicantInfo, ApplicationRow, CountryRiskRule, RiskAuditResult, RiskRulesConfig } from "@/types";
-
-const typedRiskRules = riskRules as RiskRulesConfig;
-
-function resolveCountryRule(destinationCountry: string): CountryRiskRule {
-  const countryRule = typedRiskRules.countries[destinationCountry];
-
-  if (!countryRule) {
-    throw new Error(`No risk rules configured for ${destinationCountry}.`);
-  }
-
-  return countryRule;
-}
+import { calculateStatutoryFundsRequirement, consultantDailyMinimumEur } from "@/config/schengen-rules";
+import type { ApplicantInfo, ApplicationRow, RiskAuditResult } from "@/types";
 
 function addMonths(dateValue: string, months: number): Date {
   const date = new Date(dateValue);
@@ -21,26 +9,29 @@ function addMonths(dateValue: string, months: number): Date {
 
 export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
   const destinationCountry = applicant.trip.destinationCountry;
-  const countryRule = resolveCountryRule(destinationCountry);
   const hasAccommodationProof =
     applicant.trip.accommodations.trim().length > 0 &&
     applicant.trip.hotelBookingReference.trim().length > 0;
-  const appliedDailyFundsRuleEur =
-    !hasAccommodationProof && countryRule.dailyFundsWithoutAccommodationEur
-      ? countryRule.dailyFundsWithoutAccommodationEur
-      : countryRule.dailyFundsEur;
-  const stayBasedRequirementEur = applicant.trip.stayDurationDays * appliedDailyFundsRuleEur;
-  const requiredLiquidBalanceEur = Math.max(
-    stayBasedRequirementEur,
-    countryRule.minimumBalanceEur ?? 0,
-  );
+  const financialRule = calculateStatutoryFundsRequirement({
+    destinationCountry,
+    stayDurationDays: applicant.trip.stayDurationDays,
+    hasAccommodationProof,
+  });
+  const countryRule = financialRule.rule;
+  const appliedDailyFundsRuleEur = financialRule.appliedDailyRateEur;
+  const requiredLiquidBalanceEur = financialRule.requiredTotalEur;
   const recommendedLiquidBalanceEur = requiredLiquidBalanceEur * countryRule.recommendedBufferMultiplier;
   const availableLiquidBalanceEur = applicant.employment.savingsBalanceEur;
+  const dailyBudgetEur = applicant.trip.stayDurationDays > 0
+    ? availableLiquidBalanceEur / applicant.trip.stayDurationDays
+    : 0;
   const passportThresholdDate = addMonths(applicant.trip.departureDate, 3);
   const passportExpiryDate = new Date(applicant.passport.dateOfExpiry);
   const passportValiditySatisfied = passportExpiryDate >= passportThresholdDate;
-  const financialSufficiency = availableLiquidBalanceEur >= requiredLiquidBalanceEur;
+  const statutoryFundsSatisfied = availableLiquidBalanceEur >= requiredLiquidBalanceEur;
+  const financialSufficiency = statutoryFundsSatisfied;
   const financialBufferSatisfied = availableLiquidBalanceEur >= recommendedLiquidBalanceEur;
+  const consultantWarning = applicant.trip.stayDurationDays > 0 && dailyBudgetEur < consultantDailyMinimumEur;
   const accommodationEvidence =
     applicant.trip.accommodations.trim().length > 0 &&
     applicant.trip.hotelBookingReference.trim().length > 0;
@@ -50,7 +41,7 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
   const missingDocuments: string[] = [];
   const fixInstructions: string[] = [];
 
-  if (!financialSufficiency) {
+  if (!statutoryFundsSatisfied) {
     missingDocuments.push("Updated bank statement showing sufficient liquid balance.");
     fixInstructions.push(
       `Increase accessible funds to at least EUR ${requiredLiquidBalanceEur.toFixed(2)} before submission.`,
@@ -82,10 +73,16 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
     );
   }
 
+  if (consultantWarning) {
+    fixInstructions.push(
+      `Your daily budget is below the recommended EUR ${consultantDailyMinimumEur.toFixed(0)}/day. Consider adding a sponsor or attaching additional savings accounts.`,
+    );
+  }
+
   const status: RiskAuditResult["status"] =
-    !financialSufficiency || !passportValiditySatisfied
+    !statutoryFundsSatisfied || !passportValiditySatisfied
       ? "RED"
-      : missingDocuments.length > 0 || !financialBufferSatisfied
+      : missingDocuments.length > 0 || !financialBufferSatisfied || consultantWarning
         ? "YELLOW"
         : "GREEN";
 
@@ -96,13 +93,22 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
   return {
     status,
     destinationCountry,
+    hasExactCountryRule: countryRule.hasExactStatutoryRule,
     appliedDailyFundsRuleEur,
     requiredLiquidBalanceEur,
     recommendedLiquidBalanceEur,
     availableLiquidBalanceEur,
+    dailyBudgetEur,
+    consultantDailyMinimumEur,
+    statutoryRuleSummary: financialRule.summary,
+    consultantWarning,
+    consultantWarningMessage: consultantWarning
+      ? `Your daily budget is below the recommended EUR ${consultantDailyMinimumEur.toFixed(0)}/day. Consulates often reject applications for insufficient funds. Consider adding a sponsor or attaching additional savings accounts.`
+      : null,
     passportValidThrough: applicant.passport.dateOfExpiry,
     passportValiditySatisfied,
     financialBufferSatisfied,
+    statutoryFundsSatisfied,
     missingDocuments,
     fixInstructions,
     checks: {

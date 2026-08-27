@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { assertCriticalServerEnv, getCriticalEnvHealth } from "@/lib/config/envCheck";
+import { getDocumentConversionHealth } from "@/lib/documents/conversion";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   const environment = getCriticalEnvHealth();
+  const documentConversion = await getDocumentConversionHealth();
   let database = {
     ok: false,
     latencyMs: 0,
@@ -32,6 +34,7 @@ export async function GET() {
       status: "ok",
       environment,
       database,
+      documentConversion,
       checkedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -40,6 +43,7 @@ export async function GET() {
         status: "degraded",
         environment,
         database,
+        documentConversion,
         checkedAt: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Health check failed.",
       },

@@ -85,6 +85,7 @@ const franceTouristApplicant: ApplicantInfo = {
   },
   sponsor: {
     type: "self",
+    fundingSource: "self_funded",
     name: "",
     address: "",
     phone: "",
@@ -156,6 +157,7 @@ const spainRepairApplicant: ApplicantInfo = {
   },
   sponsor: {
     type: "host",
+    fundingSource: "family_sponsored",
     name: "Amna Hussain",
     address: "Calle de Atocha 77, Madrid",
     phone: "+34 611223344",
@@ -215,6 +217,7 @@ const germanyBusinessApplicant: ApplicantInfo = {
   },
   sponsor: {
     type: "inviting_company",
+    fundingSource: "company_sponsored",
     name: "Eonix Mobility GmbH",
     address: "Hanauer Landstrasse 120, Frankfurt",
     phone: "+49 691234560",

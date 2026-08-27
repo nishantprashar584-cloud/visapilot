@@ -22,7 +22,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
-import type { SupportingDocument } from "@/types";
+import { formatEmploymentStatusLabel, formatFundingSourceLabel, generateRequiredDocuments } from "@/lib/consultantIntelligence";
+import type { ApplicantInfo, SupportingDocument } from "@/types";
 
 type WorkspaceDocument = {
   id: string;
@@ -416,10 +417,12 @@ async function appendFileToPdf(targetBytesOwner: PdfDocument, document: Workspac
 }
 
 export function PacketWorkspace({
+  applicant,
   previewMode,
   supportingDocuments,
   onSupportingDocumentsChange,
 }: {
+  applicant: ApplicantInfo;
   previewMode: boolean;
   supportingDocuments: SupportingDocument[];
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
@@ -479,6 +482,11 @@ export function PacketWorkspace({
   const activeWordDocument = useMemo(
     () => documents.find((document) => document.id === previewDocumentId && document.kind === "word") ?? wordDocuments[0] ?? null,
     [documents, previewDocumentId, wordDocuments],
+  );
+
+  const requiredDocuments = useMemo(
+    () => generateRequiredDocuments(applicant.employment.employmentStatus, applicant.sponsor.fundingSource),
+    [applicant.employment.employmentStatus, applicant.sponsor.fundingSource],
   );
 
   useEffect(() => {
@@ -1698,6 +1706,36 @@ export function PacketWorkspace({
     <>
       <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
       <div className="space-y-4">
+        <div className="rounded-[1.2rem] border border-cyan-300/20 bg-cyan-500/10 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-black/20 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Consultant checklist
+              </div>
+              <h4 className="mt-3 text-lg font-semibold text-white">Dynamic document requirements</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-200">
+                Profile: {formatEmploymentStatusLabel(applicant.employment.employmentStatus)}. Funding: {formatFundingSourceLabel(applicant.sponsor.fundingSource)}.
+              </p>
+            </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200">
+              {requiredDocuments.length} required items
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {requiredDocuments.map((document) => (
+              <span key={document} className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+                {document}
+              </span>
+            ))}
+          </div>
+
+          <p className="mt-4 text-sm leading-6 text-cyan-50/90">
+            The toolkit adapts to the applicant profile so freelancers, students, and sponsored travelers see the extra evidence a consultant would request before submission.
+          </p>
+        </div>
+
         <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
