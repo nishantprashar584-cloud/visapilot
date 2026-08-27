@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
+import { ArrowLeft, Calendar, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -197,7 +197,12 @@ function VoiceButtonIcon({ voicePhase }: { voicePhase: "listening" | "processing
 }
 
 function scrollStepViewportToTop(anchor: HTMLElement | null) {
-  const scrollTargets: Array<HTMLElement | Window> = [window, document.documentElement, document.body];
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+
+  const scrollTargets: HTMLElement[] = [document.documentElement, document.body];
+  const previousScrollBehavior = new Map<HTMLElement, string>();
   let currentNode = anchor?.parentElement ?? null;
 
   while (currentNode) {
@@ -213,19 +218,23 @@ function scrollStepViewportToTop(anchor: HTMLElement | null) {
   }
 
   scrollTargets.forEach((target) => {
-    if (target === window) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    target.scrollTo({ top: 0, behavior: "smooth" });
+    previousScrollBehavior.set(target, target.style.scrollBehavior);
+    target.style.scrollBehavior = "auto";
+    target.scrollTo({ top: 0, left: 0, behavior: "auto" });
   });
 
-  if (anchor) {
-    requestAnimationFrame(() => {
-      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+  const topOffset = anchor
+    ? Math.max(anchor.getBoundingClientRect().top + window.scrollY - 16, 0)
+    : 0;
+
+  window.scrollTo({ top: topOffset, left: 0, behavior: "auto" });
+  anchor?.focus({ preventScroll: true });
+
+  window.requestAnimationFrame(() => {
+    previousScrollBehavior.forEach((value, target) => {
+      target.style.scrollBehavior = value;
     });
-  }
+  });
 }
 
 function TextInput({
@@ -261,8 +270,8 @@ function TextInput({
           {...register(name, isNumeric ? { valueAsNumber: true } : undefined)}
         />
         {isDate ? (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-white/80">
-            <CalendarDays className="h-4 w-4" />
+          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-white">
+            <Calendar className="h-4 w-4" />
           </span>
         ) : null}
         {voiceEnabled ? (
@@ -828,12 +837,12 @@ export function ApplicationWizard({
   availableCredits?: number;
 }) {
   const router = useRouter();
-  const wizardStepTopRef = useRef<HTMLFormElement | null>(null);
+  const wizardStepTopRef = useRef<HTMLDivElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const voiceProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCaptureSessionRef = useRef<VoiceCaptureSession | null>(null);
-  const lastRenderedStepRef = useRef<number | null>(null);
+  const pendingStepScrollRef = useRef(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1083,40 +1092,24 @@ export function ApplicationWizard({
     };
   }, [toast]);
 
-  useEffect(() => {
-    if (!hasHydrated) {
+  useLayoutEffect(() => {
+    if (!pendingStepScrollRef.current) {
       return;
     }
 
-    if (lastRenderedStepRef.current === null) {
-      lastRenderedStepRef.current = currentStep;
-      return;
-    }
-
-    if (lastRenderedStepRef.current === currentStep) {
-      return;
-    }
-
-    lastRenderedStepRef.current = currentStep;
-
-    requestAnimationFrame(() => {
-      scrollStepViewportToTop(wizardStepTopRef.current);
-    });
-  }, [currentStep, hasHydrated]);
-
-  if (!hasHydrated) {
-    return (
-      <div className="rounded-[1.5rem] border border-white/10 bg-[#101010] px-6 py-8 text-sm text-slate-300">
-        Preparing your application workspace...
-      </div>
-    );
-  }
+    pendingStepScrollRef.current = false;
+    scrollStepViewportToTop(wizardStepTopRef.current);
+  }, [currentStep]);
 
   function clearVoiceProcessingTimeout() {
     if (voiceProcessingTimeoutRef.current) {
       clearTimeout(voiceProcessingTimeoutRef.current);
       voiceProcessingTimeoutRef.current = null;
     }
+  }
+
+  function queueStepTopScroll() {
+    pendingStepScrollRef.current = true;
   }
 
   function stopActiveVoiceCapture() {
@@ -1410,11 +1403,15 @@ export function ApplicationWizard({
       }
     }
 
+    scrollStepViewportToTop(wizardStepTopRef.current);
     setCurrentStep((value) => Math.min(value + 1, stepLabels.length - 1));
+    queueStepTopScroll();
   }
 
   function handlePreviousStep() {
+    scrollStepViewportToTop(wizardStepTopRef.current);
     setCurrentStep((value) => Math.max(value - 1, 0));
+    queueStepTopScroll();
   }
 
   async function handleSubmit(values: ApplicantInfo) {
@@ -1772,6 +1769,7 @@ export function ApplicationWizard({
   return (
     <FormProvider {...form}>
       <div className="w-full space-y-6">
+        <div ref={wizardStepTopRef} tabIndex={-1} className="h-0 w-0 overflow-hidden outline-none" />
         <div className="glass-panel p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -1847,7 +1845,7 @@ export function ApplicationWizard({
           ) : null}
         </div>
 
-        <form ref={wizardStepTopRef} className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
+        <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
           {speechSupported ? (
             <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-4 sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
