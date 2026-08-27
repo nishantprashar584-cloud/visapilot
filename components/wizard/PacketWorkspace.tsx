@@ -11,10 +11,12 @@ import {
   GripVertical,
   Layers3,
   LoaderCircle,
+  Mic,
   Minimize,
   RotateCw,
   Scissors,
   Shield,
+  Square,
   Tags,
   Upload,
   X,
@@ -53,6 +55,45 @@ type RotationPreset = "90" | "180" | "270";
 type ToolkitMode = "merge" | "split" | "compress" | "reorder" | "rotate" | "sanitize" | "wordToPdf" | "pdfToWord";
 type ToolSourceKind = "mixed" | "pdf" | "word";
 type WorkspaceModal = "preview" | "reorder" | null;
+
+type BrowserSpeechRecognition = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  continuous?: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+type SpeechRecognitionAlternativeLike = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+  0: SpeechRecognitionAlternativeLike;
+  isFinal?: boolean;
+  length?: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex?: number;
+  results: {
+    length?: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
+type SplitDictationPhase = "listening" | "processing";
 
 type ToolDefinition = {
   id: ToolkitMode;
@@ -212,6 +253,35 @@ function buildUploadButtonLabel(toolDefinition: ToolDefinition): string {
   }
 
   return toolDefinition.sourceKind === "word" ? "Upload Word file" : "Upload PDF";
+}
+
+function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const speechWindow = window as Window & {
+    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  };
+
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function sanitizeSpeechTranscript(value: string): string {
+  return value.trim().replace(/[.]+$/g, "").trim();
+}
+
+function normalizeSpokenPageRange(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\bthrough\b|\bto\b/g, "-")
+    .replace(/\band\b/g, ",")
+    .replace(/\s+/g, "")
+    .replace(/,+/g, ",")
+    .replace(/-+/g, "-")
+    .replace(/[^0-9,-]/g, "")
+    .replace(/^,+|,+$/g, "");
 }
 
 function parseDownloadFileName(contentDisposition: string | null, fallback: string): string {
@@ -428,6 +498,9 @@ export function PacketWorkspace({
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const generatedFilesRef = useRef<HTMLDivElement | null>(null);
+  const splitRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const splitProcessingTimeoutRef = useRef<number | null>(null);
   const documentsRef = useRef<WorkspaceDocument[]>([]);
   const outputsRef = useRef<WorkspaceOutput[]>([]);
   const pagePreviewsRef = useRef<WorkspacePagePreview[]>([]);
@@ -438,6 +511,8 @@ export function PacketWorkspace({
   const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
   const [activePdfId, setActivePdfId] = useState<string>("");
   const [splitRange, setSplitRange] = useState("1");
+  const [splitDictationPhase, setSplitDictationPhase] = useState<SplitDictationPhase | null>(null);
+  const [splitVoiceMessage, setSplitVoiceMessage] = useState<string | null>(null);
   const [pageSequence, setPageSequence] = useState<number[]>([]);
   const [rotationPreset, setRotationPreset] = useState<RotationPreset>("90");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
@@ -503,6 +578,15 @@ export function PacketWorkspace({
 
   useEffect(() => {
     return () => {
+      if (splitProcessingTimeoutRef.current) {
+        window.clearTimeout(splitProcessingTimeoutRef.current);
+      }
+
+      if (splitRecognitionRef.current) {
+        splitRecognitionRef.current.onend = null;
+        splitRecognitionRef.current.stop();
+      }
+
       documentsRef.current.forEach((document) => URL.revokeObjectURL(document.previewUrl));
       outputsRef.current.forEach((output) => URL.revokeObjectURL(output.url));
       pagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
@@ -669,6 +753,11 @@ export function PacketWorkspace({
       ];
     });
     setPreviewOutputId(nextOutput.id);
+    setPreviewDocumentId("");
+
+    window.requestAnimationFrame(() => {
+      generatedFilesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function removeOutput(outputId: string) {
@@ -1347,12 +1436,119 @@ export function PacketWorkspace({
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end">
             <label className="flex-1">
               <span className="text-sm font-medium text-slate-200">Page range</span>
-              <input
-                value={splitRange}
-                onChange={(event) => setSplitRange(event.target.value)}
-                placeholder="1-3"
-                className="vp-input mt-2 w-full rounded-xl px-4 py-3"
-              />
+              <div className="relative mt-2">
+                <input
+                  value={splitRange}
+                  onChange={(event) => setSplitRange(event.target.value)}
+                  placeholder="1-3"
+                  className="vp-input w-full rounded-xl px-4 py-3 pr-12"
+                />
+                {getSpeechRecognitionConstructor() ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const SpeechRecognition = getSpeechRecognitionConstructor();
+
+                      if (!SpeechRecognition) {
+                        setSplitVoiceMessage("Voice range entry requires Chrome or Edge.");
+                        return;
+                      }
+
+                      if (splitDictationPhase === "listening" && splitRecognitionRef.current) {
+                        splitRecognitionRef.current.stop();
+                        setSplitDictationPhase("processing");
+                        setSplitVoiceMessage("Processing your spoken page range.");
+                        return;
+                      }
+
+                      const recognition = new SpeechRecognition();
+                      let heardText = "";
+
+                      recognition.lang = "en-US";
+                      recognition.interimResults = true;
+                      recognition.maxAlternatives = 1;
+                      recognition.continuous = true;
+                      splitRecognitionRef.current = recognition;
+                      setSplitDictationPhase("listening");
+                      setSplitVoiceMessage("Recording live. Say a range like 1 to 3 and 5, then tap the mic again.");
+
+                      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+                        const segments: string[] = [];
+
+                        for (let index = event.resultIndex ?? 0; index < (event.results.length ?? 0); index += 1) {
+                          const result = event.results[index];
+                          const transcript = result?.[0]?.transcript?.trim();
+
+                          if (transcript) {
+                            segments.push(transcript);
+                          }
+                        }
+
+                        heardText = segments.join(" ").trim();
+                        const normalized = normalizeSpokenPageRange(heardText);
+
+                        if (normalized) {
+                          setSplitRange(normalized);
+                        }
+                      };
+
+                      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+                        setSplitDictationPhase(null);
+                        setSplitVoiceMessage(`Voice range entry could not be captured (${event.error ?? "unknown_error"}).`);
+                        splitRecognitionRef.current = null;
+                      };
+
+                      recognition.onend = () => {
+                        splitRecognitionRef.current = null;
+                        setSplitDictationPhase("processing");
+
+                        if (splitProcessingTimeoutRef.current) {
+                          window.clearTimeout(splitProcessingTimeoutRef.current);
+                        }
+
+                        splitProcessingTimeoutRef.current = window.setTimeout(() => {
+                          const normalized = normalizeSpokenPageRange(sanitizeSpeechTranscript(heardText));
+
+                          if (normalized) {
+                            setSplitRange(normalized);
+                            setSplitVoiceMessage(`Voice range inserted as ${normalized}.`);
+                          } else {
+                            setSplitVoiceMessage("No usable page range was detected. Try again with a range like 1 to 3.");
+                          }
+
+                          setSplitDictationPhase(null);
+                          splitProcessingTimeoutRef.current = null;
+                        }, 700);
+                      };
+
+                      recognition.start();
+                    }}
+                    className={`absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${
+                      splitDictationPhase === "listening"
+                        ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
+                        : splitDictationPhase === "processing"
+                          ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
+                          : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                    }`}
+                    aria-label="Dictate page range"
+                  >
+                    {splitDictationPhase === "listening" ? (
+                      <>
+                        <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
+                        <Square className="relative h-3.5 w-3.5 fill-current" />
+                      </>
+                    ) : splitDictationPhase === "processing" ? (
+                      <>
+                        <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-pulse" />
+                        <span className="absolute inset-0 rounded-full border border-emerald-300/40 border-t-transparent animate-spin" />
+                        <Mic className="relative h-4 w-4" />
+                      </>
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
             </label>
             <button
               type="button"
@@ -1363,6 +1559,9 @@ export function PacketWorkspace({
               Extract pages
             </button>
           </div>
+          {splitVoiceMessage ? (
+            <p className="mt-3 text-sm text-slate-300">{splitVoiceMessage}</p>
+          ) : null}
         </div>
       </div>
     );
@@ -1704,38 +1903,8 @@ export function PacketWorkspace({
 
   return (
     <>
-      <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
-        <div className="rounded-[1.2rem] border border-cyan-300/20 bg-cyan-500/10 p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-black/20 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Consultant checklist
-              </div>
-              <h4 className="mt-3 text-lg font-semibold text-white">Dynamic document requirements</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-200">
-                Profile: {formatEmploymentStatusLabel(applicant.employment.employmentStatus)}. Funding: {formatFundingSourceLabel(applicant.sponsor.fundingSource)}.
-              </p>
-            </div>
-            <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200">
-              {requiredDocuments.length} required items
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {requiredDocuments.map((document) => (
-              <span key={document} className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
-                {document}
-              </span>
-            ))}
-          </div>
-
-          <p className="mt-4 text-sm leading-6 text-cyan-50/90">
-            The toolkit adapts to the applicant profile so freelancers, students, and sponsored travelers see the extra evidence a consultant would request before submission.
-          </p>
-        </div>
-
         <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -1863,8 +2032,38 @@ export function PacketWorkspace({
       </div>
 
       <div className="space-y-4">
+        <div className="rounded-[1.2rem] border border-cyan-300/20 bg-cyan-500/10 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-black/20 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Consultant checklist
+              </div>
+              <h4 className="mt-3 text-lg font-semibold text-white">Dynamic document requirements</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-200">
+                Profile: {formatEmploymentStatusLabel(applicant.employment.employmentStatus)}. Funding: {formatFundingSourceLabel(applicant.sponsor.fundingSource)}.
+              </p>
+            </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200">
+              {requiredDocuments.length} required items
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {requiredDocuments.map((document) => (
+              <span key={document} className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+                {document}
+              </span>
+            ))}
+          </div>
+
+          <p className="mt-4 text-sm leading-6 text-cyan-50/90">
+            The toolkit adapts to the applicant profile so freelancers, students, and sponsored travelers see the extra evidence a consultant would request before submission.
+          </p>
+        </div>
+
         {outputs.length > 0 ? (
-          <div className="rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
+          <div ref={generatedFilesRef} className="rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Generated Files</div>
@@ -1910,7 +2109,7 @@ export function PacketWorkspace({
             </div>
           </div>
         ) : (
-          <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div ref={generatedFilesRef} className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
               <Download className="h-3.5 w-3.5" />
               Generated Files

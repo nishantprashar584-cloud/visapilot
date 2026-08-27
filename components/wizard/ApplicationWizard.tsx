@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -827,12 +827,6 @@ export function ApplicationWizard({
         ? `Consular rule check passes: your first Schengen entry matches ${destinationCountry}, which supports filing with that consulate.`
         : `First entry is ${firstEntryCountry}. Apply through ${destinationCountry} only if it remains the country of longest stay under Schengen consular rules.`
       : "Enter destination and first entry to verify the consular rule path.";
-  const displayedVoiceMessage =
-    voiceCaptureState?.phase === "listening"
-      ? "Recording live. Speak naturally and tap the glowing red stop control when you are done."
-      : voiceCaptureState?.phase === "processing"
-        ? "Processing your voice input."
-        : voiceMessage ?? "Tap any microphone to start live dictation into a supported field.";
   const financialStepBlocked = currentStep === 2 && liveAudit.hasExactCountryRule && !liveAudit.statutoryFundsSatisfied;
   const financialCalculatorMessage = `${liveAudit.statutoryRuleSummary} Your current liquid funds show EUR ${liveAudit.availableLiquidBalanceEur.toFixed(2)}.`;
   const tripDailyBudgetLabel = stayDuration > 0 ? `EUR ${liveAudit.dailyBudgetEur.toFixed(2)} per day` : "Pending";
@@ -1711,6 +1705,9 @@ export function ApplicationWizard({
                   <p className="mt-2 text-sm leading-6 text-slate-300">
                     Start a recording from any supported field, watch the live transcript update as you speak, then stop it manually when the phrasing looks right.
                   </p>
+                  {voiceMessage ? (
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{voiceMessage}</p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:max-w-[28rem] xl:justify-end">
@@ -1734,7 +1731,7 @@ export function ApplicationWizard({
                   <button
                     type="button"
                     onClick={() => void requestMicrophoneAccess()}
-                    disabled={microphonePermission === "requesting" || (microphonePermission === "granted" && voiceCaptureState !== null)}
+                    disabled={microphonePermission === "requesting"}
                     className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
@@ -1746,57 +1743,6 @@ export function ApplicationWizard({
                         ? "Retry Microphone Access"
                         : "Enable Microphone Access"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={stopActiveVoiceCapture}
-                    disabled={voiceCaptureState?.phase !== "listening"}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                      voiceCaptureState?.phase === "listening"
-                        ? "border-rose-300/35 bg-rose-400/12 text-rose-50 shadow-[0_0_0_1px_rgba(251,113,133,0.24),0_0_24px_rgba(251,113,133,0.28)] hover:border-rose-200/50 hover:bg-rose-400/18"
-                        : "border-white/10 bg-white/5 text-slate-400 opacity-70"
-                    }`}
-                  >
-                    <span className="relative inline-flex h-4 w-4 items-center justify-center rounded-full">
-                      {voiceCaptureState?.phase === "listening" ? (
-                        <span className="absolute inset-0 rounded-full bg-rose-300/25 animate-ping" />
-                      ) : null}
-                      <Square className="relative h-3 w-3 fill-current" />
-                    </span>
-                    {voiceCaptureState?.phase === "listening" ? "Stop recording" : "Stop control appears here"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/30 p-4">
-                <div className={`flex min-h-[76px] items-start gap-3 rounded-[1rem] border px-4 py-3 text-sm ${
-                  voiceCaptureState?.phase === "listening"
-                    ? "border-rose-400/20 bg-rose-400/10 text-rose-50"
-                    : voiceCaptureState?.phase === "processing"
-                      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-50"
-                      : "border-white/10 bg-black/20 text-slate-300"
-                }`}>
-                  <span className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${getVoiceButtonClass(voiceCaptureState?.phase ?? null)}`}>
-                    <VoiceButtonIcon voicePhase={voiceCaptureState?.phase ?? null} />
-                  </span>
-                  <div>
-                    <p className="font-semibold text-white">Live voice console</p>
-                    <p className="mt-1 leading-6">{displayedVoiceMessage}</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                  <div className="rounded-[1rem] border border-white/10 bg-black/20 px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Heard You Say</p>
-                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-white">
-                      {voiceCaptureState?.heardText || "Your live transcript appears here while you speak"}
-                    </p>
-                  </div>
-                  <div className="rounded-[1rem] border border-white/10 bg-black/20 px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Typing Into Field</p>
-                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-white">
-                      {voiceCaptureState?.typedText || "VisaPilot shows the shaped text here before finalizing it"}
-                    </p>
-                  </div>
                 </div>
               </div>
 
@@ -1921,19 +1867,19 @@ export function ApplicationWizard({
               <div className="grid gap-4 md:grid-cols-2">
                 <TextInput label="First name" name="personal.firstName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.firstName" ? voiceCaptureState.phase : null} />
                 <TextInput label="Last name" name="personal.lastName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.lastName" ? voiceCaptureState.phase : null} />
-                <TextInput label="Date of birth" name="personal.dateOfBirth" type="date" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Date of birth" name="personal.dateOfBirth" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.dateOfBirth" ? voiceCaptureState.phase : null} />
                 <TextInput label="Place of birth" name="personal.placeOfBirth" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.placeOfBirth" ? voiceCaptureState.phase : null} />
                 <TextInput label="Country of birth" name="personal.countryOfBirth" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.countryOfBirth" ? voiceCaptureState.phase : null} />
                 <TextInput label="Current nationality" name="personal.currentNationality" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "personal.currentNationality" ? voiceCaptureState.phase : null} />
-                <TextInput label="Email address" name="contact.email" type="email" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Email address" name="contact.email" type="email" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.email" ? voiceCaptureState.phase : null} />
                 <TextInput label="Phone number" name="contact.phone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.phone" ? voiceCaptureState.phase : null} />
                 <TextInput label="Address line 1" name="contact.addressLine1" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.addressLine1" ? voiceCaptureState.phase : null} />
                 <TextInput label="City" name="contact.city" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.city" ? voiceCaptureState.phase : null} />
-                <TextInput label="Postal code" name="contact.postalCode" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Postal code" name="contact.postalCode" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.postalCode" ? voiceCaptureState.phase : null} />
                 <TextInput label="Country of residence" name="contact.country" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "contact.country" ? voiceCaptureState.phase : null} />
                 <TextInput label="Passport number" name="passport.number" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.number" ? voiceCaptureState.phase : null} />
-                <TextInput label="Passport issue date" name="passport.dateOfIssue" type="date" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Passport expiry date" name="passport.dateOfExpiry" type="date" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Passport issue date" name="passport.dateOfIssue" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.dateOfIssue" ? voiceCaptureState.phase : null} />
+                <TextInput label="Passport expiry date" name="passport.dateOfExpiry" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.dateOfExpiry" ? voiceCaptureState.phase : null} />
                 <TextInput label="Issuing authority" name="passport.issuedBy" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.issuedBy" ? voiceCaptureState.phase : null} />
                 <TextInput label="Issuing country" name="passport.issuingCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "passport.issuingCountry" ? voiceCaptureState.phase : null} />
                 <SelectInput
@@ -2022,8 +1968,8 @@ export function ApplicationWizard({
                   errors={form.formState.errors}
                   options={[...fundingSourceOptions]}
                 />
-                <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} />
+                <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.arrivalDate" ? voiceCaptureState.phase : null} />
+                <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.departureDate" ? voiceCaptureState.phase : null} />
                 <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} placeholder="Hotel name, address, or host accommodation summary" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.accommodations" ? voiceCaptureState.phase : null} />
                 <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white">
                   Trip duration is calculated automatically from the entry and exit dates to drive the destination-specific funds audit.
@@ -2151,8 +2097,8 @@ export function ApplicationWizard({
                 <TextInput label="Occupation" name="employment.occupation" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.occupation" ? voiceCaptureState.phase : null} />
                 <TextInput label="Employer name" name="employment.employerName" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerName" ? voiceCaptureState.phase : null} />
                 <TextInput label="Employer address" name="employment.employerAddress" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerAddress" ? voiceCaptureState.phase : null} />
-                <TextInput label="Monthly income (EUR)" name="employment.monthlyIncomeEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} />
-                <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} helper={<span className="inline-flex items-start gap-2"><HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /> <span>{financialCalculatorMessage}</span></span>} />
+                <TextInput label="Monthly income (EUR)" name="employment.monthlyIncomeEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.monthlyIncomeEur" ? voiceCaptureState.phase : null} />
+                <TextInput label="Savings balance (EUR)" name="employment.savingsBalanceEur" type="number" step="0.01" register={form.register} errors={form.formState.errors} helper={<span className="inline-flex items-start gap-2"><HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /> <span>{financialCalculatorMessage}</span></span>} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.savingsBalanceEur" ? voiceCaptureState.phase : null} />
                 <TextInput label="Employer phone" name="employment.employerPhone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerPhone" ? voiceCaptureState.phase : null} />
                 <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-slate-300">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Consultant triage</p>
@@ -2273,9 +2219,10 @@ export function ApplicationWizard({
               type="button"
               onClick={handlePreviousStep}
               disabled={currentStep === 0 || isSubmitting}
-              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#101010] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-w-[15rem] items-center justify-center gap-2 rounded-full border border-white/12 bg-[#101010] px-6 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Back
+              <ArrowLeft className="h-4 w-4" />
+              Back to previous step
             </button>
 
             {currentStep < stepLabels.length - 1 ? (
