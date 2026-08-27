@@ -83,9 +83,9 @@ export default function Home() {
         <MarqueePills />
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="w-full px-4 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(8,10,15,0.98))] px-5 py-9 shadow-panel sm:px-8 sm:py-12 lg:px-10">
-          <div className="mx-auto max-w-4xl text-center">
+          <div className="mx-auto max-w-5xl text-center">
             <div className="flex justify-center">
               <TintedIconBadge icon={ShieldCheck} tone="emerald" label={heroBadgeCopy} />
             </div>
@@ -135,7 +135,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto mt-14 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="mt-14 w-full px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <p className="eyebrow">How It Works</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
@@ -143,7 +143,7 @@ export default function Home() {
           </h2>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3">
           {steps.map((step) => {
             const Icon = step.icon;
 
@@ -161,7 +161,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="pricing" className="mx-auto mt-16 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section id="pricing" className="mt-16 w-full px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <p className="eyebrow">Pricing</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">

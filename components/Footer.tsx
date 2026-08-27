@@ -10,7 +10,7 @@ const footerLinks = [
 export function Footer() {
   return (
     <footer className="mt-16 w-full border-t border-zinc-200/10 bg-zinc-950/80 py-12 backdrop-blur-sm sm:mt-24">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-center">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-200">VisaPilot</p>

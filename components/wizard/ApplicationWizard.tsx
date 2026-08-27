@@ -1303,7 +1303,7 @@ export function ApplicationWizard({
         <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
           {speechSupported ? (
             <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-4 sm:p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Voice Autofill</p>
                   <h3 className="mt-1 text-base font-semibold text-white">Hands-free form filling</h3>
@@ -1312,7 +1312,7 @@ export function ApplicationWizard({
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:max-w-[28rem] xl:justify-end">
                   <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
                     microphonePermission === "granted"
                       ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
@@ -1337,7 +1337,11 @@ export function ApplicationWizard({
                     className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-                    {microphonePermission === "granted" ? "Microphone Enabled" : "Enable Microphone Access"}
+                    {microphonePermission === "granted"
+                      ? "Microphone Enabled"
+                      : microphonePermission === "denied"
+                        ? "Retry Microphone Access"
+                        : "Enable Microphone Access"}
                   </button>
                 </div>
               </div>
@@ -1350,9 +1354,20 @@ export function ApplicationWizard({
                   <p className="mt-2 leading-6">1. Click the lock or site-settings icon in your browser address bar.</p>
                   <p className="leading-6">2. Set Microphone to Allow for this site.</p>
                   <p className="leading-6">3. Choose the correct input device in your browser or system audio settings.</p>
-                  <p className="leading-6">4. Refresh this page and click Enable Microphone Access again.</p>
-                  <p className="mt-2 leading-6 text-rose-100/85">Chrome settings path: chrome://settings/content/microphone</p>
-                  <p className="leading-6 text-rose-100/85">Edge settings path: edge://settings/content/microphone</p>
+                  <p className="leading-6">4. Refresh this page, then use Retry Microphone Access.</p>
+                  <div className="mt-3 grid gap-2 text-xs text-rose-100/80 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Chrome</p>
+                      <p className="mt-1 break-all">chrome://settings/content/microphone</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Edge</p>
+                      <p className="mt-1 break-all">edge://settings/content/microphone</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-rose-100/80">
+                    Browser security blocks websites from directly opening these internal settings pages, so VisaPilot can guide you but cannot force that screen to open automatically.
+                  </p>
                 </div>
               ) : null}
             </div>

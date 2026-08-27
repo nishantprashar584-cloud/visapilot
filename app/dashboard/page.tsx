@@ -86,7 +86,7 @@ export default async function DashboardPage({
   const accountLabel = account?.email ?? "preview@visapilot.app";
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6 pb-10">
+    <section className="w-full space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
       <DashboardAutoRefresh />
       <div className="flex flex-col gap-4 rounded-[1.5rem] border border-white/10 bg-black/80 p-4 sm:p-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">

@@ -70,7 +70,7 @@ export default async function ApplicationDashboardPage({
   const fullName = `${application.application_data.personal.firstName} ${application.application_data.personal.lastName}`.trim();
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
       <div className="rounded-[1.8rem] border border-white/10 bg-black/80 p-5 shadow-panel sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">

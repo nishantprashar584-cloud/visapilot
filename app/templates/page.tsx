@@ -1,6 +1,6 @@
 export default function TemplatesPage() {
   return (
-    <section className="mx-auto max-w-5xl space-y-8">
+    <section className="w-full space-y-8 px-4 sm:px-6 lg:px-8">
       <div className="space-y-4">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-brand.blue">
           Template Workflow
