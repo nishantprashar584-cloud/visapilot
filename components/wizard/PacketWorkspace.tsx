@@ -16,9 +16,11 @@ type WorkspaceDocument = {
 };
 
 type WorkspaceOutput = {
+  id: string;
   label: string;
   url: string;
   fileName: string;
+  createdAtLabel: string;
 };
 
 type RotationPreset = "90" | "180" | "270";
@@ -276,6 +278,20 @@ export function PacketWorkspace({
     });
   }
 
+  function removeOutput(outputId: string) {
+    setOutputs((currentOutputs) => {
+      const target = currentOutputs.find((output) => output.id === outputId);
+
+      if (target) {
+        URL.revokeObjectURL(target.url);
+      }
+
+      return currentOutputs.filter((output) => output.id !== outputId);
+    });
+
+    setToolkitMessage("Generated PDF removed from the workspace outputs.");
+  }
+
   async function handleDroppedFiles(files: FileList | null) {
     await handleDocumentUpload(files);
   }
@@ -455,9 +471,11 @@ export function PacketWorkspace({
       const url = URL.createObjectURL(new Blob([Uint8Array.from(mergedBytes)], { type: "application/pdf" }));
 
       upsertOutput({
+        id: crypto.randomUUID(),
         label: "Merged supporting packet",
         url,
         fileName: "visapilot-merged-supporting-docs.pdf",
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       });
 
       setToolkitMessage("Merged PDF is ready to preview or download.");
@@ -492,9 +510,11 @@ export function PacketWorkspace({
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-pages-${splitRange.replace(/\s+/g, "")}.pdf`;
 
       upsertOutput({
+        id: crypto.randomUUID(),
         label: `Split pages from ${splitDocument.file.name}`,
         url,
         fileName,
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       });
 
       setToolkitMessage(`Split output for pages ${splitRange} is ready.`);
@@ -534,9 +554,11 @@ export function PacketWorkspace({
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-compressed.pdf`;
 
       upsertOutput({
+        id: crypto.randomUUID(),
         label: `Compressed PDF for ${splitDocument.file.name}`,
         url,
         fileName,
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       });
 
       setToolkitMessage(`Compressed output for ${splitDocument.file.name} is ready to preview or download.`);
@@ -569,9 +591,11 @@ export function PacketWorkspace({
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-rotated-${rotation}.pdf`;
 
       upsertOutput({
+        id: crypto.randomUUID(),
         label: `Rotated pages for ${splitDocument.file.name}`,
         url,
         fileName,
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       });
 
       setToolkitMessage(`Rotated all pages in ${splitDocument.file.name} by ${rotation} degrees.`);
@@ -606,9 +630,11 @@ export function PacketWorkspace({
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-reordered.pdf`;
 
       upsertOutput({
+        id: crypto.randomUUID(),
         label: `Reordered pages for ${splitDocument.file.name}`,
         url,
         fileName,
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       });
 
       setToolkitMessage(`Page order for ${splitDocument.file.name} has been rebuilt as ${pageOrder}.`);
@@ -649,9 +675,11 @@ export function PacketWorkspace({
       const fileName = `${splitDocument.file.name.replace(/\.pdf$/i, "")}-sanitized.pdf`;
 
       upsertOutput({
+        id: crypto.randomUUID(),
         label: `Sanitized PDF for ${splitDocument.file.name}`,
         url,
         fileName,
+        createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       });
 
       setToolkitMessage(`Sanitized output for ${splitDocument.file.name} is ready.`);
@@ -1035,10 +1063,11 @@ export function PacketWorkspace({
           {outputs.length > 0 ? (
             <div className="space-y-3">
               {outputs.map((output) => (
-                <div key={`${output.fileName}-${output.url}`} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div key={output.id} className="flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-black/40 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white">{output.label}</p>
                     <p className="mt-1 text-sm text-slate-400">{output.fileName}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">Generated {output.createdAtLabel}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <a href={output.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30">
@@ -1048,6 +1077,13 @@ export function PacketWorkspace({
                       <Download className="h-4 w-4" />
                       Download
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => removeOutput(output.id)}
+                      className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}

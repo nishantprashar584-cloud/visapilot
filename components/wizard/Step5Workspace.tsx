@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, FileStack, LoaderCircle, PackageCheck, Sparkles } from "lucide-react";
+import { Download, FileText, FileStack, LoaderCircle, PackageCheck, Sparkles, WandSparkles } from "lucide-react";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
@@ -207,6 +207,19 @@ export function Step5Workspace({
                     <p className="mt-3 text-sm leading-6 text-slate-300">
                       Generate and refine the embassy-facing narrative before package creation.
                     </p>
+                    <div className="mt-4 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+                      <div className="flex items-start gap-3">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+                          <WandSparkles className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="font-semibold text-white">Consular-grade structure</p>
+                          <p className="mt-1 leading-6 text-indigo-100/90">
+                            VisaPilot now targets a real Schengen-style letter structure: purpose, travel plan, accommodation, finances, home ties, and a formal approval request.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {coverLetterDraft.trim() ? (

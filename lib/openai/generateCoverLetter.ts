@@ -62,6 +62,16 @@ function formatDate(value: string): string {
   });
 }
 
+function cleanSentence(value: string): string {
+  const trimmed = value.trim().replace(/\s+/g, " ").replace(/\.{2,}/g, ".");
+
+  if (!trimmed) {
+    return "";
+  }
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim();
   const destinationCountry = applicant.trip.destinationCountry;
@@ -71,32 +81,62 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const purpose = applicant.trip.purpose.replace(/_/g, " ");
   const accommodations = applicant.trip.accommodations.trim();
   const bookingReference = applicant.trip.hotelBookingReference.trim();
-  const fundsSummary = `I am financially supporting this trip with monthly income of EUR ${applicant.employment.monthlyIncomeEur.toFixed(0)} and available savings of EUR ${applicant.employment.savingsBalanceEur.toFixed(0)}.`;
-  const returnIntent = applicant.homeTies.returnIntentEvidence.trim();
+  const firstEntryCountry = applicant.trip.firstEntryCountry.trim();
+  const portOfEntry = applicant.trip.portOfEntry.trim();
+  const employerName = applicant.employment.employerName?.trim() ?? "";
+  const occupation = applicant.employment.occupation.trim();
+  const monthlyIncome = applicant.employment.monthlyIncomeEur.toFixed(0);
+  const savingsBalance = applicant.employment.savingsBalanceEur.toFixed(0);
+  const returnIntent = cleanSentence(applicant.homeTies.returnIntentEvidence.trim()) || "I maintain strong professional and personal ties in my country of residence and will return promptly after my approved travel period.";
+  const dependentInformation = cleanSentence(applicant.homeTies.dependentInformation?.trim() ?? "");
+  const placeOfApplication = applicant.application.placeOfApplication.trim();
   const sponsorLine = applicant.sponsor.type === "self"
     ? "I will personally cover my travel, accommodation, and daily expenses."
     : `My trip support arrangement is recorded under ${applicant.sponsor.type.replace(/_/g, " ")}.`;
+  const employmentLine = employerName || occupation
+    ? `I am currently employed${occupation ? ` as ${occupation}` : ""}${employerName ? ` with ${employerName}` : ""}, which supports the continuity of my obligations after travel.`
+    : "My current professional and personal commitments support my planned return after travel.";
+  const accommodationLine = accommodations
+    ? `My accommodation arrangements for this trip are confirmed as ${cleanSentence(accommodations).replace(/[.]$/, "")}${bookingReference ? ` under booking reference ${bookingReference}` : ""}.`
+    : `My accommodation arrangements for the trip have been organized and are consistent with my travel dates.${bookingReference ? ` Booking reference: ${bookingReference}.` : ""}`;
+  const routeLine = firstEntryCountry || portOfEntry
+    ? `My itinerary reflects entry through ${firstEntryCountry || destinationCountry}${portOfEntry ? ` via ${portOfEntry}` : ""}, with travel planned from ${arrivalDate} until ${departureDate}.`
+    : `My itinerary is planned from ${arrivalDate} until ${departureDate} and remains consistent across the submitted travel evidence.`;
+  const dependentLine = dependentInformation
+    ? `I also maintain ongoing family responsibilities, including ${dependentInformation.replace(/[.]$/, "")}.`
+    : null;
 
   return [
-    `Subject: Schengen Visa Application for ${destinationCountry}`,
+    fullName || "Applicant",
+    placeOfApplication || "",
+    "",
+    `${consulateName}`,
+    "",
+    `Subject: Cover Letter for Schengen Visa Application to ${destinationCountry}`,
     "",
     `Dear Visa Officer,`,
     "",
-    `I respectfully submit my Schengen visa application for travel to ${destinationCountry} from ${arrivalDate} to ${departureDate} for ${purpose}. This application is addressed to ${consulateName}.`,
+    `I am writing to respectfully submit my Schengen visa application for travel to ${destinationCountry} from ${arrivalDate} to ${departureDate} for the purpose of ${purpose}. I request that my application be considered based on the enclosed travel, accommodation, and financial supporting documents.`,
     "",
-    accommodations
-      ? `My itinerary is consistent and supported by confirmed accommodation details: ${accommodations}${bookingReference ? ` Booking reference: ${bookingReference}.` : "."}`
-      : `My itinerary is consistent across my travel dates, destination, and place of stay.${bookingReference ? ` Booking reference: ${bookingReference}.` : ""}`,
+    routeLine,
     "",
-    `${fundsSummary} ${sponsorLine}`,
+    accommodationLine,
     "",
-    `I also maintain clear ties to my home country and intend to return after the trip. ${returnIntent}`,
+    `I am financially prepared for this trip. My monthly income is EUR ${monthlyIncome}, and I currently maintain available savings of EUR ${savingsBalance}. ${sponsorLine}`,
     "",
-    "I respectfully request that you consider my application favorably. Thank you for your time and consideration.",
+    employmentLine,
+    "",
+    dependentLine,
+    dependentLine ? "" : null,
+    `I maintain clear ties to my home country and fully intend to return after my temporary visit. ${returnIntent}`,
+    "",
+    "I respectfully assure you that I will comply with the visa conditions and return before the expiry of my authorized stay. I would be grateful for your favorable consideration of my application.",
+    "",
+    "Thank you for your time and consideration.",
     "",
     "Sincerely,",
     fullName || "Applicant",
-  ].join("\n");
+  ].filter((line): line is string => line !== null).join("\n");
 }
 
 export type CoverLetterGenerationSource = "openai" | "fallback";
@@ -136,7 +176,7 @@ export async function generateCoverLetterResult(
               {
                 type: "input_text",
                 text:
-                  "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences.",
+                  "You write formal Schengen visa cover letters. Output polished markdown only, with no preamble and no code fences. The result must read like a real consular submission, not generic AI copy.",
               },
             ],
           },
@@ -145,7 +185,7 @@ export async function generateCoverLetterResult(
             content: [
               {
                 type: "input_text",
-                text: `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Include a short subject line, a respectful salutation, and concise paragraphs that explicitly confirm: 1) the applicant has complete daily financial proof aligned with the destination's stay requirements, 2) the travel itinerary is internally consistent across dates, accommodation, and entry details, and 3) the applicant has clear proof of intent to return to their home country. Avoid inventing facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
+                text: `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The letter must be specific to ${destinationCountry}, formal, factually grounded in the applicant record, and framed to support visa approval. Use the structure typically seen in real Schengen cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
               },
             ],
           },

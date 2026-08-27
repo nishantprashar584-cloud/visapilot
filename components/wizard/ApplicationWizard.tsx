@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, FileStack, Home, Mic, MicOff, Plane, UserSquare2, Wallet } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileStack, Home, LoaderCircle, Mic, MicOff, Plane, UserSquare2, Wallet } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -300,6 +300,40 @@ function StepPanel({
   );
 }
 
+function ActivityBanner({
+  eyebrow,
+  title,
+  description,
+  tone = "indigo",
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  tone?: "indigo" | "cyan" | "emerald" | "amber";
+}) {
+  const toneClasses = {
+    indigo: "border-indigo-300/20 bg-indigo-500/10 text-indigo-100",
+    cyan: "border-cyan-300/20 bg-cyan-500/10 text-cyan-100",
+    emerald: "border-emerald-300/20 bg-emerald-500/10 text-emerald-100",
+    amber: "border-amber-300/20 bg-amber-500/10 text-amber-100",
+  } as const;
+
+  return (
+    <div className={`rounded-[1.1rem] border px-4 py-4 ${toneClasses[tone]}`}>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+          <LoaderCircle className="h-5 w-5 animate-spin" />
+        </span>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-80">{eyebrow}</p>
+          <p className="mt-1 text-sm font-semibold text-white">{title}</p>
+          <p className="mt-1 text-sm leading-6 opacity-90">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function splitParsedFullName(fullName: string): { firstName: string; lastName: string } {
   const normalized = fullName.trim().replace(/\s+/g, " ");
 
@@ -592,6 +626,7 @@ export function ApplicationWizard({
   const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [microphonePermission, setMicrophonePermission] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">("idle");
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<ApplicantInfo>({
@@ -635,8 +670,12 @@ export function ApplicationWizard({
     setSpeechSupported(supported);
 
     if (!supported) {
+      setMicrophonePermission("unsupported");
       setVoiceMessage("Voice assist requires Web Speech API support. Chrome or Edge on desktop/mobile are the safest options.");
+      return;
     }
+
+    setMicrophonePermission("idle");
   }, []);
 
   useEffect(() => {
@@ -703,6 +742,31 @@ export function ApplicationWizard({
     };
   }, []);
 
+  async function requestMicrophoneAccess() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicrophonePermission("unsupported");
+      setVoiceMessage("Microphone capture is unavailable in this browser. Use Chrome or Edge for voice autofill.");
+      return false;
+    }
+
+    setMicrophonePermission("requesting");
+    setVoiceMessage("Requesting microphone access for voice autofill.");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log("Mic permission granted");
+      stream.getTracks().forEach((track) => track.stop());
+      setMicrophonePermission("granted");
+      setVoiceMessage("Microphone access enabled. Tap any mic button to dictate directly into a field.");
+      return true;
+    } catch (error) {
+      console.log("Mic permission denied", error);
+      setMicrophonePermission("denied");
+      setVoiceMessage("Microphone access was blocked. Allow microphone permissions in the browser to unlock voice autofill.");
+      return false;
+    }
+  }
+
   async function handleVoiceCapture(name: FieldPath<ApplicantInfo>) {
     const SpeechRecognition = getSpeechRecognitionConstructor();
 
@@ -722,14 +786,10 @@ export function ApplicationWizard({
       speechRecognitionRef.current.stop();
     }
 
-    if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Mic permission granted");
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (error) {
-        setVoiceMessage("Microphone access was blocked. Allow mic permissions in the browser, then try voice assist again.");
-        console.log("Mic permission denied", error);
+    if (microphonePermission !== "granted") {
+      const accessGranted = await requestMicrophoneAccess();
+
+      if (!accessGranted) {
         return;
       }
     }
@@ -784,6 +844,9 @@ export function ApplicationWizard({
           ? "Microphone access was denied. Allow browser mic permissions and try again."
           : `Voice input could not be captured (${errorCode}). Check microphone permissions and try again.`,
       );
+      if (errorCode === "not-allowed") {
+        setMicrophonePermission("denied");
+      }
       setActiveVoiceField(null);
     };
 
@@ -809,6 +872,7 @@ export function ApplicationWizard({
         .trim();
 
       try {
+        setIdentityLockMessage("Locking this applicant identity before the next step.");
         const response = await fetch("/api/identity-lock", {
           method: "POST",
           headers: {
@@ -888,7 +952,7 @@ export function ApplicationWizard({
 
   async function handlePassportUpload(file: File) {
     setIsParsingPassport(true);
-    setPassportParseMessage(null);
+    setPassportParseMessage(`Scanning ${file.name} in secure volatile memory. Extracting identity fields now.`);
 
     try {
       const formData = new FormData();
@@ -918,7 +982,7 @@ export function ApplicationWizard({
       form.setValue("passport.number", payload.result.passport_number, { shouldDirty: true, shouldValidate: true });
       form.setValue("passport.dateOfExpiry", payload.result.expiry_date, { shouldDirty: true, shouldValidate: true });
 
-      setPassportParseMessage("Passport parsed in volatile memory. Review the autofilled fields before continuing.");
+      setPassportParseMessage("Passport parsed in secure volatile memory. Review and confirm the autofilled identity fields before continuing.");
     } catch (error) {
       setPassportParseMessage(error instanceof Error ? error.message : "Unable to parse passport.");
     } finally {
@@ -932,7 +996,7 @@ export function ApplicationWizard({
 
   async function handleBankStatementUpload(file: File) {
     setIsParsingBankStatement(true);
-    setBankStatementParseMessage(null);
+    setBankStatementParseMessage(`Reading ${file.name} in secure volatile memory. Calculating the closing balance now.`);
 
     try {
       const formData = new FormData();
@@ -958,7 +1022,7 @@ export function ApplicationWizard({
           shouldDirty: true,
           shouldValidate: true,
         });
-        setBankStatementParseMessage(`Closing balance EUR ${payload.result.closing_balance.toFixed(2)} extracted in volatile memory and applied to the audit.`);
+        setBankStatementParseMessage(`Closing balance EUR ${payload.result.closing_balance.toFixed(2)} extracted in secure volatile memory and applied to the live audit.`);
       } else {
         setBankStatementParseMessage(`Detected ${payload.result.currency.toUpperCase()} ${payload.result.closing_balance.toFixed(2)}. Convert it to EUR before continuing with the compliance audit.`);
       }
@@ -1105,9 +1169,64 @@ export function ApplicationWizard({
               </div>
             ))}
           </div>
+
+          {isSubmitting ? (
+            <div className="mt-4">
+              <ActivityBanner
+                eyebrow="Package Generation"
+                title="Building your application package"
+                description="VisaPilot is assembling the filled form, supporting documents, and dashboard record for this applicant."
+                tone="emerald"
+              />
+            </div>
+          ) : null}
         </div>
 
         <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
+          {speechSupported ? (
+            <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Voice Autofill</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Hands-free form filling</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Enable microphone access once, then dictate directly into supported fields across the wizard.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
+                    microphonePermission === "granted"
+                      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                      : microphonePermission === "requesting"
+                        ? "border-indigo-400/20 bg-indigo-400/10 text-indigo-100"
+                        : microphonePermission === "denied"
+                          ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
+                          : "border-white/10 bg-white/5 text-slate-300"
+                  }`}>
+                    {microphonePermission === "granted"
+                      ? "Microphone ready"
+                      : microphonePermission === "requesting"
+                        ? "Requesting access"
+                        : microphonePermission === "denied"
+                          ? "Permission blocked"
+                          : "Awaiting access"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void requestMicrophoneAccess()}
+                    disabled={microphonePermission === "requesting" || microphonePermission === "granted"}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                    {microphonePermission === "granted" ? "Microphone Enabled" : "Enable Microphone Access"}
+                  </button>
+                </div>
+              </div>
+
+              {voiceMessage ? <p className="mt-3 text-sm leading-6 text-slate-300">{voiceMessage}</p> : null}
+            </div>
+          ) : null}
 
           {currentStep === 0 ? (
             <StepPanel
@@ -1141,7 +1260,12 @@ export function ApplicationWizard({
                     disabled={isParsingPassport}
                     className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isParsingPassport ? "Parsing passport..." : "Upload passport"}
+                    {isParsingPassport ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Scanning document...
+                      </span>
+                    ) : "Upload passport"}
                   </button>
                 </div>
 
@@ -1155,6 +1279,15 @@ export function ApplicationWizard({
                 </div>
               </div>
 
+              {isParsingPassport ? (
+                <ActivityBanner
+                  eyebrow="Passport OCR"
+                  title="Scanning travel document"
+                  description="Reading the passport image in secure volatile memory and mapping key identity fields into the form."
+                  tone="cyan"
+                />
+              ) : null}
+
               {passportParseMessage ? (
                 <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
                   {passportParseMessage}
@@ -1164,12 +1297,6 @@ export function ApplicationWizard({
               {identityLockMessage ? (
                 <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
                   {identityLockMessage}
-                </div>
-              ) : null}
-
-              {speechSupported && voiceMessage ? (
-                <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
-                  {voiceMessage}
                 </div>
               ) : null}
 
@@ -1323,7 +1450,12 @@ export function ApplicationWizard({
                     disabled={isParsingBankStatement}
                     className="mt-4 inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isParsingBankStatement ? "Parsing statement..." : "Upload bank statement"}
+                    {isParsingBankStatement ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Reading statement...
+                      </span>
+                    ) : "Upload bank statement"}
                   </button>
                 </div>
                 <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
@@ -1352,6 +1484,15 @@ export function ApplicationWizard({
                   </p>
                 </div>
               </div>
+
+              {isParsingBankStatement ? (
+                <ActivityBanner
+                  eyebrow="Financial OCR"
+                  title="Analyzing bank statement"
+                  description="Extracting the closing balance and currency in secure volatile memory to update the live compliance audit."
+                  tone="amber"
+                />
+              ) : null}
 
               {bankStatementParseMessage ? (
                 <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
