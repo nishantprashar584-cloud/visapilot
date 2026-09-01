@@ -6,6 +6,7 @@ import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewP
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { ConsulateChecklist } from "@/components/wizard/ConsulateChecklist";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
+import { getPreviewApplicationForDestination } from "@/lib/mock/applications";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
 
@@ -266,6 +267,14 @@ export function Step5Workspace({
     link.download = "Consulate_Submission_Checklist.pdf";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function handleOpenConsulateReadyPacket() {
+    if (previewMode) {
+      const previewApplicationId = getPreviewApplicationForDestination(applicant.trip.destinationCountry)?.id ?? "preview-france-tourism";
+      window.open(`/dashboard/${previewApplicationId}/consulate-ready-packet?preview=1`, "_blank", "noopener,noreferrer");
+      return;
+    }
   }
 
   async function handleDownloadPdf(content: string, label: string) {
@@ -874,6 +883,30 @@ export function Step5Workspace({
           <div className="grid gap-4 xl:grid-cols-2">
             <ConsularInterviewPanel applicant={applicant} />
             <RefusalDecoderPanel refusalReasonCode={null} />
+          </div>
+          <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
+                  <FileStack className="h-3.5 w-3.5" />
+                  Consulate-ready packet
+                </div>
+                <h3 className="mt-3 text-xl font-semibold text-white">Single merged PDF handoff</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Open the normalized A4 packet that combines the form, cover letter, insurance, audit, checklist, and saved supporting documents in consular order.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenConsulateReadyPacket}
+                disabled={!previewMode}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {previewMode ? "Open Preview PDF" : "Available after dashboard save"}
+              </button>
+            </div>
           </div>
           <PacketWorkspace
             applicant={applicant}

@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { Buffer } from "node:buffer";
+import { buildConsulateReadyPacketPdf, type PacketApplicationData } from "@/lib/applications/consulateReadyPacket";
 import {
   buildChecklistMarkdown,
   buildConsularInterviewBrief,
@@ -8,28 +9,17 @@ import {
   buildRefusalRecoveryBrief,
   buildRegionalFormGuidance,
 } from "@/lib/applications/packetArtifacts";
-import { strictDocumentSequence } from "@/lib/applications/consularPolicy";
 import { getPreviewApplication } from "@/lib/mock/applications";
-import { generateConsulateReadyPacket } from "@/lib/pdf/generateConsulateReadyPacket";
 import { generateFilledApplicationPdf } from "@/lib/pdf/generateFilledApplicationPdf";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import { generateTextPdf } from "@/lib/pdf/generateTextPdf";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ApplicantInfo, RefusalReasonCode } from "@/types";
 
 function buildApplicationPdfFileName(destinationCountry: string): string {
   return `schengen_application_${destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")}.pdf`;
 }
-
-type PackageApplicationData = {
-  id: string;
-  application_data: ApplicantInfo;
-  cover_letter_markdown: string;
-  filled_pdf_base64: string;
-  refusal_reason_code: RefusalReasonCode | null;
-};
 
 export async function GET(
   request: Request,
@@ -43,7 +33,7 @@ export async function GET(
   }
 
   const supabase = createSupabaseServerClient();
-  let applicationData: PackageApplicationData | null = null;
+  let applicationData: PacketApplicationData | null = null;
 
   if (previewApplication) {
     applicationData = {
@@ -90,15 +80,6 @@ export async function GET(
   const financialAuditMarkdown = buildFinancialAuditReport(applicationData.application_data);
   const financialAuditPdf = await generateTextPdf(financialAuditMarkdown);
   const applicationPdfFileName = buildApplicationPdfFileName(applicationData.application_data.trip.destinationCountry);
-  const packetSections: Array<{ title: string; bytes: Uint8Array | Buffer; mimeType: string }> = [
-    { title: strictDocumentSequence[0], bytes: await generateTextPdf(`VisaPilot system summary and appointment slip placeholder for ${applicationData.application_data.trip.destinationCountry}.`), mimeType: "application/pdf" },
-    { title: strictDocumentSequence[1], bytes: filledPdfBuffer, mimeType: "application/pdf" },
-    { title: strictDocumentSequence[3], bytes: coverLetterPdf, mimeType: "application/pdf" },
-    { title: strictDocumentSequence[6], bytes: await generateTextPdf(buildInsuranceVerificationSlip(applicationData.application_data)), mimeType: "application/pdf" },
-    { title: strictDocumentSequence[7], bytes: financialAuditPdf, mimeType: "application/pdf" },
-    { title: strictDocumentSequence[10], bytes: checklistPdf, mimeType: "application/pdf" },
-  ];
-
   const zip = new JSZip();
   zip.file("cover-letter.md", applicationData.cover_letter_markdown);
   zip.file("Schengen_Cover_Letter.pdf", coverLetterPdf);
@@ -137,17 +118,17 @@ export async function GET(
       }
 
       const bytes = await fileData.arrayBuffer();
-      const buffer = new Uint8Array(bytes);
-      zip.file(`supporting-documents/${document.fileName}`, buffer);
-      packetSections.push({
-        title: `Supporting Document - ${document.fileName}`,
-        bytes: buffer,
-        mimeType: document.mimeType,
-      });
+      zip.file(`supporting-documents/${document.fileName}`, new Uint8Array(bytes));
     }
   }
 
-  zip.file("Consulate_Ready_Packet.pdf", await generateConsulateReadyPacket(packetSections));
+  zip.file(
+    "Consulate_Ready_Packet.pdf",
+    await buildConsulateReadyPacketPdf({
+      applicationData,
+      supabase: previewApplication ? null : supabase,
+    }),
+  );
 
   const archive = await zip.generateAsync({ type: "nodebuffer" });
 

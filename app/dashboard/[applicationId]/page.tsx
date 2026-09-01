@@ -306,19 +306,35 @@ export default async function ApplicationDashboardPage({
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {!previewMode ? (
-              <Link
-                href={`/dashboard/${application.id}/package`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
-              >
-                Download Full Package (.zip)
-              </Link>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link
+                  href={`/dashboard/${application.id}/package`}
+                  className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                >
+                  Download Full Package (.zip)
+                </Link>
+                <Link
+                  href={`/dashboard/${application.id}/consulate-ready-packet`}
+                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
+                >
+                  Download Consulate Packet (.pdf)
+                </Link>
+              </div>
             ) : (
-              <Link
-                href={`/dashboard/${application.id}/package?preview=1`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
-              >
-                Download Full Package (.zip)
-              </Link>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link
+                  href={`/dashboard/${application.id}/package?preview=1`}
+                  className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                >
+                  Download Full Package (.zip)
+                </Link>
+                <Link
+                  href={`/dashboard/${application.id}/consulate-ready-packet?preview=1`}
+                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
+                >
+                  Download Consulate Packet (.pdf)
+                </Link>
+              </div>
             )}
           </div>
         </div>
