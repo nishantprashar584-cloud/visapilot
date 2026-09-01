@@ -8,6 +8,8 @@ import {
   FileText,
   Link2,
   Lock,
+  Mic,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -17,6 +19,8 @@ import { ConsularDeepLinks } from "@/components/dashboard/ConsularDeepLinks";
 import { PrivacyCountdownBadge } from "@/components/dashboard/PrivacyCountdownBadge";
 import { SupportingDocumentsVault } from "@/components/dashboard/SupportingDocumentsVault";
 import { TrackingReferenceManager } from "@/components/dashboard/TrackingReferenceManager";
+import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
+import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
@@ -70,6 +74,16 @@ export default async function ApplicationDashboardPage({
   const audit = runRiskAudit(application.application_data);
   const privacyCountdownDays = getPrivacyCountdownDays(application.privacy_purge_at);
   const fullName = `${application.application_data.personal.firstName} ${application.application_data.personal.lastName}`.trim();
+  const interviewDownloadHref = previewMode
+    ? `/dashboard/${application.id}/interview-simulator?preview=1`
+    : `/dashboard/${application.id}/interview-simulator`;
+  const refusalDecoderDownloadHref = previewMode
+    ? `/dashboard/${application.id}/refusal-decoder?preview=1`
+    : `/dashboard/${application.id}/refusal-decoder`;
+  const packageCardItems = [
+    { label: "Interview rehearsal brief", detail: "Risk-targeted voice and text prompts prepared for consular questions.", icon: Mic },
+    { label: "Refusal recovery brief", detail: "Annex VI refusal-code remediation stays packaged with the file.", icon: RotateCcw },
+  ] as const;
   const completionItems = [
     { label: "Application PDF ready", detail: "Form flattened and prepared for embassy submission", icon: FileText },
     { label: "AI cover letter ready", detail: "Consular narrative aligned to itinerary and ties", icon: Sparkles },
@@ -267,9 +281,28 @@ export default async function ApplicationDashboardPage({
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
           <TintedIconBadge icon={Archive} tone="blue" label="Full Packet Archive" />
           <h2 className="mt-4 text-xl font-semibold text-white">Complete Embassy Submission ZIP</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Includes the PDF, cover letter, checklist, insurance slip, and saved supporting documents.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Includes the PDF, cover letter, checklist, insurance slip, interview brief, refusal decoder, and saved supporting documents.</p>
           <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
             Packet contents stay aligned with the dashboard vault and your stored supporting files.
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {packageCardItems.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div key={item.label} className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-slate-100">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{item.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {!previewMode ? (
@@ -334,8 +367,8 @@ export default async function ApplicationDashboardPage({
 
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
           <TintedIconBadge icon={ShieldCheck} tone="amber" label="Financial Audit Rules" />
-          <h2 className="mt-4 text-xl font-semibold text-white">Static audit summary</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Status is informational only here. It does not trigger actions from the vault.</p>
+          <h2 className="mt-4 text-xl font-semibold text-white">Financial and profile audit</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300">This summary now includes route-specific profile logic, anomaly screening, and the internal service-cost guardrail.</p>
           <div className="mt-5 space-y-3 text-sm text-slate-300">
             <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
               Required funds EUR {audit.requiredLiquidBalanceEur.toFixed(2)}. Available EUR {audit.availableLiquidBalanceEur.toFixed(2)}.
@@ -343,8 +376,19 @@ export default async function ApplicationDashboardPage({
             <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
               Passport valid through {audit.passportValidThrough}. Current audit status: <span className="font-semibold text-white">{audit.status}</span>.
             </div>
+            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+              Profile route: <span className="font-semibold text-white">{audit.profileRoute}</span>. Transit buffer EUR {audit.transitBufferEur.toFixed(2)}.
+            </div>
+            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+              Deposit anomaly clearance: <span className="font-semibold text-white">{audit.checks.financialAnomalyClearance ? "Pass" : "Review required"}</span>. Estimated cost USD {audit.unitEconomics.maximumPotentialCostUsd.toFixed(2)} / 8.00.
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ConsularInterviewPanel applicant={application.application_data} downloadHref={interviewDownloadHref} />
+        <RefusalDecoderPanel refusalReasonCode={application.refusal_reason_code} downloadHref={refusalDecoderDownloadHref} />
       </div>
 
       <SupportingDocumentsVault

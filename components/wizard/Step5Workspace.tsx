@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, Square, WandSparkles } from "lucide-react";
+import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
+import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { ConsulateChecklist } from "@/components/wizard/ConsulateChecklist";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
@@ -869,6 +871,10 @@ export function Step5Workspace({
 
         <div className={activeTab === "toolkit" ? "mt-6 space-y-4 xl:col-span-2" : "mt-6 hidden"}>
           <ConsulateChecklist applicant={applicant} onDownloadPdf={handleDownloadChecklistPdf} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <ConsularInterviewPanel applicant={applicant} />
+            <RefusalDecoderPanel refusalReasonCode={null} />
+          </div>
           <PacketWorkspace
             applicant={applicant}
             previewMode={previewMode}
