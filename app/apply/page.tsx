@@ -7,13 +7,17 @@ export const dynamic = "force-dynamic";
 export default async function ApplyPage({
   searchParams,
 }: {
-  searchParams?: { preview?: string };
+  searchParams?: { preview?: string; destination?: string };
 }) {
   const previewMode = searchParams?.preview === "1";
   const account = await getAuthenticatedAccount();
+  const requestedDestination = searchParams?.destination?.trim() || undefined;
 
   if (!account && !previewMode) {
-    redirect(buildAuthRedirectPath("/apply"));
+    const nextPath = requestedDestination
+      ? `/apply?destination=${encodeURIComponent(requestedDestination)}`
+      : "/apply";
+    redirect(buildAuthRedirectPath(nextPath));
   }
 
   return (
@@ -34,7 +38,7 @@ export default async function ApplyPage({
           Preview mode is active with realistic sample data. Review the full step-by-step packet builder without signing in.
         </div>
       ) : null}
-      <ApplicationWizard previewMode={previewMode} />
+      <ApplicationWizard previewMode={previewMode} initialDestinationCountry={requestedDestination} />
     </section>
   );
 }

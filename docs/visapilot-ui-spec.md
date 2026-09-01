@@ -85,26 +85,24 @@ Path: `app/page.tsx`
 
 ### Section 1: Country and Flag Bar
 
-Purpose: Establish jurisdiction focus immediately without animation-heavy movement.
+Purpose: Establish jurisdiction focus immediately with a static, high-clarity destination selector.
 
 Requirements:
 
-1. Single-line list of country entries using actual flag emojis.
-2. Entries separated by centered bullets.
-3. Horizontal overflow allowed on narrow screens.
-4. Non-clickable presentation.
-5. No marquee animation and no secondary feature ticker.
+1. Display the top 6 Schengen hubs only: France, Switzerland, Germany, Italy, Spain, Netherlands.
+2. Use static wrapped pills or a compact 2x3 grid with actual flag treatments.
+3. Each destination tile is clickable and routes into the onboarding flow with that destination pre-selected.
+4. No marquee animation and no scrolling ticker behavior.
+5. Preserve clean wrapping on mobile without horizontal overflow bugs.
 
 Exact content set:
 
-1. `🇫🇷 France`
-2. `🇪🇸 Spain`
-3. `🇩🇪 Germany`
-4. `🇮🇹 Italy`
-5. `🇳🇱 Netherlands`
-6. `🇨🇭 Switzerland`
-7. `🇦🇹 Austria`
-8. `🇵🇹 Portugal`
+1. `France`
+2. `Switzerland`
+3. `Germany`
+4. `Italy`
+5. `Spain`
+6. `Netherlands`
 
 ### Section 2: Hero
 

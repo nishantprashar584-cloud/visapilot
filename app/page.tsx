@@ -82,10 +82,6 @@ const pricingTiers = [
 export default function Home() {
   return (
     <div className="pb-16 pt-1 sm:pb-20 sm:pt-2">
-      <section className="mb-4">
-        <MarqueePills />
-      </section>
-
       <section className="w-full px-4 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-white/14 bg-[linear-gradient(145deg,rgba(24,34,58,0.96),rgba(17,24,39,0.9)_45%,rgba(30,41,82,0.92))] px-5 py-9 shadow-[0_26px_90px_rgba(4,8,24,0.34)] sm:px-8 sm:py-12 lg:px-10">
           <div className="mx-auto max-w-5xl text-center">
@@ -104,6 +100,10 @@ export default function Home() {
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-200 sm:text-lg">
               Generate a 96% VFS-compliant tourist visa packet with form prep, financial audits, and multi-city itinerary sync in minutes.
             </p>
+
+            <div className="mt-8">
+              <MarqueePills />
+            </div>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link

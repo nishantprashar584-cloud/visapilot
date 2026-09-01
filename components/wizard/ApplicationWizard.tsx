@@ -832,8 +832,10 @@ function buildPreviousVisaSummary(
 
 export function ApplicationWizard({
   previewMode = false,
+  initialDestinationCountry,
 }: {
   previewMode?: boolean;
+  initialDestinationCountry?: string;
 }) {
   const router = useRouter();
   const wizardStepTopRef = useRef<HTMLDivElement | null>(null);
@@ -842,6 +844,7 @@ export function ApplicationWizard({
   const voiceProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCaptureSessionRef = useRef<VoiceCaptureSession | null>(null);
   const pendingStepScrollRef = useRef(false);
+  const initialDestinationAppliedRef = useRef(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -867,9 +870,17 @@ export function ApplicationWizard({
   const [toast, setToast] = useState<ToastState | null>(null);
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
 
+  const initialPreviewApplicant = useMemo(() => {
+    if (!previewMode || !initialDestinationCountry) {
+      return previewWizardApplicant;
+    }
+
+    return getPreviewApplicationForDestination(initialDestinationCountry)?.application_data ?? previewWizardApplicant;
+  }, [initialDestinationCountry, previewMode]);
+
   const form = useForm<ApplicantInfo>({
     resolver: zodResolver(applicantInfoSchema),
-    defaultValues: previewMode ? previewWizardApplicant : defaultApplicantInfo,
+    defaultValues: previewMode ? initialPreviewApplicant : defaultApplicantInfo,
     mode: "onBlur",
   });
 
@@ -927,7 +938,7 @@ export function ApplicationWizard({
 
   useEffect(() => {
     if (previewMode) {
-      form.reset(previewWizardApplicant);
+      form.reset(initialPreviewApplicant);
       setCustomLetters(defaultCustomLetters);
       setHasHydrated(true);
       return;
@@ -963,7 +974,31 @@ export function ApplicationWizard({
     }
 
     setHasHydrated(true);
-  }, [form, previewMode]);
+  }, [form, initialPreviewApplicant, previewMode]);
+
+  useEffect(() => {
+    if (!hasHydrated || initialDestinationAppliedRef.current || !initialDestinationCountry) {
+      return;
+    }
+
+    const requestedDestination = initialDestinationCountry.trim();
+
+    if (!requestedDestination) {
+      initialDestinationAppliedRef.current = true;
+      return;
+    }
+
+    form.setValue("trip.destinationCountry", requestedDestination, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+    form.setValue("trip.firstEntryCountry", requestedDestination, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+
+    initialDestinationAppliedRef.current = true;
+  }, [form, hasHydrated, initialDestinationCountry]);
 
   useEffect(() => {
     const stayDurationDays = calculateStayDurationDays(arrivalDate, departureDate);
