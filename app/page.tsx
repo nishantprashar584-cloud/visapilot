@@ -40,37 +40,40 @@ const steps = [
 const pricingTiers = [
   {
     name: "Solo",
-    price: "$19",
+    price: "₹1,999",
     href: "/apply?tier=solo",
-    summary: "For one traveler preparing one complete visa packet.",
+    summary: "For one Indian traveler preparing one complete Schengen packet.",
     features: [
       "1 application credit",
-      "Financial audit and refusal-risk review",
-      "AI cover letter and completed packet",
+      "India-first OCR, audit, and cover-letter generation",
+      "Official consulate-ready packet export",
+      "Includes 18% GST invoice",
     ],
     featured: false,
   },
   {
     name: "Couple",
-    price: "$29",
+    price: "₹3,299",
     href: "/apply?tier=couple",
-    summary: "For two travelers on the same trip with separate identity records.",
+    summary: "For two adults on the same trip with shared itinerary coordination.",
     features: [
       "2 application credits",
-      "Separate identity lock for each traveler",
-      "Shared itinerary and dashboard flow",
+      "Cross-referenced co-traveler narratives",
+      "Joint sponsorship and shared itinerary flow",
+      "Includes 18% GST invoice",
     ],
     featured: true,
   },
   {
     name: "Family",
-    price: "$49",
+    price: "₹5,599",
     href: "/apply?tier=family",
-    summary: "For families coordinating up to four applicants in one workflow.",
+    summary: "For up to four family members with minor-safe document rules.",
     features: [
       "Up to 4 application credits",
-      "Shared planning across the household",
-      "Separate packet support per traveler",
+      "Minor annexures and parental NOC generation",
+      "Shared family itinerary and packet bundle",
+      "Includes 18% GST invoice",
     ],
     featured: false,
   },
@@ -96,10 +99,10 @@ export default function Home() {
               </span>
             </div>
             <h1 className="mt-6 text-balance text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
-              Schengen Visa Applications, Automated & Privacy-First
+              India-First Schengen Visa Automation
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-300 sm:text-lg">
-              Generate official auto-filled PDFs, consular cover letters, and daily financial audit checks in 5 minutes.
+              High-quality OCR, consular cover letters, and export-ready VFS packets for Indian applicants, without agent handoffs.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">

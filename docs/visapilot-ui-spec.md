@@ -167,14 +167,14 @@ Layout:
 
 Required copy:
 
-1. Solo `$19`
-Details: `1 Applicant Credit • Full Packet Download • 90-Day Guarantee.`
+1. Solo `₹1,999`
+Details: `1 Applicant • India-first OCR and cover letter • GST invoice included.`
 
-2. Couple `$29`
-Details: `2 Applicant Credits • Shared Itinerary • Independent Locks.`
+2. Couple `₹3,299`
+Details: `2 Adults • Shared itinerary • Cross-referenced co-traveler narratives.`
 
-3. Family `$49`
-Details: `Up to 4 Applicant Credits • Shared Itinerary • Independent Locks.`
+3. Family `₹5,599`
+Details: `Up to 4 Applicants • Minor-safe document rules • Shared family bundle.`
 
 CTA label for all cards: `Select Pass`
 
@@ -183,6 +183,13 @@ Routes:
 1. `/apply?tier=solo`
 2. `/apply?tier=couple`
 3. `/apply?tier=family`
+
+Launch constraints:
+
+1. Phase 1 targets Indian applicants only.
+2. Pricing is displayed in INR.
+3. Checkout and packet generation remain fully automated with no human review lane.
+4. Avoid community chat, appointment-booking bots, multi-language launch work, full flight purchasing, and gamified progress systems.
 
 ## Application Detail Page
 

@@ -12,19 +12,19 @@ export const unitEconomicGuardrails: UnitEconomicGuardrail[] = [
     id: "ocr_table_extraction",
     label: "OCR & Table Extraction Service",
     maxCostUsd: 1.5,
-    description: "Ingest multi-page bank statements, tax records, and digital payout histories.",
+    description: "Ingest Indian bank statements, ITR acknowledgments, Form 16 records, and digital payout histories.",
   },
   {
     id: "live_reservations_pnr",
-    label: "Live Reservation & PNR Validation",
+    label: "Flight Reservation & PNR Validation",
     maxCostUsd: 2,
-    description: "Maintain verifiable flight, rail, coach, hotel, or rental reservation references during review.",
+    description: "Maintain verifiable flight and hotel reservation references during automated review.",
   },
   {
-    id: "human_spot_check",
-    label: "Human-in-the-Loop Spot Check",
-    maxCostUsd: 4,
-    description: "Reserve a 15-minute manual review path for high-risk files.",
+    id: "automated_anomaly_resolution",
+    label: "Automated Anomaly Resolution",
+    maxCostUsd: 0.5,
+    description: "Run the source-of-funds wizard and annexure generation flow when deposits or profile mismatches need clarification.",
   },
   {
     id: "cloud_pdf_vault",
@@ -102,7 +102,7 @@ export function resolveApplicantProfileRequirements(applicant: ApplicantInfo): A
         requiredDocuments: [
           "Three months of salary slips.",
           "Corporate NOC on official letterhead approving leave.",
-          "Three years of ITR or Form 16 records.",
+          "Three years of ITR-V acknowledgments or Form 16 records.",
         ],
         waivedDocuments: [
           "Freelance payout statements.",
@@ -118,7 +118,7 @@ export function resolveApplicantProfileRequirements(applicant: ApplicantInfo): A
         label: "Freelancer / self-employed applicant",
         requiredDocuments: [
           "Digital payout statements from platforms such as Wise, Upwork, or Deel.",
-          "Business registration evidence such as GSTIN, DTI, or SEC filings.",
+          "Business registration evidence such as GSTIN or Udyam registration.",
           "Tax filings establishing an institutional proof-of-income trail.",
         ],
         waivedDocuments: [
@@ -171,7 +171,7 @@ export function resolveApplicantProfileRequirements(applicant: ApplicantInfo): A
         ],
         waivedDocuments: [],
         notes: [
-          "Use manual review reserve when the route does not cleanly fit salaried, student, or freelancer patterns.",
+          "Use the automated clarification flow when the route does not cleanly fit salaried, student, or freelancer patterns.",
         ],
       };
   }
@@ -229,19 +229,19 @@ export function detectFinancialAnomaly(applicant: ApplicantInfo): {
 }
 
 export function estimateUnitEconomicCost(input: {
-  requiresManualSpotCheck: boolean;
+  requiresAutomatedAnomalyResolution: boolean;
 }): UnitEconomicEstimate {
   const baselineCostUsd = unitEconomicGuardrails
-    .filter((guardrail) => guardrail.id !== "human_spot_check")
+    .filter((guardrail) => guardrail.id !== "automated_anomaly_resolution")
     .reduce((total, guardrail) => total + guardrail.maxCostUsd, 0);
-  const reservedManualReviewCostUsd = input.requiresManualSpotCheck
-    ? unitEconomicGuardrails.find((guardrail) => guardrail.id === "human_spot_check")?.maxCostUsd ?? 0
+  const automatedResolutionReserveUsd = input.requiresAutomatedAnomalyResolution
+    ? unitEconomicGuardrails.find((guardrail) => guardrail.id === "automated_anomaly_resolution")?.maxCostUsd ?? 0
     : 0;
-  const maximumPotentialCostUsd = baselineCostUsd + reservedManualReviewCostUsd;
+  const maximumPotentialCostUsd = baselineCostUsd + automatedResolutionReserveUsd;
 
   return {
     baselineCostUsd,
-    reservedManualReviewCostUsd,
+    automatedResolutionReserveUsd,
     maximumPotentialCostUsd,
     withinBudgetGuardrail: maximumPotentialCostUsd <= 8,
   };
@@ -264,7 +264,7 @@ export function buildStrictDocumentSequence(
     `Signed Schengen Form - autofilled form printed and signed after field review.`,
     `Passport & Visas - passport bio page and prior visas normalized to portrait A4.`,
     `Cover Letter & Itinerary - generated narrative and synchronized day-by-day itinerary matrix.`,
-    `Flight & Inter-City Transit - live PNR flight reservations plus rail, coach, or car-rental legs.`,
+    `Flight & Inter-City Transit - live PNR flight reservations plus text-based inter-city movement notes and optional proof uploads.`,
     `Accommodations - chronological hotel or host vouchers with gap checks against the itinerary.`,
     `Travel Insurance - EUR 30,000 minimum coverage certificate with travel dates highlighted.`,
     `Financial Proof - sequenced bank statements, tax records, and declared transit buffer evidence.`,

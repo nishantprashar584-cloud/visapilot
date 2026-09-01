@@ -42,7 +42,7 @@ const refusalPlaybook: Record<RefusalReasonCode, Omit<RefusalDecoderResult, "ref
     summary: "The refusal references a system alert or public policy ground that needs specialist handling.",
     remediationSteps: [
       "Obtain the refusal file and determine the exact database or policy concern.",
-      "Route the case to manual review before any reapplication.",
+      "Pause automated re-filing until the official concern is clarified with the issuing authority.",
       "Do not reapply with unchanged facts until the underlying alert is resolved.",
     ],
   },
@@ -52,7 +52,7 @@ const refusalPlaybook: Record<RefusalReasonCode, Omit<RefusalDecoderResult, "ref
     remediationSteps: [
       "Confirm whether the consulate requested additional health documentation.",
       "Attach updated medical or insurance evidence if relevant to admissibility.",
-      "Escalate to manual review before rebuilding the file.",
+      "Rebuild the file only after the missing admissibility evidence is documented clearly.",
     ],
   },
   7: {
@@ -60,7 +60,7 @@ const refusalPlaybook: Record<RefusalReasonCode, Omit<RefusalDecoderResult, "ref
     summary: "The refusal sits on a diplomatic or foreign-relations ground beyond ordinary document remediation.",
     remediationSteps: [
       "Obtain the detailed refusal notice and supporting explanation from the post.",
-      "Escalate to manual review rather than automated re-filing.",
+      "Do not trigger automated re-filing until the diplomatic concern is clearly understood.",
       "Avoid re-submission until the governing concern is understood.",
     ],
   },
@@ -96,7 +96,7 @@ const refusalPlaybook: Record<RefusalReasonCode, Omit<RefusalDecoderResult, "ref
     summary: "The refusal falls outside the standard automated remediation lanes and needs a tailored plan.",
     remediationSteps: [
       "Capture the exact refusal wording from the notice.",
-      "Escalate to manual review with a targeted reapplication strategy.",
+      "Build a targeted reapplication plan only after the refusal wording is mapped to concrete evidence gaps.",
       "Attach a custom remediation note instead of a generic appeal template.",
     ],
   },

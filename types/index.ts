@@ -78,7 +78,7 @@ export interface FinancialEvidence {
 }
 
 export interface UnitEconomicGuardrail {
-  id: "ocr_table_extraction" | "live_reservations_pnr" | "human_spot_check" | "cloud_pdf_vault";
+  id: "ocr_table_extraction" | "live_reservations_pnr" | "automated_anomaly_resolution" | "cloud_pdf_vault";
   label: string;
   maxCostUsd: number;
   description: string;
@@ -86,7 +86,7 @@ export interface UnitEconomicGuardrail {
 
 export interface UnitEconomicEstimate {
   baselineCostUsd: number;
-  reservedManualReviewCostUsd: number;
+  automatedResolutionReserveUsd: number;
   maximumPotentialCostUsd: number;
   withinBudgetGuardrail: boolean;
 }

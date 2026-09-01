@@ -90,7 +90,7 @@ describe("consularPolicy", () => {
     expect(audit.status).toBe("RED");
     expect(audit.checks.financialAnomalyClearance).toBe(false);
     expect(audit.anomalyBlockingReason).toContain("source-of-funds note");
-    expect(audit.unitEconomics.maximumPotentialCostUsd).toBeCloseTo(8, 2);
+    expect(audit.unitEconomics.maximumPotentialCostUsd).toBeCloseTo(4.5, 2);
     expect(audit.unitEconomics.withinBudgetGuardrail).toBe(true);
   });
 
@@ -116,10 +116,11 @@ describe("consularPolicy", () => {
   });
 
   it("keeps the unit-economics ceiling under the eight-dollar guardrail", () => {
-    const estimate = estimateUnitEconomicCost({ requiresManualSpotCheck: true });
+    const estimate = estimateUnitEconomicCost({ requiresAutomatedAnomalyResolution: true });
 
     expect(estimate.baselineCostUsd).toBeCloseTo(4, 2);
-    expect(estimate.maximumPotentialCostUsd).toBeCloseTo(8, 2);
+    expect(estimate.automatedResolutionReserveUsd).toBeCloseTo(0.5, 2);
+    expect(estimate.maximumPotentialCostUsd).toBeCloseTo(4.5, 2);
     expect(estimate.withinBudgetGuardrail).toBe(true);
   });
 

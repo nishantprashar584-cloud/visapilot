@@ -101,7 +101,7 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
         : "GREEN";
 
   const unitEconomics = estimateUnitEconomicCost({
-    requiresManualSpotCheck: status === "RED" || missingDocuments.length >= 4,
+    requiresAutomatedAnomalyResolution: status === "RED" || missingDocuments.length >= 4,
   });
 
   if (status === "GREEN") {

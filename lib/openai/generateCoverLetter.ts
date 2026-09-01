@@ -85,7 +85,7 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const consultantContext = buildConsultantContext(applicant);
   const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim();
   const destinationCountry = applicant.trip.destinationCountry;
-  const consulateName = buildConsulateName(destinationCountry);
+  const placeOfApplication = applicant.application.placeOfApplication.trim() || "India";
   const arrivalDate = formatDate(applicant.trip.arrivalDate);
   const departureDate = formatDate(applicant.trip.departureDate);
   const purpose = applicant.trip.purpose.replace(/_/g, " ");
@@ -96,63 +96,91 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const employerName = applicant.employment.employerName?.trim() ?? "";
   const occupation = applicant.employment.occupation.trim();
   const monthlyIncome = applicant.employment.monthlyIncomeEur.toFixed(0);
-  const savingsBalance = applicant.employment.savingsBalanceEur.toFixed(0);
+  const savingsBalance = applicant.financialEvidence?.closingBalanceEur ?? applicant.employment.savingsBalanceEur;
+  const maskedAccountEnding = applicant.passport.number.slice(-4) || "XXXX";
+  const currentBalanceInr = Math.round(savingsBalance * 95);
+  const currentBalanceEur = savingsBalance.toFixed(0);
+  const dailyAllowance = applicant.trip.stayDurationDays > 0
+    ? (savingsBalance / applicant.trip.stayDurationDays).toFixed(0)
+    : currentBalanceEur;
   const returnIntent = cleanSentence(applicant.homeTies.returnIntentEvidence.trim()) || "I maintain strong professional and personal ties in my country of residence and will return promptly after my approved travel period.";
   const dependentInformation = cleanSentence(applicant.homeTies.dependentInformation?.trim() ?? "");
-  const placeOfApplication = applicant.application.placeOfApplication.trim();
   const sponsorLine = applicant.sponsor.type === "self"
-    ? "I will personally cover my travel, accommodation, and daily expenses."
-    : `My trip is ${consultantContext.fundingSourceLabel.toLowerCase()}, and the supporting financial guarantees are enclosed with this application.`;
+    ? "All expenses associated with this trip, including flights, accommodation, local movement, and daily subsistence, will be fully self-funded from my personal savings."
+    : `My trip is ${consultantContext.fundingSourceLabel.toLowerCase()}, and the sponsor's financial guarantees are enclosed with this application.`;
   const employmentLine = employerName || occupation
-    ? `I am a ${consultantContext.employmentStatusLabel.toLowerCase()}${occupation ? ` working as ${occupation}` : ""}${employerName ? ` with ${employerName}` : ""}, which supports the continuity of my obligations after travel.`
-    : "My current professional and personal commitments support my planned return after travel.";
+    ? `I am gainfully employed in India as ${occupation || consultantContext.employmentStatusLabel.toLowerCase()}${employerName ? ` with ${employerName}` : ""}. My professional continuity in India remains intact throughout this planned vacation.`
+    : "My professional and personal commitments in India support my planned return after travel.";
   const accommodationLine = accommodations
-    ? `My accommodation arrangements for this trip are confirmed as ${cleanSentence(accommodations).replace(/[.]$/, "")}${bookingReference ? ` under booking reference ${bookingReference}` : ""}.`
-    : `My accommodation arrangements for the trip have been organized and are consistent with my travel dates.${bookingReference ? ` Booking reference: ${bookingReference}.` : ""}`;
+    ? `My confirmed accommodation arrangements are attached and remain consistent with the submitted travel dates${bookingReference ? ` under booking reference ${bookingReference}` : ""}. ${cleanSentence(accommodations)}`
+    : `My accommodation arrangements have been organized in line with the submitted travel dates.${bookingReference ? ` Booking reference: ${bookingReference}.` : ""}`;
   const routeLine = firstEntryCountry || portOfEntry
-    ? `My itinerary reflects entry through ${firstEntryCountry || destinationCountry}${portOfEntry ? ` via ${portOfEntry}` : ""}, with travel planned from ${arrivalDate} until ${departureDate}.`
-    : `My itinerary is planned from ${arrivalDate} until ${departureDate} and remains consistent across the submitted travel evidence.`;
+    ? `My detailed itinerary reflects entry through ${firstEntryCountry || destinationCountry}${portOfEntry ? ` via ${portOfEntry}` : ""}, with travel planned from ${arrivalDate} to ${departureDate}.`
+    : `My detailed itinerary is planned from ${arrivalDate} to ${departureDate} and remains consistent across the submitted travel evidence.`;
   const dependentLine = dependentInformation
-    ? `I also maintain ongoing family responsibilities, including ${dependentInformation.replace(/[.]$/, "")}.`
+    ? `I also maintain ongoing family responsibilities in India, including ${dependentInformation.replace(/[.]$/, "")}.`
     : null;
   const consultantRiskLine = applicant.employment.employmentStatus === "self_employed"
-    ? "My active client relationships and continuing work commitments in my home country are part of the enclosed professional evidence and reinforce my return intent."
+    ? "My active client relationships, tax records, and continuing work commitments in India are part of the enclosed professional evidence and reinforce my return intent."
     : isSponsoredFundingSource(applicant.sponsor.fundingSource)
-      ? "The enclosed sponsor documents confirm the financial backing for this trip and should be read together with my own itinerary and return-tie evidence."
+      ? "The enclosed sponsor documents confirm the financial backing for this trip and should be read together with my itinerary and return-tie evidence."
       : null;
 
   return [
-    fullName || "Applicant",
-    placeOfApplication || "",
+    new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }),
     "",
-    `${consulateName}`,
+    "To,",
+    "The Visa Officer,",
+    `Embassy of ${destinationCountry},`,
+    `${placeOfApplication}, India`,
     "",
-    `Subject: Cover Letter for Schengen Visa Application to ${destinationCountry}`,
+    `**Subject: Application for Short-Stay Schengen Visa (${purpose.charAt(0).toUpperCase()}${purpose.slice(1)}) - ${fullName || "Applicant"} (Passport No: ${applicant.passport.number})**`,
     "",
-    `Dear Visa Officer,`,
+    "Respected Visa Officer,",
     "",
-    `I am writing to respectfully submit my Schengen visa application for travel to ${destinationCountry} from ${arrivalDate} to ${departureDate} for the purpose of ${purpose}. I request that my application be considered based on the enclosed travel, accommodation, and financial supporting documents.`,
+    `I am writing to formally submit my application for a short-stay Schengen ${purpose} visa to visit ${destinationCountry} and other participating Schengen member states from ${arrivalDate} to ${departureDate}.`,
+    "",
+    "**1. Purpose of Visit & Itinerary Overview**",
+    "The primary objective of my travel is tourism, sightseeing, and experiencing the cultural heritage of Europe. My detailed day-by-day itinerary, confirmed accommodation vouchers, and travel logistics have been planned and attached to this application bundle.",
+    `- **Cities to be Visited:** ${applicant.trip.memberStatesToVisit.join(", ") || destinationCountry}`,
+    `- **Entry Port:** ${portOfEntry || firstEntryCountry || destinationCountry}`,
+    `- **Exit Port:** ${applicant.trip.destinationCountry}`,
     "",
     routeLine,
     "",
-    accommodationLine,
-    "",
-    `I am financially prepared for this trip. My monthly income is EUR ${monthlyIncome}, and I currently maintain available savings of EUR ${savingsBalance}. ${sponsorLine}`,
-    "",
+    "**2. Employment & Professional Ties to India**",
     employmentLine,
+    "To substantiate my financial and professional roots in India, I have attached my tax and income records, employment evidence, and leave approvals where applicable.",
+    "",
+    "**3. Financial Sufficiency & Bank Liquidity**",
+    sponsorLine,
+    `- **Primary Financial Capacity:** EUR ${currentBalanceEur} in accessible funds (approximately INR ${currentBalanceInr.toLocaleString("en-IN")}).`,
+    `- **Average Daily Allowance:** Approximately EUR ${dailyAllowance} per day across the planned stay.`,
+    `- **Income Profile:** Monthly income equivalent recorded at EUR ${monthlyIncome}.`,
+    `- **Reference Marker:** Supporting financial records are attached and indexed against account ending ${maskedAccountEnding}.`,
+    "",
+    accommodationLine,
     "",
     consultantRiskLine,
     consultantRiskLine ? "" : null,
     dependentLine,
     dependentLine ? "" : null,
-    `I maintain clear ties to my home country and fully intend to return after my temporary visit. ${returnIntent}`,
+    "**4. Strong Ties and Obligation to Return**",
+    `I maintain deep personal, familial, and economic ties to India that guarantee my return upon the conclusion of my authorized stay. ${returnIntent}`,
     "",
-    "I respectfully assure you that I will comply with the visa conditions and return before the expiry of my authorized stay. I would be grateful for your favorable consideration of my application.",
+    "I respectfully request you to process and approve my short-stay Schengen visa application. Thank you for your time, consideration, and professional evaluation of my file.",
     "",
-    "Thank you for your time and consideration.",
+    "Yours sincerely,",
     "",
-    "Sincerely,",
-    fullName || "Applicant",
+    "___________________________",
+    `**${fullName || "Applicant"}**`,
+    `Email: ${applicant.contact.email}`,
+    `Phone: ${applicant.contact.phone}`,
+    `Address: ${[applicant.contact.addressLine1, applicant.contact.addressLine2, applicant.contact.city, applicant.contact.postalCode].filter(Boolean).join(", ")}, India`,
   ].filter((line): line is string => line !== null).join("\n");
 }
 
