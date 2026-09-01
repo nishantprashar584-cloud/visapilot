@@ -81,11 +81,21 @@ function cleanSentence(value: string): string {
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
+function resolveResidenceCountry(applicant: ApplicantInfo): string {
+  return applicant.contact.residenceCountry?.trim()
+    || applicant.contact.country.trim()
+    || "country of residence";
+}
+
 function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
   const consultantContext = buildConsultantContext(applicant);
   const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim();
   const destinationCountry = applicant.trip.destinationCountry;
-  const placeOfApplication = applicant.application.placeOfApplication.trim() || "India";
+  const residenceCountry = resolveResidenceCountry(applicant);
+  const placeOfApplication = applicant.application.placeOfApplication.trim();
+  const placeOfApplicationLine = [placeOfApplication, residenceCountry === "country of residence" ? "" : residenceCountry]
+    .filter(Boolean)
+    .join(", ");
   const arrivalDate = formatDate(applicant.trip.arrivalDate);
   const departureDate = formatDate(applicant.trip.departureDate);
   const purpose = applicant.trip.purpose.replace(/_/g, " ");
@@ -109,8 +119,8 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     ? "All expenses associated with this trip, including flights, accommodation, local movement, and daily subsistence, will be fully self-funded from my personal savings."
     : `My trip is ${consultantContext.fundingSourceLabel.toLowerCase()}, and the sponsor's financial guarantees are enclosed with this application.`;
   const employmentLine = employerName || occupation
-    ? `I am gainfully employed in India as ${occupation || consultantContext.employmentStatusLabel.toLowerCase()}${employerName ? ` with ${employerName}` : ""}. My professional continuity in India remains intact throughout this planned vacation.`
-    : "My professional and personal commitments in India support my planned return after travel.";
+    ? `I am gainfully employed in ${residenceCountry === "country of residence" ? "my country of residence" : residenceCountry} as ${occupation || consultantContext.employmentStatusLabel.toLowerCase()}${employerName ? ` with ${employerName}` : ""}. My professional continuity there remains intact throughout this planned vacation.`
+    : "My professional and personal commitments in my country of residence support my planned return after travel.";
   const accommodationLine = accommodations
     ? `My confirmed accommodation arrangements are attached and remain consistent with the submitted travel dates${bookingReference ? ` under booking reference ${bookingReference}` : ""}. ${cleanSentence(accommodations)}`
     : `My accommodation arrangements have been organized in line with the submitted travel dates.${bookingReference ? ` Booking reference: ${bookingReference}.` : ""}`;
@@ -118,10 +128,10 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     ? `My detailed itinerary reflects entry through ${firstEntryCountry || destinationCountry}${portOfEntry ? ` via ${portOfEntry}` : ""}, with travel planned from ${arrivalDate} to ${departureDate}.`
     : `My detailed itinerary is planned from ${arrivalDate} to ${departureDate} and remains consistent across the submitted travel evidence.`;
   const dependentLine = dependentInformation
-    ? `I also maintain ongoing family responsibilities in India, including ${dependentInformation.replace(/[.]$/, "")}.`
+    ? `I also maintain ongoing family responsibilities in ${residenceCountry === "country of residence" ? "my country of residence" : residenceCountry}, including ${dependentInformation.replace(/[.]$/, "")}.`
     : null;
   const consultantRiskLine = applicant.employment.employmentStatus === "self_employed"
-    ? "My active client relationships, tax records, and continuing work commitments in India are part of the enclosed professional evidence and reinforce my return intent."
+    ? `My active client relationships, tax records, and continuing work commitments in ${residenceCountry === "country of residence" ? "my country of residence" : residenceCountry} are part of the enclosed professional evidence and reinforce my return intent.`
     : isSponsoredFundingSource(applicant.sponsor.fundingSource)
       ? "The enclosed sponsor documents confirm the financial backing for this trip and should be read together with my itinerary and return-tie evidence."
       : null;
@@ -136,7 +146,7 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     "To,",
     "The Visa Officer,",
     `Embassy of ${destinationCountry},`,
-    `${placeOfApplication}, India`,
+    placeOfApplicationLine || residenceCountry,
     "",
     `**Subject: Application for Short-Stay Schengen Visa (${purpose.charAt(0).toUpperCase()}${purpose.slice(1)}) - ${fullName || "Applicant"} (Passport No: ${applicant.passport.number})**`,
     "",
@@ -152,9 +162,9 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     "",
     routeLine,
     "",
-    "**2. Employment & Professional Ties to India**",
+    "**2. Employment & Professional Ties**",
     employmentLine,
-    "To substantiate my financial and professional roots in India, I have attached my tax and income records, employment evidence, and leave approvals where applicable.",
+    `To substantiate my financial and professional roots in ${residenceCountry === "country of residence" ? "my country of residence" : residenceCountry}, I have attached my tax and income records, employment evidence, and leave approvals where applicable.`,
     "",
     "**3. Financial Sufficiency & Bank Liquidity**",
     sponsorLine,
@@ -170,7 +180,7 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     dependentLine,
     dependentLine ? "" : null,
     "**4. Strong Ties and Obligation to Return**",
-    `I maintain deep personal, familial, and economic ties to India that guarantee my return upon the conclusion of my authorized stay. ${returnIntent}`,
+    `I maintain deep personal, familial, and economic ties to ${residenceCountry === "country of residence" ? "my country of residence" : residenceCountry} that guarantee my return upon the conclusion of my authorized stay. ${returnIntent}`,
     "",
     "I respectfully request you to process and approve my short-stay Schengen visa application. Thank you for your time, consideration, and professional evaluation of my file.",
     "",
@@ -180,7 +190,7 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     `**${fullName || "Applicant"}**`,
     `Email: ${applicant.contact.email}`,
     `Phone: ${applicant.contact.phone}`,
-    `Address: ${[applicant.contact.addressLine1, applicant.contact.addressLine2, applicant.contact.city, applicant.contact.postalCode].filter(Boolean).join(", ")}, India`,
+    `Address: ${[applicant.contact.addressLine1, applicant.contact.addressLine2, applicant.contact.city, applicant.contact.postalCode, residenceCountry === "country of residence" ? "" : residenceCountry].filter(Boolean).join(", ")}`,
   ].filter((line): line is string => line !== null).join("\n");
 }
 
