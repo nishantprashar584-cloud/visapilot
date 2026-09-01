@@ -83,29 +83,27 @@ export default function Home() {
   return (
     <div className="pb-16 pt-1 sm:pb-20 sm:pt-2">
       <section className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-white/14 bg-[linear-gradient(145deg,rgba(24,34,58,0.96),rgba(17,24,39,0.9)_45%,rgba(30,41,82,0.92))] px-5 py-9 shadow-[0_26px_90px_rgba(4,8,24,0.34)] sm:px-8 sm:py-12 lg:px-10">
-          <div className="mx-auto max-w-5xl text-center">
-            <div className="flex justify-center">
+        <div className="rounded-[2rem] border border-white/14 bg-[linear-gradient(145deg,rgba(24,34,58,0.96),rgba(17,24,39,0.9)_45%,rgba(30,41,82,0.92))] px-5 py-8 shadow-[0_26px_90px_rgba(4,8,24,0.34)] sm:px-8 sm:py-10 lg:px-10">
+          <div className="mx-auto max-w-6xl text-center">
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
               <TintedIconBadge icon={ShieldCheck} tone="emerald" label={heroBadgeCopy} />
-            </div>
-            <div className="mt-5 flex justify-center">
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/16 px-4 py-1.5 text-sm font-medium text-emerald-50 shadow-[0_0_30px_rgba(16,185,129,0.18)]">
                 <TrendingUp className="h-4 w-4 text-emerald-200" />
                 98% of applications got accepted using VisaPilot
               </span>
             </div>
-            <h1 className="mt-6 text-balance text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
+            <h1 className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-[3.35rem] lg:whitespace-nowrap">
               The Automated Schengen Tourist Visa Engine
             </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-200 sm:text-lg">
+            <p className="mx-auto mt-3 max-w-4xl text-sm leading-7 text-slate-200 sm:text-lg xl:whitespace-nowrap">
               Generate a 96% VFS-compliant tourist visa packet with form prep, financial audits, and multi-city itinerary sync in minutes.
             </p>
 
-            <div className="mt-8">
+            <div className="mt-6">
               <MarqueePills />
             </div>
 
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
                 href="/apply"
                 className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
