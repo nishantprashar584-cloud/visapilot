@@ -1,22 +1,6 @@
 import { ApplicationWizard } from "@/components/wizard/ApplicationWizard";
 import { redirect } from "next/navigation";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-async function getAvailableCredits(userId?: string): Promise<number> {
-  if (!userId) {
-    return 0;
-  }
-
-  const supabase = createSupabaseServerClient();
-  const { data } = await supabase
-    .from("users")
-    .select("credits")
-    .eq("id", userId)
-    .maybeSingle();
-
-  return data?.credits ?? 0;
-}
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +15,6 @@ export default async function ApplyPage({
   if (!account && !previewMode) {
     redirect(buildAuthRedirectPath("/apply"));
   }
-
-  const availableCredits = previewMode ? 1 : await getAvailableCredits(account?.id);
 
   return (
     <section className="w-full space-y-8 px-4 sm:px-6 lg:px-8">
@@ -52,7 +34,7 @@ export default async function ApplyPage({
           Preview mode is active with realistic sample data. Review the full step-by-step packet builder without signing in.
         </div>
       ) : null}
-      <ApplicationWizard previewMode={previewMode} availableCredits={availableCredits} />
+      <ApplicationWizard previewMode={previewMode} />
     </section>
   );
 }

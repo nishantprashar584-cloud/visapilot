@@ -25,7 +25,7 @@ import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
 import { FinancialSafetyGauge } from "@/components/wizard/FinancialSafetyGauge";
 import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
-import type { ApplicantInfo, ParsedVoiceContextResult, PassportDocumentParseResult, PricingTier, SupportingDocument } from "@/types";
+import type { ApplicantInfo, ParsedVoiceContextResult, PassportDocumentParseResult, SupportingDocument } from "@/types";
 import { consultantDailyMinimumEur, employmentStatusOptions, fundingSourceOptions, visaKnowledgeBaseSections } from "@/config/schengen-rules";
 import { runRiskAudit } from "@/lib/riskAudit";
 
@@ -831,10 +831,8 @@ function buildPreviousVisaSummary(
 
 export function ApplicationWizard({
   previewMode = false,
-  availableCredits = 0,
 }: {
   previewMode?: boolean;
-  availableCredits?: number;
 }) {
   const router = useRouter();
   const wizardStepTopRef = useRef<HTMLDivElement | null>(null);
@@ -853,7 +851,6 @@ export function ApplicationWizard({
   const [identityLockMessage, setIdentityLockMessage] = useState<string | null>(null);
   const [isParsingBankStatement, setIsParsingBankStatement] = useState(false);
   const [bankStatementParseMessage, setBankStatementParseMessage] = useState<string | null>(null);
-  const [isStartingCheckout, setIsStartingCheckout] = useState<PricingTier | null>(null);
   const [coverLetterDraft, setCoverLetterDraft] = useState("");
   const [documentStudioTab, setDocumentStudioTab] = useState<"cover-letter" | "toolkit">("toolkit");
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
@@ -1545,37 +1542,6 @@ export function ApplicationWizard({
       if (bankStatementInputRef.current) {
         bankStatementInputRef.current.value = "";
       }
-    }
-  }
-
-  async function handleCheckout(tier: PricingTier) {
-    if (previewMode) {
-      router.push("/dashboard?preview=1");
-      return;
-    }
-
-    setIsStartingCheckout(tier);
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tier }),
-      });
-
-      const payload = (await response.json()) as { checkoutUrl?: string; error?: string };
-
-      if (!response.ok || !payload.checkoutUrl) {
-        throw new Error(payload.error ?? "Unable to create Stripe checkout session.");
-      }
-
-      window.location.href = payload.checkoutUrl;
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Unable to start checkout.");
-    } finally {
-      setIsStartingCheckout(null);
     }
   }
 
@@ -2483,11 +2449,8 @@ export function ApplicationWizard({
                 previewMode={previewMode}
                 supportingDocuments={supportingDocuments}
                 onSupportingDocumentsChange={handleSupportingDocumentsChange}
-                availableCredits={availableCredits}
                 activeTab={documentStudioTab}
                 onActiveTabChange={setDocumentStudioTab}
-                onCheckout={(tier) => void handleCheckout(tier)}
-                isStartingCheckout={isStartingCheckout}
                 isSubmitting={isSubmitting}
                 isGeneratingCoverLetter={isGeneratingCoverLetter}
                 activeCustomLetterId={activeCustomLetterId}

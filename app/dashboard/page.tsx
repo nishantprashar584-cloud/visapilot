@@ -118,7 +118,7 @@ export default async function DashboardPage({
 
       {paymentSucceeded ? (
         <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/12 px-5 py-4 text-sm font-medium text-emerald-100">
-          Payment completed. Credits are applied through the Stripe webhook after signature verification.
+          Access unlocked. Open your latest master bundle below.
         </div>
       ) : null}
 

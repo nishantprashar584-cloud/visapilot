@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import {
   PDFCheckBox,
   PDFDocument,
+  PDFFont,
   PDFPage,
   PDFTextField,
   StandardFonts,
@@ -25,7 +26,9 @@ type CoordinateFallback = {
   x: number;
   y: number;
   size?: number;
+  minSize?: number;
   maxWidth?: number;
+  maxLines?: number;
 };
 
 const coordinateFallbackByKey: Partial<Record<keyof SchengenFormFields, CoordinateFallback>> = {
@@ -49,12 +52,12 @@ const coordinateFallbackByKey: Partial<Record<keyof SchengenFormFields, Coordina
   passportDateOfIssue: { pageIndex: 0, x: 108, y: 484, maxWidth: 100 },
   passportValidUntil: { pageIndex: 0, x: 250, y: 484, maxWidth: 100 },
   passportIssuedBy: { pageIndex: 0, x: 405, y: 484, maxWidth: 125, size: 8 },
-  applicantAddress: { pageIndex: 0, x: 108, y: 427, maxWidth: 420, size: 8 },
+  applicantAddress: { pageIndex: 0, x: 108, y: 427, maxWidth: 420, size: 8, minSize: 6.5, maxLines: 3 },
   applicantEmail: { pageIndex: 0, x: 108, y: 362, maxWidth: 230, size: 8 },
   applicantPhone: { pageIndex: 0, x: 355, y: 362, maxWidth: 170, size: 8 },
   residenceCountry: { pageIndex: 0, x: 108, y: 338, maxWidth: 200 },
   occupation: { pageIndex: 0, x: 108, y: 297, maxWidth: 220 },
-  employerNameAndAddress: { pageIndex: 0, x: 108, y: 275, maxWidth: 420, size: 8 },
+  employerNameAndAddress: { pageIndex: 0, x: 108, y: 275, maxWidth: 420, size: 8, minSize: 6.5, maxLines: 3 },
   destinationMemberStates: { pageIndex: 1, x: 110, y: 742, maxWidth: 210 },
   firstEntryMemberState: { pageIndex: 1, x: 360, y: 742, maxWidth: 170 },
   numberOfEntriesSingle: { pageIndex: 1, x: 111, y: 707 },
@@ -65,7 +68,7 @@ const coordinateFallbackByKey: Partial<Record<keyof SchengenFormFields, Coordina
   departureDate: { pageIndex: 1, x: 250, y: 682, maxWidth: 95 },
   previousSchengenVisasNo: { pageIndex: 1, x: 111, y: 558 },
   previousSchengenVisasYes: { pageIndex: 1, x: 160, y: 558 },
-  previousSchengenVisasDetails: { pageIndex: 1, x: 245, y: 558, maxWidth: 285, size: 8 },
+  previousSchengenVisasDetails: { pageIndex: 1, x: 245, y: 558, maxWidth: 285, size: 8, minSize: 6.5, maxLines: 2 },
   travelPurposeTourism: { pageIndex: 1, x: 112, y: 633 },
   travelPurposeBusiness: { pageIndex: 1, x: 180, y: 633 },
   travelPurposeFamilyVisit: { pageIndex: 1, x: 253, y: 633 },
@@ -81,10 +84,10 @@ const coordinateFallbackByKey: Partial<Record<keyof SchengenFormFields, Coordina
   fingerprintsTakenStickerNumber: { pageIndex: 1, x: 390, y: 534, maxWidth: 135, size: 8 },
   permitForFinalDestinationNo: { pageIndex: 1, x: 111, y: 474 },
   permitForFinalDestinationYes: { pageIndex: 1, x: 160, y: 474 },
-  invitingPersonName: { pageIndex: 1, x: 110, y: 392, maxWidth: 420, size: 8 },
-  invitingPersonAddress: { pageIndex: 1, x: 110, y: 370, maxWidth: 420, size: 8 },
-  invitingCompanyName: { pageIndex: 1, x: 110, y: 322, maxWidth: 420, size: 8 },
-  invitingCompanyAddress: { pageIndex: 1, x: 110, y: 300, maxWidth: 420, size: 8 },
+  invitingPersonName: { pageIndex: 1, x: 110, y: 392, maxWidth: 420, size: 8, minSize: 6.5, maxLines: 2 },
+  invitingPersonAddress: { pageIndex: 1, x: 110, y: 370, maxWidth: 420, size: 8, minSize: 6.5, maxLines: 3 },
+  invitingCompanyName: { pageIndex: 1, x: 110, y: 322, maxWidth: 420, size: 8, minSize: 6.5, maxLines: 2 },
+  invitingCompanyAddress: { pageIndex: 1, x: 110, y: 300, maxWidth: 420, size: 8, minSize: 6.5, maxLines: 3 },
   travelCostsCoveredByApplicant: { pageIndex: 1, x: 111, y: 214 },
   travelCostsCoveredBySponsor: { pageIndex: 1, x: 298, y: 214 },
   placeAndDate: { pageIndex: 2, x: 110, y: 162, maxWidth: 240 },
@@ -253,7 +256,32 @@ function ensurePage(pdfDoc: PDFDocument, pageIndex: number): PDFPage {
   return pdfDoc.getPages()[pageIndex];
 }
 
-function wrapLines(page: PDFPage, value: string, maxWidth: number, fontSize: number) {
+function measureTextWidth(font: PDFFont, value: string, fontSize: number): number {
+  return font.widthOfTextAtSize(value, fontSize);
+}
+
+function truncateTextToWidth(font: PDFFont, value: string, maxWidth: number, fontSize: number): string {
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (measureTextWidth(font, normalized, fontSize) <= maxWidth) {
+    return normalized;
+  }
+
+  const ellipsis = "...";
+  let truncated = normalized;
+
+  while (truncated.length > 0 && measureTextWidth(font, `${truncated}${ellipsis}`, fontSize) > maxWidth) {
+    truncated = truncated.slice(0, -1).trimEnd();
+  }
+
+  return truncated ? `${truncated}${ellipsis}` : ellipsis;
+}
+
+function wrapLines(font: PDFFont, value: string, maxWidth: number, fontSize: number) {
   const words = value.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let currentLine = "";
@@ -261,17 +289,17 @@ function wrapLines(page: PDFPage, value: string, maxWidth: number, fontSize: num
   for (const word of words) {
     const nextLine = currentLine ? `${currentLine} ${word}` : word;
 
-    if (page.getWidth() && nextLine.length > 0) {
-      const estimatedWidth = nextLine.length * fontSize * 0.52;
-
-      if (estimatedWidth <= maxWidth) {
-        currentLine = nextLine;
-        continue;
-      }
+    if (nextLine.length > 0 && measureTextWidth(font, nextLine, fontSize) <= maxWidth) {
+      currentLine = nextLine;
+      continue;
     }
 
     if (currentLine) {
       lines.push(currentLine);
+    } else {
+      lines.push(truncateTextToWidth(font, word, maxWidth, fontSize));
+      currentLine = "";
+      continue;
     }
 
     currentLine = word;
@@ -282,6 +310,57 @@ function wrapLines(page: PDFPage, value: string, maxWidth: number, fontSize: num
   }
 
   return lines.length > 0 ? lines : [""];
+}
+
+function fitTextLayout(args: {
+  font: PDFFont;
+  value: string;
+  preferredSize: number;
+  minSize: number;
+  maxWidth: number;
+  maxLines: number;
+}): { fontSize: number; lines: string[] } {
+  const normalizedValue = args.value.trim().replace(/\s+/g, " ");
+
+  if (!normalizedValue) {
+    return {
+      fontSize: args.preferredSize,
+      lines: [""],
+    };
+  }
+
+  for (let fontSize = args.preferredSize; fontSize >= args.minSize; fontSize -= 0.5) {
+    const lines = wrapLines(args.font, normalizedValue, args.maxWidth, fontSize);
+
+    if (lines.length <= args.maxLines) {
+      return {
+        fontSize,
+        lines,
+      };
+    }
+  }
+
+  const fallbackSize = args.minSize;
+  const wrapped = wrapLines(args.font, normalizedValue, args.maxWidth, fallbackSize);
+  const visibleLines = wrapped.slice(0, Math.max(1, args.maxLines));
+  const lastIndex = visibleLines.length - 1;
+  visibleLines[lastIndex] = truncateTextToWidth(args.font, visibleLines[lastIndex], args.maxWidth, fallbackSize);
+
+  return {
+    fontSize: fallbackSize,
+    lines: visibleLines,
+  };
+}
+
+function resolveFallbackLayout(mapping: PdfFieldMapping): Required<Pick<CoordinateFallback, "size" | "minSize" | "maxWidth" | "maxLines">> {
+  const coordinates = coordinateFallbackByKey[mapping.key];
+
+  return {
+    size: coordinates?.size ?? 9,
+    minSize: coordinates?.minSize ?? 7,
+    maxWidth: coordinates?.maxWidth ?? 220,
+    maxLines: coordinates?.maxLines ?? 1,
+  };
 }
 
 async function drawCoordinateFallback(
@@ -303,7 +382,7 @@ async function drawCoordinateFallback(
     }
 
     const page = ensurePage(pdfDoc, coordinates.pageIndex);
-    const fontSize = coordinates.size ?? 9;
+    const layout = resolveFallbackLayout(mapping);
 
     if (mapping.kind === "text") {
       const textValue = resolveTextValue(applicant, mapping);
@@ -312,12 +391,20 @@ async function drawCoordinateFallback(
         continue;
       }
 
-      const lines = wrapLines(page, textValue, coordinates.maxWidth ?? 220, fontSize);
-      lines.slice(0, 3).forEach((line, index) => {
+      const fitted = fitTextLayout({
+        font,
+        value: textValue,
+        preferredSize: layout.size,
+        minSize: layout.minSize,
+        maxWidth: layout.maxWidth,
+        maxLines: layout.maxLines,
+      });
+
+      fitted.lines.forEach((line, index) => {
         page.drawText(line, {
           x: coordinates.x,
-          y: coordinates.y - index * (fontSize + 2),
-          size: fontSize,
+          y: coordinates.y - index * (fitted.fontSize + 1.5),
+          size: fitted.fontSize,
           font,
           color: rgb(0.08, 0.09, 0.12),
         });
@@ -355,6 +442,7 @@ export async function fillSchengenPdf(
   const pdfDoc = await PDFDocument.load(templateBytes);
   const form = pdfDoc.getForm();
   const formFields = form.getFields();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
   if (formFields.length === 0) {
     await drawCoordinateFallback(pdfDoc, applicant, mappingConfig.fields);
@@ -386,7 +474,19 @@ export async function fillSchengenPdf(
     ensureSupportedFieldType(field, mapping);
 
     if (mapping.kind === "text") {
-      (field as PDFTextField).setText(resolveTextValue(applicant, mapping));
+      const rawTextValue = resolveTextValue(applicant, mapping);
+      const layout = resolveFallbackLayout(mapping);
+      const fitted = fitTextLayout({
+        font,
+        value: rawTextValue,
+        preferredSize: layout.size,
+        minSize: layout.minSize,
+        maxWidth: layout.maxWidth,
+        maxLines: layout.maxLines,
+      });
+      const textField = field as PDFTextField;
+      textField.setText(layout.maxLines > 1 ? fitted.lines.join("\n") : fitted.lines.join(" "));
+      textField.setFontSize(fitted.fontSize);
       continue;
     }
 
@@ -397,6 +497,7 @@ export async function fillSchengenPdf(
     }
   }
 
+  form.updateFieldAppearances(font);
   form.flatten();
 
   return Buffer.from(await pdfDoc.save());

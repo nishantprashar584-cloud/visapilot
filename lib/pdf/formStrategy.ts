@@ -1,8 +1,10 @@
 import "server-only";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
+import path from "node:path";
 import francePdfMap from "@/config/pdf-maps/france.json";
 import germanyPdfMap from "@/config/pdf-maps/germany.json";
 import spainPdfMap from "@/config/pdf-maps/spain.json";
+import { PDFDocument } from "pdf-lib";
 import type { PdfMapConfig } from "@/types";
 
 const nativePdfMapsByCountry: Record<string, PdfMapConfig> = {
@@ -52,6 +54,16 @@ async function templateExists(templatePath: string): Promise<boolean> {
   }
 }
 
+async function templateHasAcroFormFields(templatePath: string): Promise<boolean> {
+  try {
+    const fileBytes = await readFile(path.resolve(process.cwd(), templatePath));
+    const pdfDoc = await PDFDocument.load(fileBytes);
+    return pdfDoc.getForm().getFields().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function resolvePdfGenerationStrategy(
   destinationCountry: string,
 ): Promise<PdfGenerationStrategy> {
@@ -59,14 +71,18 @@ export async function resolvePdfGenerationStrategy(
   const mappedPdf = nativePdfMapsByCountry[normalizedCountry];
 
   if (mappedPdf && (await templateExists(mappedPdf.templatePath))) {
+    const hasNativeFields = await templateHasAcroFormFields(mappedPdf.templatePath);
+
     return {
       pdfMap: mappedPdf,
       templatePath: mappedPdf.templatePath,
       templateLabel: `${destinationCountry} official Schengen form`,
       destinationCountry,
-      supportsNativeAutofill: true,
+      supportsNativeAutofill: hasNativeFields,
       portalUrl: getVisaGuidanceUrl(destinationCountry),
-      guidanceMessage: null,
+      guidanceMessage: hasNativeFields
+        ? null
+        : `The available ${destinationCountry} official template is a flat PDF without interactive AcroForm fields, so VisaPilot generated a structured overlay draft and prioritizes the master VFS bundle for printing.`,
     };
   }
 

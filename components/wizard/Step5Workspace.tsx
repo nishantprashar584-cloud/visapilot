@@ -10,7 +10,7 @@ import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import { subscribeToItinerarySync } from "@/lib/applications/moduleSyncBus";
 import { getPreviewApplicationForDestination } from "@/lib/mock/applications";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
-import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
+import type { ApplicantInfo, SupportingDocument } from "@/types";
 
 export type CustomLetterDraft = {
   id: string;
@@ -107,11 +107,8 @@ export function Step5Workspace({
   previewMode,
   supportingDocuments,
   onSupportingDocumentsChange,
-  availableCredits,
   activeTab,
   onActiveTabChange,
-  onCheckout,
-  isStartingCheckout,
   isSubmitting,
   isGeneratingCoverLetter,
   activeCustomLetterId,
@@ -130,11 +127,8 @@ export function Step5Workspace({
   previewMode: boolean;
   supportingDocuments: SupportingDocument[];
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
-  availableCredits: number;
   activeTab: "cover-letter" | "toolkit";
   onActiveTabChange: (tab: "cover-letter" | "toolkit") => void;
-  onCheckout: (tier: PricingTier) => void;
-  isStartingCheckout: PricingTier | null;
   isSubmitting: boolean;
   isGeneratingCoverLetter: boolean;
   activeCustomLetterId: string | null;
@@ -145,7 +139,6 @@ export function Step5Workspace({
   microphonePermission: "idle" | "requesting" | "granted" | "denied" | "unsupported";
   onRequestMicrophoneAccess: () => Promise<boolean>;
 }) {
-  const hasCredits = availableCredits > 0;
   const customRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptDictationSessionRef = useRef<PromptDictationSession | null>(null);
@@ -974,13 +967,11 @@ export function Step5Workspace({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Final Handoff</p>
-            <h3 className="mt-2 text-xl font-semibold text-white">Package generation and dashboard save</h3>
+            <h3 className="mt-2 text-xl font-semibold text-white">Master VFS bundle generation</h3>
             <p className="mt-2 text-sm leading-6 text-slate-300">
               {previewMode
                 ? "Preview mode opens a sample package vault instead of creating a live application."
-                : hasCredits
-                  ? "A saved application credit is available, so the package can be generated directly."
-                  : "Your application package is ready."}
+                : "Your master packet can be generated directly and saved to the dashboard vault."}
             </p>
           </div>
 
@@ -989,43 +980,27 @@ export function Step5Workspace({
               <PackageCheck className="h-4 w-4" />
               Sample package ready
             </span>
-          ) : hasCredits ? (
+          ) : (
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
               <PackageCheck className="h-4 w-4" />
-              {availableCredits} Credit{availableCredits === 1 ? "" : "s"} Available
-            </span>
-          ) : (
-            <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200">
-              Application Ready for Package Generation
+              Verified for bundle generation
             </span>
           )}
         </div>
 
         <div className="mt-5">
-          {previewMode || hasCredits ? (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              <PackageCheck className="h-4 w-4" />
-              {previewMode
-                ? "Open Sample Package"
-                : isSubmitting
-                  ? "Generating package..."
-                  : "Generate & Save to Dashboard Vault"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onCheckout("solo")}
-              disabled={isStartingCheckout !== null}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              <PackageCheck className="h-4 w-4" />
-              {isStartingCheckout === "solo" ? "Starting checkout..." : "Proceed to Secure Checkout ($19)"}
-            </button>
-          )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            <PackageCheck className="h-4 w-4" />
+            {previewMode
+              ? "Open Sample Master Bundle"
+              : isSubmitting
+                ? "Generating master bundle..."
+                : "Generate & Save Master VFS Bundle"}
+          </button>
         </div>
       </div>
     </div>

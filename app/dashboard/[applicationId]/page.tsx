@@ -25,6 +25,7 @@ import { CountryFlag } from "@/components/ui/CountryFlag";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
 import { getPreviewApplication } from "@/lib/mock/applications";
+import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { getPrivacyCountdownDays, runRiskAudit } from "@/lib/riskAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ApplicationRow } from "@/types";
@@ -72,6 +73,7 @@ export default async function ApplicationDashboardPage({
   }
 
   const audit = runRiskAudit(application.application_data);
+  const pdfStrategy = await resolvePdfGenerationStrategy(application.destination_country);
   const privacyCountdownDays = getPrivacyCountdownDays(application.privacy_purge_at);
   const fullName = `${application.application_data.personal.firstName} ${application.application_data.personal.lastName}`.trim();
   const interviewDownloadHref = previewMode
@@ -191,13 +193,19 @@ export default async function ApplicationDashboardPage({
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <TintedIconBadge icon={FileText} tone="red" label="Official Form PDF" />
-              <h2 className="mt-4 text-xl font-semibold text-white">Schengen Application Form</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">37 fields filled and flattened for embassy submission.</p>
+              <TintedIconBadge icon={FileText} tone={pdfStrategy.supportsNativeAutofill ? "red" : "amber"} label={pdfStrategy.supportsNativeAutofill ? "Official Form PDF" : "Form Draft PDF"} />
+              <h2 className="mt-4 text-xl font-semibold text-white">{pdfStrategy.supportsNativeAutofill ? "Schengen Application Form" : "Schengen Form Draft"}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {pdfStrategy.supportsNativeAutofill
+                  ? "Native AcroForm fields are filled and flattened for embassy submission."
+                  : "The current embassy template is flat, so this file is a structured overlay draft for review. Use the master VFS bundle as the primary print packet."}
+              </p>
             </div>
           </div>
-          <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
-            Generated from your locked identity, travel route, and application data.
+          <div className={`mt-5 rounded-[1rem] p-4 text-sm ${pdfStrategy.supportsNativeAutofill ? "border border-emerald-400/15 bg-emerald-400/10 text-emerald-50/90" : "border border-amber-400/20 bg-amber-400/10 text-amber-50/90"}`}>
+            {pdfStrategy.supportsNativeAutofill
+              ? "Generated from your locked identity, travel route, and application data."
+              : pdfStrategy.guidanceMessage}
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {!previewMode ? (
@@ -205,14 +213,14 @@ export default async function ApplicationDashboardPage({
                 href={`/dashboard/${application.id}/download`}
                 className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                Download Filled PDF
+                {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Form Draft (.PDF)"}
               </Link>
             ) : (
               <Link
                 href={`/dashboard/${application.id}/download?preview=1`}
                 className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                Download Filled PDF
+                {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Form Draft (.PDF)"}
               </Link>
             )}
           </div>
@@ -279,9 +287,9 @@ export default async function ApplicationDashboardPage({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
-          <TintedIconBadge icon={Archive} tone="blue" label="Full Packet Archive" />
-          <h2 className="mt-4 text-xl font-semibold text-white">Complete Embassy Submission ZIP</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Includes the PDF, cover letter, checklist, insurance slip, interview brief, refusal decoder, and saved supporting documents.</p>
+          <TintedIconBadge icon={Archive} tone="blue" label="Master Bundle" />
+          <h2 className="mt-4 text-xl font-semibold text-white">Master VFS Bundle</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Your primary print-ready packet with the normalized form, cover letter, checklist, insurance slip, interview brief, refusal decoder, and saved supporting documents.</p>
           <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
             Packet contents stay aligned with the dashboard vault and your stored supporting files.
           </div>
@@ -308,31 +316,31 @@ export default async function ApplicationDashboardPage({
             {!previewMode ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
-                  href={`/dashboard/${application.id}/package`}
+                  href={`/dashboard/${application.id}/consulate-ready-packet`}
                   className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
                 >
-                  Download Full Package (.zip)
+                  Download Master VFS Bundle (.PDF)
                 </Link>
                 <Link
-                  href={`/dashboard/${application.id}/consulate-ready-packet`}
+                  href={`/dashboard/${application.id}/package`}
                   className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
                 >
-                  Download Consulate Packet (.pdf)
+                  Download Full Package (.zip)
                 </Link>
               </div>
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
-                  href={`/dashboard/${application.id}/package?preview=1`}
+                  href={`/dashboard/${application.id}/consulate-ready-packet?preview=1`}
                   className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
                 >
-                  Download Full Package (.zip)
+                  Download Master VFS Bundle (.PDF)
                 </Link>
                 <Link
-                  href={`/dashboard/${application.id}/consulate-ready-packet?preview=1`}
+                  href={`/dashboard/${application.id}/package?preview=1`}
                   className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
                 >
-                  Download Consulate Packet (.pdf)
+                  Download Full Package (.zip)
                 </Link>
               </div>
             )}
