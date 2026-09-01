@@ -42,7 +42,6 @@ function buildDefaultEntries(applicant: ApplicantInfo): TravelIntentEntry[] {
     applicant.trip.stayDurationDays,
   );
   const cityPool = [
-    applicant.trip.portOfEntry.trim(),
     applicant.trip.destinationCountry.trim(),
     ...(applicant.trip.transitCountries ?? "")
       .split(",")
