@@ -1,6 +1,7 @@
 import { ApplicationWizard } from "@/components/wizard/ApplicationWizard";
 import { redirect } from "next/navigation";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
+import { buildDestinationApplyHref, normalizeDestinationSelection } from "@/lib/destinationSelection";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +12,11 @@ export default async function ApplyPage({
 }) {
   const previewMode = searchParams?.preview === "1";
   const account = await getAuthenticatedAccount();
-  const requestedDestination = searchParams?.destination?.trim() || undefined;
+  const requestedDestination = normalizeDestinationSelection(searchParams?.destination);
 
   if (!account && !previewMode) {
     const nextPath = requestedDestination
-      ? `/apply?destination=${encodeURIComponent(requestedDestination)}`
+      ? buildDestinationApplyHref(requestedDestination)
       : "/apply";
     redirect(buildAuthRedirectPath(nextPath));
   }
@@ -38,7 +39,7 @@ export default async function ApplyPage({
           Preview mode is active with realistic sample data. Review the full step-by-step packet builder without signing in.
         </div>
       ) : null}
-      <ApplicationWizard previewMode={previewMode} initialDestinationCountry={requestedDestination} />
+      <ApplicationWizard previewMode={previewMode} initialDestinationCountry={requestedDestination ?? undefined} />
     </section>
   );
 }

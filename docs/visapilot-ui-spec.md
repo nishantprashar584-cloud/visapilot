@@ -92,8 +92,10 @@ Requirements:
 1. Display the top 6 Schengen hubs only: France, Switzerland, Germany, Italy, Spain, Netherlands.
 2. Use static wrapped pills or a compact 2x3 grid with actual flag treatments.
 3. Each destination tile is clickable and routes into the onboarding flow with that destination pre-selected.
-4. No marquee animation and no scrolling ticker behavior.
-5. Preserve clean wrapping on mobile without horizontal overflow bugs.
+4. Add a final aligned control labeled `Other Schengen Country...` that opens a searchable picker for the remaining destinations.
+5. Store the selected destination in session storage before routing so the onboarding flow can rehydrate the country-specific rules immediately.
+6. No marquee animation and no scrolling ticker behavior.
+7. Preserve clean wrapping on mobile without horizontal overflow bugs.
 
 Exact content set:
 
@@ -103,6 +105,7 @@ Exact content set:
 4. `Italy`
 5. `Spain`
 6. `Netherlands`
+7. `Other Schengen Country...`
 
 ### Section 2: Hero
 

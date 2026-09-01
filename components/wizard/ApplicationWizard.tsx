@@ -21,6 +21,7 @@ import {
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
 import { normalizeTravelPurpose } from "@/lib/applications/travelPurpose";
+import { normalizeDestinationSelection, readStoredDestination } from "@/lib/destinationSelection";
 import { getPreviewApplicationForDestination, previewWizardApplicant } from "@/lib/mock/applications";
 import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
 import { FinancialSafetyGauge } from "@/components/wizard/FinancialSafetyGauge";
@@ -870,13 +871,18 @@ export function ApplicationWizard({
   const [toast, setToast] = useState<ToastState | null>(null);
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
 
+  const normalizedInitialDestinationCountry = useMemo(
+    () => normalizeDestinationSelection(initialDestinationCountry),
+    [initialDestinationCountry],
+  );
+
   const initialPreviewApplicant = useMemo(() => {
-    if (!previewMode || !initialDestinationCountry) {
+    if (!previewMode || !normalizedInitialDestinationCountry) {
       return previewWizardApplicant;
     }
 
-    return getPreviewApplicationForDestination(initialDestinationCountry)?.application_data ?? previewWizardApplicant;
-  }, [initialDestinationCountry, previewMode]);
+    return getPreviewApplicationForDestination(normalizedInitialDestinationCountry)?.application_data ?? previewWizardApplicant;
+  }, [normalizedInitialDestinationCountry, previewMode]);
 
   const form = useForm<ApplicantInfo>({
     resolver: zodResolver(applicantInfoSchema),
@@ -977,11 +983,11 @@ export function ApplicationWizard({
   }, [form, initialPreviewApplicant, previewMode]);
 
   useEffect(() => {
-    if (!hasHydrated || initialDestinationAppliedRef.current || !initialDestinationCountry) {
+    if (!hasHydrated || initialDestinationAppliedRef.current) {
       return;
     }
 
-    const requestedDestination = initialDestinationCountry.trim();
+    const requestedDestination = normalizedInitialDestinationCountry ?? readStoredDestination();
 
     if (!requestedDestination) {
       initialDestinationAppliedRef.current = true;
@@ -998,7 +1004,7 @@ export function ApplicationWizard({
     });
 
     initialDestinationAppliedRef.current = true;
-  }, [form, hasHydrated, initialDestinationCountry]);
+  }, [form, hasHydrated, normalizedInitialDestinationCountry]);
 
   useEffect(() => {
     const stayDurationDays = calculateStayDurationDays(arrivalDate, departureDate);
