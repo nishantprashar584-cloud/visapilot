@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 const footerLinks = [
-  { label: "About", href: "/" },
-  { label: "Blog", href: "/" },
-  { label: "Privacy Policy", href: "/" },
-  { label: "Terms of Service", href: "/" },
+  { label: "About", href: "/about" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Blog", href: "/blog" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms of Service", href: "/terms-of-service" },
 ] as const;
 
 export function Footer() {
@@ -28,9 +29,9 @@ export function Footer() {
                 {link.label}
               </Link>
             ))}
-            <a href="mailto:nishantprasharms@gmail.com" className="transition hover:text-[color:var(--vp-text-primary)]">
+            <Link href="/contact" className="transition hover:text-[color:var(--vp-text-primary)]">
               Contact
-            </a>
+            </Link>
           </nav>
         </div>
 

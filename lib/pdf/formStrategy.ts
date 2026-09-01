@@ -131,7 +131,7 @@ export async function resolvePdfGenerationStrategy(
       portalUrl: getVisaGuidanceUrl(destinationCountry),
       guidanceMessage: hasNativeFields
         ? null
-        : `The available ${destinationCountry} official template is a flat PDF without interactive AcroForm fields, so VisaPilot generated a structured overlay draft and prioritizes the master VFS bundle for printing.`,
+        : `The available ${destinationCountry} official template is a flat PDF without interactive AcroForm fields, so VisaPilot generated a clean worksheet PDF and prioritizes the master VFS bundle for printing.`,
     };
   }
 

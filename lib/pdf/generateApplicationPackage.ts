@@ -1,26 +1,11 @@
 import "server-only";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateStayDurationDays } from "@/lib/applications/schema";
 import { normalizeApplicantTourismScope } from "@/lib/applications/travelPurpose";
 import { generateCoverLetterMarkdown } from "@/lib/openai/generateCoverLetter";
-import { fillSchengenForm } from "@/lib/pdf/fillSchengenForm";
-import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
+import { generateFilledApplicationPdf } from "@/lib/pdf/generateFilledApplicationPdf";
 import { lockApplicantIdentity } from "@/lib/security/identityLock";
 import type { ApplicantInfo, ApplicationRow } from "@/types";
-
-async function readPdfTemplate(templatePath: string): Promise<Buffer> {
-  const resolvedPath = path.resolve(process.cwd(), templatePath);
-
-  try {
-    return await readFile(resolvedPath);
-  } catch {
-    throw new Error(
-      `Official template missing at ${templatePath}. Add the embassy PDF under public/templates before generating this packet.`,
-    );
-  }
-}
 
 function normalizeApplicantInfo(applicant: ApplicantInfo): ApplicantInfo {
   const stayDurationDays = calculateStayDurationDays(
@@ -79,15 +64,7 @@ export async function generateApplicationPackage(
   const coverLetterMarkdown = owner.coverLetterMarkdown?.trim().length
     ? owner.coverLetterMarkdown.trim()
     : await generateCoverLetterMarkdown(normalizedApplicant);
-  const pdfStrategy = await resolvePdfGenerationStrategy(
-    normalizedApplicant.trip.destinationCountry,
-  );
-  const templateBytes = await readPdfTemplate(pdfStrategy.templatePath);
-  const filledPdfBuffer = await fillSchengenForm(
-    normalizedApplicant,
-    pdfStrategy.pdfMap,
-    templateBytes,
-  );
+  const filledPdfBuffer = await generateFilledApplicationPdf(normalizedApplicant);
 
   const { error: userUpsertError } = await supabase.from("users").upsert(
     {

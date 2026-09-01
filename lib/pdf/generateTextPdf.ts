@@ -1,5 +1,15 @@
 import { PDFDocument, PDFFont, StandardFonts, rgb } from "pdf-lib";
 
+function normalizePrintableLine(line: string): string {
+  return line
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/^\*\s+/, "- ")
+    .replace(/^\*\s{2,}/, "- ")
+    .replace(/^[-]\s+\*\*(.*?)\*\*:\s*/g, "- $1: ")
+    .replace(/[–—]/g, "-")
+    .trimEnd();
+}
+
 function wrapLine(line: string, maxWidth: number, font: PDFFont, fontSize: number) {
   const words = line.split(/\s+/).filter(Boolean);
 
@@ -43,7 +53,8 @@ export async function generateTextPdf(content: string): Promise<Uint8Array> {
   let cursorY = page.getHeight() - margin;
 
   for (const rawLine of paragraphs) {
-    const lines = wrapLine(rawLine.trim().length === 0 ? " " : rawLine, page.getWidth() - margin * 2, font, 11);
+    const printableLine = normalizePrintableLine(rawLine);
+    const lines = wrapLine(printableLine.trim().length === 0 ? " " : printableLine, page.getWidth() - margin * 2, font, 11);
 
     for (const line of lines) {
       if (cursorY <= margin) {

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildFinancialAuditReport, buildInsuranceVerificationSlip } from "@/lib/applications/packetArtifacts";
 import { strictDocumentSequence } from "@/lib/applications/consularPolicy";
 import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
+import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { generateConsulateReadyPacket } from "@/lib/pdf/generateConsulateReadyPacket";
 import { generateFilledApplicationPdf } from "@/lib/pdf/generateFilledApplicationPdf";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
@@ -13,7 +14,7 @@ export type PacketApplicationData = {
   id: string;
   application_data: ApplicantInfo;
   cover_letter_markdown: string;
-  filled_pdf_base64: string;
+  filled_pdf_base64: string | null;
   refusal_reason_code: RefusalReasonCode | null;
 };
 
@@ -22,7 +23,10 @@ export async function buildConsulateReadyPacketPdf(args: {
   supabase?: SupabaseClient | null;
 }): Promise<Uint8Array> {
   const { applicationData, supabase } = args;
-  const filledPdfBuffer = applicationData.filled_pdf_base64
+  const pdfStrategy = await resolvePdfGenerationStrategy(
+    applicationData.application_data.trip.destinationCountry,
+  );
+  const filledPdfBuffer = pdfStrategy.supportsNativeAutofill && applicationData.filled_pdf_base64
     ? Buffer.from(applicationData.filled_pdf_base64, "base64")
     : await generateFilledApplicationPdf(applicationData.application_data);
   const coverLetterPdf = await generateTextPdf(applicationData.cover_letter_markdown);

@@ -87,7 +87,13 @@ export default async function ApplicationDashboardPage({
     { label: "Refusal recovery brief", detail: "Annex VI refusal-code remediation stays packaged with the file.", icon: RotateCcw },
   ] as const;
   const completionItems = [
-    { label: "Application PDF ready", detail: "Form flattened and prepared for embassy submission", icon: FileText },
+    {
+      label: pdfStrategy.supportsNativeAutofill ? "Application PDF ready" : "Application worksheet ready",
+      detail: pdfStrategy.supportsNativeAutofill
+        ? "Form filled and flattened for embassy submission"
+        : "Clean worksheet generated for manual transfer into the official flat form",
+      icon: FileText,
+    },
     { label: "AI cover letter ready", detail: "Consular narrative aligned to itinerary and ties", icon: Sparkles },
     { label: "Supporting packet saved", detail: "Uploaded evidence stays attached to this case", icon: Archive },
     { label: "Vault ready to track", detail: "Status, privacy window, and tracking live in one place", icon: BadgeCheck },
@@ -168,6 +174,7 @@ export default async function ApplicationDashboardPage({
         </div>
       ) : null}
 
+      {!previewMode ? (
       <div className="grid gap-3 xl:grid-cols-4">
         {completionItems.map((item) => {
           const Icon = item.icon;
@@ -188,17 +195,19 @@ export default async function ApplicationDashboardPage({
           );
         })}
       </div>
+      ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-4">
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <TintedIconBadge icon={FileText} tone={pdfStrategy.supportsNativeAutofill ? "red" : "amber"} label={pdfStrategy.supportsNativeAutofill ? "Official Form PDF" : "Form Draft PDF"} />
-              <h2 className="mt-4 text-xl font-semibold text-white">{pdfStrategy.supportsNativeAutofill ? "Schengen Application Form" : "Schengen Form Draft"}</h2>
+              <TintedIconBadge icon={FileText} tone={pdfStrategy.supportsNativeAutofill ? "red" : "amber"} label={pdfStrategy.supportsNativeAutofill ? "Official Form PDF" : "Application Worksheet PDF"} />
+              <h2 className="mt-4 text-xl font-semibold text-white">{pdfStrategy.supportsNativeAutofill ? "Schengen Application Form" : "Tourist Application Worksheet"}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {pdfStrategy.supportsNativeAutofill
                   ? "Native AcroForm fields are filled and flattened for embassy submission."
-                  : "The current embassy template is flat, so this file is a structured overlay draft for review. Use the master VFS bundle as the primary print packet."}
+                  : "The current embassy template is flat, so VisaPilot generates a clean worksheet PDF instead of a misaligned overlay. Use the master VFS bundle as the primary print packet."}
               </p>
             </div>
           </div>
@@ -213,14 +222,14 @@ export default async function ApplicationDashboardPage({
                 href={`/dashboard/${application.id}/download`}
                 className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Form Draft (.PDF)"}
+                {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Application Worksheet (.PDF)"}
               </Link>
             ) : (
               <Link
                 href={`/dashboard/${application.id}/download?preview=1`}
                 className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Form Draft (.PDF)"}
+                {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Application Worksheet (.PDF)"}
               </Link>
             )}
             {!pdfStrategy.supportsNativeAutofill ? (
@@ -238,8 +247,8 @@ export default async function ApplicationDashboardPage({
           <TintedIconBadge icon={Sparkles} tone="indigo" label="AI Cover Letter" />
           <h2 className="mt-4 text-xl font-semibold text-white">Consular Cover Letter</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Embassy-addressed rationale statement aligned to your itinerary and return ties.</p>
-          <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-white/10 bg-black/20 p-4">
-            <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{application.cover_letter_markdown}</pre>
+          <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-white/10 bg-[#f7f3ea] p-5 text-[#1b2430] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+            <pre className="whitespace-pre-wrap font-serif text-[13px] leading-7 text-[#1b2430]">{application.cover_letter_markdown}</pre>
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
@@ -265,7 +274,9 @@ export default async function ApplicationDashboardPage({
             )}
           </div>
         </div>
+        </div>
 
+        <div className="space-y-4">
         <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
           <TintedIconBadge icon={ClipboardList} tone="blue" label="Consulate Checklist" />
           <h2 className="mt-4 text-xl font-semibold text-white">Submission Checklist PDF</h2>
@@ -290,6 +301,34 @@ export default async function ApplicationDashboardPage({
               </Link>
             )}
           </div>
+        </div>
+        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+          <TintedIconBadge icon={ShieldCheck} tone="emerald" label="Packet Snapshot" />
+          <h2 className="mt-4 text-xl font-semibold text-white">Tourist case summary</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300">A compact view of the itinerary, funding posture, and submission anchors that feed the exported packet.</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Travel window</p>
+              <p className="mt-2 font-semibold text-white">{application.application_data.trip.arrivalDate} to {application.application_data.trip.departureDate}</p>
+              <p className="mt-2">Entry via {application.application_data.trip.portOfEntry}</p>
+            </div>
+            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Funding</p>
+              <p className="mt-2 font-semibold text-white">{application.application_data.sponsor.fundingSource.replace(/_/g, " ")}</p>
+              <p className="mt-2">Available EUR {audit.availableLiquidBalanceEur.toFixed(2)}</p>
+            </div>
+            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Accommodation</p>
+              <p className="mt-2 font-semibold text-white">{application.application_data.trip.hotelBookingReference}</p>
+              <p className="mt-2">{application.application_data.trip.accommodations}</p>
+            </div>
+            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Identity anchor</p>
+              <p className="mt-2 font-semibold text-white">{application.application_data.passport.number}</p>
+              <p className="mt-2">Application filed from {application.application_data.application.placeOfApplication}</p>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
 

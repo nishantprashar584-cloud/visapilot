@@ -8,7 +8,7 @@ function buildApplicationPdfFileName(destinationCountry: string, supportsNativeA
   const slug = destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
   return supportsNativeAutofill
     ? `schengen_application_${slug}.pdf`
-    : `schengen_form_draft_${slug}.pdf`;
+    : `schengen_application_worksheet_${slug}.pdf`;
 }
 
 export async function GET(
@@ -46,16 +46,22 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("applications")
-    .select("id, user_id, filled_pdf_base64, destination_country")
+    .select("id, user_id, filled_pdf_base64, destination_country, application_data")
     .eq("id", params.applicationId)
     .single();
 
-  if (error || !data?.filled_pdf_base64 || data.user_id !== user.id) {
+  if (error || !data || data.user_id !== user.id) {
+    return new Response("Application PDF not found.", { status: 404 });
+  }
+
+  if (!data.filled_pdf_base64 && !data.application_data) {
     return new Response("Application PDF not found.", { status: 404 });
   }
 
   const pdfStrategy = await resolvePdfGenerationStrategy(data.destination_country);
-  const pdfBuffer = Buffer.from(data.filled_pdf_base64, "base64");
+  const pdfBuffer = pdfStrategy.supportsNativeAutofill && data.filled_pdf_base64
+    ? Buffer.from(data.filled_pdf_base64, "base64")
+    : await generateFilledApplicationPdf(data.application_data);
 
   return new Response(new Uint8Array(pdfBuffer), {
     headers: {

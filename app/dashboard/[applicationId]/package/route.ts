@@ -17,8 +17,11 @@ import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-function buildApplicationPdfFileName(destinationCountry: string): string {
-  return `schengen_application_${destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")}.pdf`;
+function buildApplicationPdfFileName(destinationCountry: string, supportsNativeAutofill: boolean): string {
+  const slug = destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return supportsNativeAutofill
+    ? `schengen_application_${slug}.pdf`
+    : `schengen_application_worksheet_${slug}.pdf`;
 }
 
 export async function GET(
@@ -68,7 +71,7 @@ export async function GET(
   const pdfStrategy = await resolvePdfGenerationStrategy(
     applicationData.application_data.trip.destinationCountry,
   );
-  const filledPdfBuffer = applicationData.filled_pdf_base64
+  const filledPdfBuffer = pdfStrategy.supportsNativeAutofill && applicationData.filled_pdf_base64
     ? Buffer.from(applicationData.filled_pdf_base64, "base64")
     : await generateFilledApplicationPdf(applicationData.application_data);
   const coverLetterPdf = await generateTextPdf(applicationData.cover_letter_markdown);
@@ -79,7 +82,10 @@ export async function GET(
   const checklistPdf = await generateChecklistPdf(applicationData.application_data);
   const financialAuditMarkdown = buildFinancialAuditReport(applicationData.application_data);
   const financialAuditPdf = await generateTextPdf(financialAuditMarkdown);
-  const applicationPdfFileName = buildApplicationPdfFileName(applicationData.application_data.trip.destinationCountry);
+  const applicationPdfFileName = buildApplicationPdfFileName(
+    applicationData.application_data.trip.destinationCountry,
+    pdfStrategy.supportsNativeAutofill,
+  );
   const zip = new JSZip();
   zip.file("cover-letter.md", applicationData.cover_letter_markdown);
   zip.file("Schengen_Cover_Letter.pdf", coverLetterPdf);
