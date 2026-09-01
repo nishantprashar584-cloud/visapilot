@@ -973,6 +973,15 @@ export function ApplicationWizard({
   }, [arrivalDate, departureDate, form, hasHydrated]);
 
   useEffect(() => {
+    if (form.getValues("trip.purpose") !== "tourism") {
+      form.setValue("trip.purpose", "tourism", {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    }
+  }, [form]);
+
+  useEffect(() => {
     if (!destinationCountry) {
       return;
     }
@@ -2031,7 +2040,7 @@ export function ApplicationWizard({
             <StepPanel
               eyebrow="Travel"
               title="Travel Details"
-              description="Enter the route, purpose, and dates exactly as they should appear across bookings, forms, and the final packet."
+              description="Enter the tourist route and travel dates exactly as they should appear across bookings, forms, and the final packet."
               icon={Plane}
               tone="indigo"
             >
@@ -2040,25 +2049,13 @@ export function ApplicationWizard({
                 <TextInput label="First Schengen entry country" name="trip.firstEntryCountry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.firstEntryCountry" ? voiceCaptureState.phase : null} />
                 <TextInput label="Port of entry" name="trip.portOfEntry" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.portOfEntry" ? voiceCaptureState.phase : null} />
                 <TextInput label="Transit countries" name="trip.transitCountries" register={form.register} errors={form.formState.errors} placeholder="Optional transit countries, comma separated" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.transitCountries" ? voiceCaptureState.phase : null} />
-                <SelectInput
-                  label="Purpose of visit"
-                  name="trip.purpose"
-                  register={form.register}
-                  errors={form.formState.errors}
-                  options={[
-                    { label: "Tourism", value: "tourism" },
-                    { label: "Business", value: "business" },
-                    { label: "Family visit", value: "family_visit" },
-                    { label: "Medical", value: "medical" },
-                    { label: "Study", value: "study" },
-                    { label: "Cultural", value: "cultural" },
-                    { label: "Sports", value: "sports" },
-                    { label: "Official", value: "official" },
-                    { label: "Transit", value: "transit" },
-                    { label: "Airport transit", value: "airport_transit" },
-                    { label: "Other", value: "other" },
-                  ]}
-                />
+                <div className="rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-50 md:col-span-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/80">Travel track</p>
+                  <p className="mt-2 font-semibold text-white">Tourism and leisure are built in as the default application path.</p>
+                  <p className="mt-2 leading-6 text-emerald-50/85">
+                    VisaPilot currently prepares short-stay tourist packets only, so the route, bookings, and supporting document logic stay centered on leisure travel.
+                  </p>
+                </div>
                 <SelectInput
                   label="Entries requested"
                   name="trip.entriesRequested"

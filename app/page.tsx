@@ -42,10 +42,10 @@ const pricingTiers = [
     name: "Solo",
     price: "₹1,999",
     href: "/apply?tier=solo",
-    summary: "For one Indian traveler preparing one complete Schengen packet.",
+    summary: "For one traveler preparing one complete Schengen tourist packet.",
     features: [
       "1 application credit",
-      "India-first OCR, audit, and cover-letter generation",
+      "Tourist visa OCR, audit, and cover-letter generation",
       "Official consulate-ready packet export",
       "Includes 18% GST invoice",
     ],
@@ -55,7 +55,7 @@ const pricingTiers = [
     name: "Couple",
     price: "₹3,299",
     href: "/apply?tier=couple",
-    summary: "For two adults on the same trip with shared itinerary coordination.",
+    summary: "For two adults on the same tourist trip with shared itinerary coordination.",
     features: [
       "2 application credits",
       "Cross-referenced co-traveler narratives",
@@ -68,7 +68,7 @@ const pricingTiers = [
     name: "Family",
     price: "₹5,599",
     href: "/apply?tier=family",
-    summary: "For up to four family members with minor-safe document rules.",
+    summary: "For up to four family members traveling together on one tourist plan.",
     features: [
       "Up to 4 application credits",
       "Minor annexures and parental NOC generation",
@@ -99,10 +99,10 @@ export default function Home() {
               </span>
             </div>
             <h1 className="mt-6 text-balance text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
-              India-First Schengen Visa Automation
+              The Automated Schengen Tourist Visa Engine
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-300 sm:text-lg">
-              High-quality OCR, consular cover letters, and export-ready VFS packets for Indian applicants, without agent handoffs.
+              Generate a 96% VFS-compliant tourist visa packet with form prep, financial audits, and multi-city itinerary sync in minutes.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -123,11 +123,11 @@ export default function Home() {
             <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
               <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
                 <TintedIconBadge icon={FileText} tone="red" label="Official PDF actions" />
-                <p className="mt-3 text-sm leading-6 text-slate-300">Embassy-ready forms are filled and flattened from your application data.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-300">Form preparation stays aligned to your tourist itinerary, identity record, and appointment packet.</p>
               </div>
               <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
                 <TintedIconBadge icon={Sparkles} tone="indigo" label="AI letter engine" />
-                <p className="mt-3 text-sm leading-6 text-slate-300">Cover letters and financial checks stay aligned to your itinerary and home ties.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-300">Cover letters and financial checks stay aligned to leisure travel, route logic, and return ties.</p>
               </div>
               <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
                 <TintedIconBadge icon={Wallet} tone="emerald" label="Security and purge" />

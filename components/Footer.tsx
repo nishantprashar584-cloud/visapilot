@@ -15,7 +15,10 @@ export function Footer() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--vp-text-primary)]">VisaPilot</p>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[color:var(--vp-text-secondary)]">
-              Privacy-first Schengen application workflows, cover letters, and embassy-ready PDF assembly.
+              Privacy-first Schengen tourist visa workflows, cover letters, and embassy-ready packet assembly.
+            </p>
+            <p className="mt-3 max-w-xl text-xs leading-6 text-[color:var(--vp-text-muted)]">
+              Currently optimized exclusively for short-stay tourism and leisure travel.
             </p>
           </div>
 

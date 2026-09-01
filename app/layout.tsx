@@ -19,11 +19,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://visapilot.app"),
   title: "VisaPilot",
   description:
-    "Privacy-first Schengen visa application guidance, document review, and official PDF preparation.",
+    "The automated Schengen tourist visa engine for packet preparation, itinerary sync, and privacy-first document workflows.",
   openGraph: {
     title: "VisaPilot",
     description:
-      "High-privacy Schengen visa application support with secure workflows and official form preparation.",
+      "Generate Schengen tourist visa packets with secure workflows, financial audits, and itinerary-aligned document preparation.",
     type: "website",
   },
 };
