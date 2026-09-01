@@ -171,7 +171,7 @@ function getVoiceButtonClass(voicePhase: "listening" | "processing" | null) {
     return "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]";
   }
 
-  return "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white";
+  return "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white";
 }
 
 function VoiceButtonIcon({ voicePhase }: { voicePhase: "listening" | "processing" | null }) {
@@ -258,8 +258,8 @@ function TextInput({
 
   return (
     <label className="block space-y-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</span>
-      {helper ? <span className="block text-sm leading-6 text-slate-400">{helper}</span> : null}
+      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">{label}</span>
+      {helper ? <span className="block text-sm leading-6 text-slate-300">{helper}</span> : null}
       <span className="relative block">
         <input
           type={type}
@@ -271,7 +271,7 @@ function TextInput({
           {...register(name, isNumeric ? { valueAsNumber: true } : undefined)}
         />
         {isDate ? (
-          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-white">
+          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-100">
             <Calendar className="h-4 w-4" />
           </span>
         ) : null}
@@ -304,7 +304,7 @@ function SelectInput({ label, name, register, errors, options }: SelectInputProp
 
   return (
     <label className="block space-y-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">{label}</span>
       <span className="relative block">
         <select
           className={`vp-select ${errorMessage ? "border-rose-300" : ""}`}
@@ -352,7 +352,7 @@ function TextAreaInput({
 
   return (
     <label className="block space-y-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">{label}</span>
       <span className="relative block">
         <textarea
           rows={rows}
@@ -400,7 +400,7 @@ function StepPanel({
           <TintedIconBadge icon={Icon} tone={tone} label={eyebrow} />
           <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
         </div>
-        <p className="text-sm leading-6 text-slate-300">{description}</p>
+        <p className="text-sm leading-6 text-slate-200">{description}</p>
       </div>
       <div className="mt-8 space-y-6">{children}</div>
     </div>
@@ -419,10 +419,10 @@ function ActivityBanner({
   tone?: "indigo" | "cyan" | "emerald" | "amber";
 }) {
   const toneClasses = {
-    indigo: "border-indigo-300/20 bg-indigo-500/10 text-indigo-100",
-    cyan: "border-cyan-300/20 bg-cyan-500/10 text-cyan-100",
-    emerald: "border-emerald-300/20 bg-emerald-500/10 text-emerald-100",
-    amber: "border-amber-300/20 bg-amber-500/10 text-amber-100",
+    indigo: "border-indigo-300/26 bg-indigo-500/16 text-indigo-50 shadow-[0_0_26px_rgba(99,102,241,0.16)]",
+    cyan: "border-cyan-300/26 bg-cyan-500/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,0.16)]",
+    emerald: "border-emerald-300/26 bg-emerald-500/16 text-emerald-50 shadow-[0_0_26px_rgba(16,185,129,0.16)]",
+    amber: "border-amber-300/26 bg-amber-500/16 text-amber-50 shadow-[0_0_26px_rgba(245,158,11,0.16)]",
   } as const;
 
   return (
@@ -1751,9 +1751,9 @@ export function ApplicationWizard({
             <div>
               <p className="eyebrow">Step {currentStep + 1} of {stepLabels.length}</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">{stepLabels[currentStep]}</h2>
-              <p className="mt-2 text-sm text-slate-300">{stepMicrocopy[currentStep]}</p>
+              <p className="mt-2 text-sm text-slate-200">{stepMicrocopy[currentStep]}</p>
             </div>
-            <div className="text-sm text-slate-300">
+            <div className="text-sm text-slate-200">
               {draftState === "saving"
                 ? "Saving draft..."
                 : draftState === "saved"
@@ -1762,7 +1762,7 @@ export function ApplicationWizard({
             </div>
           </div>
 
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/12">
             <div
               className={`h-full rounded-full bg-gradient-to-r ${stepAccentMap[currentStep]}`}
               style={{ width: `${completionPercent}%` }}
@@ -1783,15 +1783,15 @@ export function ApplicationWizard({
                       ? "border-white/20 bg-white/10"
                       : isComplete
                         ? "border-emerald-400/20 bg-emerald-400/10"
-                        : "border-white/10 bg-[#101010]"
+                        : "border-white/14 bg-white/8"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isActive ? "bg-white text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : "bg-white/5 text-slate-400"}`}>
+                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isActive ? "bg-cyan-300 text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : "bg-white/10 text-slate-200"}`}>
                       {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Step {index + 1}</p>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Step {index + 1}</p>
                       <p className="text-sm font-semibold text-white sm:text-[15px]">{label}</p>
                     </div>
                   </div>
@@ -1802,8 +1802,8 @@ export function ApplicationWizard({
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {summaryItems.map((item) => (
-              <div key={item.label} className="rounded-[1rem] border border-white/10 bg-[#101010] px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
+              <div key={item.label} className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">{item.label}</p>
                 <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
               </div>
             ))}
@@ -1823,12 +1823,12 @@ export function ApplicationWizard({
 
         <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
           {speechSupported ? (
-            <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-4 sm:p-5">
+            <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(25,37,64,0.84),rgba(14,22,42,0.9))] p-4 shadow-[0_18px_44px_rgba(5,10,24,0.22)] sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Voice Autofill</p>
                   <h3 className="mt-1 text-base font-semibold text-white">Hands-free form filling</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
                     Start a recording from any supported field, watch the live transcript update as you speak, then stop it manually when the phrasing looks right.
                   </p>
                   {voiceMessage ? (
@@ -1858,7 +1858,7 @@ export function ApplicationWizard({
                     type="button"
                     onClick={() => void requestMicrophoneAccess()}
                     disabled={microphonePermission === "requesting"}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/12 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
                     {microphonePermission === "granted"
@@ -1879,7 +1879,7 @@ export function ApplicationWizard({
                     <button
                       type="button"
                       onClick={() => setIsMicrophoneHelpDismissed(true)}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/20 text-rose-100/80 transition hover:border-white/20 hover:text-white"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/14 bg-white/10 text-rose-50/90 transition hover:border-white/25 hover:text-white"
                       aria-label="Dismiss microphone help"
                     >
                       <X className="h-4 w-4" />
@@ -1891,19 +1891,19 @@ export function ApplicationWizard({
                   <p className="leading-6">4. If you are on iPhone or iPad, open Settings &gt; Privacy &amp; Security &gt; Microphone and allow the browser app you are using.</p>
                   <p className="leading-6">5. Choose the correct input device in your browser or system audio settings, refresh this page, then use Retry Microphone Access.</p>
                   <div className="mt-3 grid gap-2 text-xs text-rose-100/80 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
                       <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Windows 11</p>
                       <p className="mt-1">Settings &gt; Privacy &amp; security &gt; Microphone</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
                       <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Chrome</p>
                       <p className="mt-1 break-all">chrome://settings/content/microphone</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
                       <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Edge</p>
                       <p className="mt-1 break-all">edge://settings/content/microphone</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
                       <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Mac / iPhone</p>
                       <p className="mt-1">Privacy &amp; Security &gt; Microphone</p>
                     </div>
@@ -1957,11 +1957,11 @@ export function ApplicationWizard({
                   </button>
                 </div>
 
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
+                <div className="rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Option B</p>
                   <h3 className="mt-2 text-lg font-semibold text-white">Manual input</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">Enter the passport identity exactly as printed: full name, date of birth, passport number, issue date, expiry date, and nationality.</p>
-                  <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-300">
+                  <p className="mt-2 text-sm leading-6 text-slate-200">Enter the passport identity exactly as printed: full name, date of birth, passport number, issue date, expiry date, and nationality.</p>
+                  <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100">
                     Once the name and passport number are confirmed, this flow treats the application as one locked identity for anti-fraud protection.
                   </div>
                 </div>
@@ -1977,13 +1977,13 @@ export function ApplicationWizard({
               ) : null}
 
               {passportParseMessage ? (
-                <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
+                <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100">
                   {passportParseMessage}
                 </div>
               ) : null}
 
               {identityLockMessage ? (
-                <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
+                <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100">
                   {identityLockMessage}
                 </div>
               ) : null}

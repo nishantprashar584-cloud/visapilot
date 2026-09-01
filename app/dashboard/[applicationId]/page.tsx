@@ -101,7 +101,7 @@ export default async function ApplicationDashboardPage({
 
   return (
     <section className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-      <div className="rounded-[1.8rem] border border-white/10 bg-black/80 p-5 shadow-panel sm:p-6">
+      <div className="rounded-[1.8rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.92),rgba(14,22,42,0.96))] p-5 shadow-[0_22px_60px_rgba(5,10,24,0.28)] sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -114,9 +114,9 @@ export default async function ApplicationDashboardPage({
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
               {application.applicant_name}
             </h1>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Application ID: {application.id.slice(0, 8)}</span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-100">
+              <span className="rounded-full border border-white/14 bg-white/10 px-3 py-1.5">Application ID: {application.id.slice(0, 8)}</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-3 py-1.5">
                 <CountryFlag country={application.destination_country} />
                 Destination: {application.destination_country}
               </span>
@@ -126,14 +126,14 @@ export default async function ApplicationDashboardPage({
 
           <div className="flex flex-wrap items-center gap-3">
             <ApplicationStatusBadge status={application.status} />
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/16 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-50">
               <AlertTriangle className="h-3.5 w-3.5" />
               Audit {audit.status}
             </span>
             {previewMode ? (
               <Link
                 href="/apply?preview=1"
-                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 Open builder preview
               </Link>
@@ -143,7 +143,7 @@ export default async function ApplicationDashboardPage({
       </div>
 
       {previewMode ? (
-        <div className="space-y-4 rounded-[1.35rem] border border-emerald-400/15 bg-emerald-400/10 px-5 py-5 text-sm text-emerald-50">
+        <div className="space-y-4 rounded-[1.35rem] border border-emerald-300/24 bg-[linear-gradient(180deg,rgba(16,185,129,0.18),rgba(17,24,39,0.28))] px-5 py-5 text-sm text-emerald-50 shadow-[0_0_38px_rgba(16,185,129,0.12)]">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100/80">Sample package walkthrough</p>
             <p className="mt-2 leading-6 text-emerald-50/90">
@@ -155,7 +155,7 @@ export default async function ApplicationDashboardPage({
               const Icon = item.icon;
 
               return (
-                <div key={item.label} className="rounded-[1rem] border border-white/10 bg-black/20 px-4 py-4">
+                <div key={item.label} className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 backdrop-blur-sm">
                   <div className="flex items-start gap-3">
                     <span className="relative mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/12 text-emerald-50 shadow-[0_0_0_1px_rgba(110,231,183,0.18),0_0_24px_rgba(16,185,129,0.2)]">
                       <span className="absolute inset-0 rounded-full bg-emerald-300/20 animate-pulse" />
@@ -199,7 +199,7 @@ export default async function ApplicationDashboardPage({
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-4">
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <TintedIconBadge icon={FileText} tone={pdfStrategy.supportsNativeAutofill ? "red" : "amber"} label={pdfStrategy.supportsNativeAutofill ? "Official Form PDF" : "Application Worksheet PDF"} />
@@ -220,14 +220,14 @@ export default async function ApplicationDashboardPage({
             {!previewMode ? (
               <Link
                 href={`/dashboard/${application.id}/download`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Application Worksheet (.PDF)"}
               </Link>
             ) : (
               <Link
                 href={`/dashboard/${application.id}/download?preview=1`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Application Worksheet (.PDF)"}
               </Link>
@@ -235,7 +235,7 @@ export default async function ApplicationDashboardPage({
             {!pdfStrategy.supportsNativeAutofill ? (
               <Link
                 href={pdfStrategy.portalUrl}
-                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
+                className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-semibold text-slate-50 transition hover:border-cyan-300/35 hover:bg-white/14"
               >
                 Open Official Form Guidance
               </Link>
@@ -243,31 +243,31 @@ export default async function ApplicationDashboardPage({
           </div>
         </div>
 
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={Sparkles} tone="indigo" label="AI Cover Letter" />
           <h2 className="mt-4 text-xl font-semibold text-white">Consular Cover Letter</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Embassy-addressed rationale statement aligned to your itinerary and return ties.</p>
-          <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-white/10 bg-[#f7f3ea] p-5 text-[#1b2430] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+          <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-amber-200/70 bg-[#fffaf0] p-5 text-[#1b2430] shadow-[0_18px_40px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.55)]">
             <pre className="whitespace-pre-wrap font-serif text-[13px] leading-7 text-[#1b2430]">{application.cover_letter_markdown}</pre>
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
               href="#cover-letter-preview"
-              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30"
+              className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/10 px-4 py-2.5 text-sm font-semibold text-slate-50 transition hover:border-cyan-300/35 hover:bg-white/14"
             >
               View Letter
             </Link>
             {!previewMode ? (
               <Link
                 href={`/dashboard/${application.id}/cover-letter`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 Download PDF
               </Link>
             ) : (
               <Link
                 href={`/dashboard/${application.id}/cover-letter?preview=1`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 Download PDF
               </Link>
@@ -277,52 +277,52 @@ export default async function ApplicationDashboardPage({
         </div>
 
         <div className="space-y-4">
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={ClipboardList} tone="blue" label="Consulate Checklist" />
           <h2 className="mt-4 text-xl font-semibold text-white">Submission Checklist PDF</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Provider-specific appointment checklist covering photos, passport validity, document order, bank proof, and appointment sheet.</p>
-          <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
+          <div className="mt-5 rounded-[1rem] border border-emerald-300/24 bg-emerald-400/16 p-4 text-sm text-emerald-50/90">
             Generated from the destination-country provider mapping and included in the full ZIP archive.
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {!previewMode ? (
               <Link
                 href={`/dashboard/${application.id}/consulate-checklist`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 Download PDF
               </Link>
             ) : (
               <Link
                 href={`/dashboard/${application.id}/consulate-checklist?preview=1`}
-                className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 Download PDF
               </Link>
             )}
           </div>
         </div>
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={ShieldCheck} tone="emerald" label="Packet Snapshot" />
           <h2 className="mt-4 text-xl font-semibold text-white">Tourist case summary</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">A compact view of the itinerary, funding posture, and submission anchors that feed the exported packet.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Travel window</p>
               <p className="mt-2 font-semibold text-white">{application.application_data.trip.arrivalDate} to {application.application_data.trip.departureDate}</p>
               <p className="mt-2">Entry via {application.application_data.trip.portOfEntry}</p>
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Funding</p>
               <p className="mt-2 font-semibold text-white">{application.application_data.sponsor.fundingSource.replace(/_/g, " ")}</p>
               <p className="mt-2">Available EUR {audit.availableLiquidBalanceEur.toFixed(2)}</p>
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Accommodation</p>
               <p className="mt-2 font-semibold text-white">{application.application_data.trip.hotelBookingReference}</p>
               <p className="mt-2">{application.application_data.trip.accommodations}</p>
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Identity anchor</p>
               <p className="mt-2 font-semibold text-white">{application.application_data.passport.number}</p>
               <p className="mt-2">Application filed from {application.application_data.application.placeOfApplication}</p>
@@ -333,11 +333,11 @@ export default async function ApplicationDashboardPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={Archive} tone="blue" label="Master Bundle" />
           <h2 className="mt-4 text-xl font-semibold text-white">Master VFS Bundle</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Your primary print-ready packet with the normalized form, cover letter, checklist, insurance slip, interview brief, refusal decoder, and saved supporting documents.</p>
-          <div className="mt-5 rounded-[1rem] border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-50/90">
+          <div className="mt-5 rounded-[1rem] border border-emerald-300/24 bg-emerald-400/16 p-4 text-sm text-emerald-50/90">
             Packet contents stay aligned with the dashboard vault and your stored supporting files.
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -345,9 +345,9 @@ export default async function ApplicationDashboardPage({
               const Icon = item.icon;
 
               return (
-                <div key={item.label} className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+                <div key={item.label} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
                   <div className="flex items-start gap-3">
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-slate-100">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 bg-white/12 text-slate-50">
                       <Icon className="h-4 w-4" />
                     </span>
                     <div>
@@ -364,13 +364,13 @@ export default async function ApplicationDashboardPage({
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
                   href={`/dashboard/${application.id}/consulate-ready-packet`}
-                  className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                  className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
                 >
                   Download Master VFS Bundle (.PDF)
                 </Link>
                 <Link
                   href={`/dashboard/${application.id}/package`}
-                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
+                  className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-semibold text-slate-50 transition hover:border-cyan-300/35 hover:bg-white/14"
                 >
                   Download Full Package (.zip)
                 </Link>
@@ -379,13 +379,13 @@ export default async function ApplicationDashboardPage({
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
                   href={`/dashboard/${application.id}/consulate-ready-packet?preview=1`}
-                  className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                  className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
                 >
                   Download Master VFS Bundle (.PDF)
                 </Link>
                 <Link
                   href={`/dashboard/${application.id}/package?preview=1`}
-                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
+                  className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-semibold text-slate-50 transition hover:border-cyan-300/35 hover:bg-white/14"
                 >
                   Download Full Package (.zip)
                 </Link>
@@ -394,7 +394,7 @@ export default async function ApplicationDashboardPage({
           </div>
         </div>
 
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={Link2} tone="slate" label="Tracking Reference" />
           <h2 className="mt-4 text-xl font-semibold text-white">VFS / TLS / BLS tracking</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Save the official tracking code and launch the correct portal with one click.</p>
@@ -411,7 +411,7 @@ export default async function ApplicationDashboardPage({
                 initialReferenceNumber={application.vfs_reference_number}
               />
             ) : (
-              <div className="rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+              <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-200">
                 Preview mode keeps this box static. Live mode enables save and external tracking actions.
               </div>
             )}
@@ -420,37 +420,37 @@ export default async function ApplicationDashboardPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={Lock} tone="emerald" label="Identity Lock Vault" />
           <h2 className="mt-4 text-xl font-semibold text-white">Read-only session anchor</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Locked identity metadata stays non-editable once package generation binds the application.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Full name</p>
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Full name</p>
               <p className="mt-2 text-sm font-semibold text-white">{fullName}</p>
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Passport number</p>
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Passport number</p>
               <p className="mt-2 text-sm font-semibold text-white">{application.application_data.passport.number}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-[1.45rem] border border-white/10 bg-black/80 p-5 shadow-panel">
+        <div className="glass-panel p-5">
           <TintedIconBadge icon={ShieldCheck} tone="amber" label="Financial Audit Rules" />
           <h2 className="mt-4 text-xl font-semibold text-white">Financial and profile audit</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">This summary now includes route-specific profile logic, anomaly screening, and the internal service-cost guardrail.</p>
           <div className="mt-5 space-y-3 text-sm text-slate-300">
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4">
               Required funds EUR {audit.requiredLiquidBalanceEur.toFixed(2)}. Available EUR {audit.availableLiquidBalanceEur.toFixed(2)}.
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4">
               Passport valid through {audit.passportValidThrough}. Current audit status: <span className="font-semibold text-white">{audit.status}</span>.
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4">
               Profile route: <span className="font-semibold text-white">{audit.profileRoute}</span>. Transit buffer EUR {audit.transitBufferEur.toFixed(2)}.
             </div>
-            <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4">
               Deposit anomaly clearance: <span className="font-semibold text-white">{audit.checks.financialAnomalyClearance ? "Pass" : "Review required"}</span>. Estimated cost USD {audit.unitEconomics.maximumPotentialCostUsd.toFixed(2)} / 8.00.
             </div>
           </div>

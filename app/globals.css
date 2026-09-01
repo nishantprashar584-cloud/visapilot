@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --background: #030303;
-  --foreground: #f3f4f6;
-  --vp-surface: rgba(0, 0, 0, 0.82);
-  --vp-panel: rgba(7, 9, 13, 0.92);
-  --vp-card: rgba(13, 13, 13, 0.92);
-  --vp-soft: rgba(255, 255, 255, 0.05);
-  --vp-border: rgba(255, 255, 255, 0.1);
-  --vp-border-strong: rgba(255, 255, 255, 0.22);
+  --background: #0a0e1a;
+  --foreground: #f8fafc;
+  --vp-surface: linear-gradient(180deg, rgba(20, 28, 48, 0.88), rgba(11, 18, 35, 0.92));
+  --vp-panel: linear-gradient(180deg, rgba(24, 34, 58, 0.9), rgba(12, 19, 36, 0.94));
+  --vp-card: linear-gradient(180deg, rgba(28, 40, 68, 0.84), rgba(14, 22, 42, 0.92));
+  --vp-soft: rgba(148, 163, 184, 0.08);
+  --vp-border: rgba(148, 163, 184, 0.24);
+  --vp-border-strong: rgba(99, 102, 241, 0.46);
   --vp-text-primary: #f8fafc;
   --vp-text-secondary: #cbd5e1;
-  --vp-text-muted: #94a3b8;
-  --vp-input-bg: rgba(16, 16, 16, 0.96);
-  --vp-input-placeholder: #64748b;
+  --vp-text-muted: #9fb0c9;
+  --vp-input-bg: rgba(245, 248, 255, 0.08);
+  --vp-input-placeholder: #9fb0c9;
 }
 
 * {
@@ -32,9 +32,11 @@ body {
   font-family: var(--font-geist-sans), sans-serif;
   min-height: 100vh;
   background-image:
-    radial-gradient(circle at top, rgba(41, 182, 246, 0.12), transparent 22%),
-    radial-gradient(circle at 82% 8%, rgba(255, 184, 77, 0.08), transparent 18%),
-    linear-gradient(180deg, #060606 0%, #030303 50%, #080808 100%);
+    radial-gradient(circle at 12% 8%, rgba(34, 211, 238, 0.24), transparent 24%),
+    radial-gradient(circle at 85% 10%, rgba(245, 158, 11, 0.18), transparent 20%),
+    radial-gradient(circle at 78% 76%, rgba(99, 102, 241, 0.2), transparent 24%),
+    radial-gradient(circle at 20% 88%, rgba(16, 185, 129, 0.12), transparent 18%),
+    linear-gradient(180deg, #11192d 0%, #0a0e1a 38%, #0f1530 100%);
 }
 
 body::before {
@@ -43,11 +45,23 @@ body::before {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.65), transparent 85%);
-  opacity: 0.18;
+  opacity: 0.14;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(56, 189, 248, 0.08), transparent 28%),
+    radial-gradient(circle at 78% 24%, rgba(129, 140, 248, 0.08), transparent 26%),
+    radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.06), transparent 30%);
+  opacity: 1;
 }
 
 @layer utilities {
@@ -173,12 +187,14 @@ input[type="date"].date-input::-webkit-datetime-edit-year-field {
   .glass-panel {
     border: 1px solid var(--vp-border);
     background: var(--vp-surface);
-    @apply rounded-[1.5rem] shadow-panel backdrop-blur-xl;
+    box-shadow: 0 24px 80px rgba(5, 10, 24, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    @apply rounded-[1.5rem] backdrop-blur-xl;
   }
 
   .glass-card {
     border: 1px solid var(--vp-border);
     background: var(--vp-card);
+    box-shadow: 0 20px 50px rgba(5, 10, 24, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     @apply rounded-[1.1rem] shadow-inset;
   }
 
@@ -193,6 +209,7 @@ input[type="date"].date-input::-webkit-datetime-edit-year-field {
   .editorial-panel {
     border: 1px solid var(--vp-border);
     background: var(--vp-panel);
+    box-shadow: 0 18px 50px rgba(5, 10, 24, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     @apply rounded-[1.4rem] backdrop-blur-xl;
   }
 
@@ -207,6 +224,7 @@ input[type="date"].date-input::-webkit-datetime-edit-year-field {
     border: 1px solid var(--vp-border);
     background: var(--vp-input-bg);
     color: var(--vp-text-primary);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     @apply rounded-[1rem] text-sm outline-none transition;
   }
 

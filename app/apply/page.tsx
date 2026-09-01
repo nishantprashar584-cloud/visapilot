@@ -22,15 +22,15 @@ export default async function ApplyPage({
         <p className="eyebrow">
           Start Application
         </p>
-        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-slate-50 sm:text-4xl">
           Build your Schengen tourist packet
         </h1>
-        <p className="max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
+        <p className="max-w-3xl text-sm leading-6 text-slate-200 sm:text-base">
           Move through five clean stages for identity, leisure travel, financial proof, accommodation ties, and final packet assembly without losing context.
         </p>
       </div>
       {previewMode ? (
-        <div className="rounded-[1.25rem] border border-white/10 bg-black/70 px-5 py-4 text-sm font-medium text-slate-200">
+        <div className="rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/12 px-5 py-4 text-sm font-medium text-cyan-50 shadow-[0_0_30px_rgba(34,211,238,0.12)]">
           Preview mode is active with realistic sample data. Review the full step-by-step packet builder without signing in.
         </div>
       ) : null}

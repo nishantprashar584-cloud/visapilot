@@ -88,28 +88,28 @@ export default async function DashboardPage({
   return (
     <section className="w-full space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
       <DashboardAutoRefresh />
-      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-white/10 bg-black/80 p-4 sm:p-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.92),rgba(14,22,42,0.96))] p-4 shadow-[0_22px_60px_rgba(5,10,24,0.28)] sm:p-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <p className="eyebrow">Dashboard</p>
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
             Your visa applications
           </h1>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-200">
             {previewMode
               ? "Preview mode shows realistic sample applications so you can review the layout before signing in."
               : `Signed in as ${accountLabel}. This page keeps only the packet, tracking, and next action in view.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <div className="rounded-full border border-white/10 bg-[#0f0f0f] px-4 py-2 text-sm text-slate-300">
+          <div className="rounded-full border border-white/14 bg-white/10 px-4 py-2 text-sm text-slate-100">
             {previewMode ? "3 sample applications" : `${visibleApplications.length} application${visibleApplications.length === 1 ? "" : "s"}`}
           </div>
-          <div className="rounded-full border border-white/10 bg-[#0f0f0f] px-4 py-2 text-sm text-slate-300">
+          <div className="rounded-full border border-white/14 bg-white/10 px-4 py-2 text-sm text-slate-100">
             {latestAudit ? `Latest risk: ${latestAudit.status}` : `Credits: ${user?.credits ?? 0}`}
           </div>
           <Link
             href={previewMode ? "/apply?preview=1" : "/apply"}
-            className="inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+            className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
           >
             Start new package
           </Link>
@@ -123,11 +123,11 @@ export default async function DashboardPage({
       ) : null}
 
       {previewMode ? (
-        <div className="grid gap-3 rounded-[1.2rem] border border-white/10 bg-black/70 p-5 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(20,52,83,0.6),rgba(13,22,39,0.8))] p-5 sm:grid-cols-3">
           {previewChecklist.map((item, index) => (
-            <div key={item} className="rounded-[1rem] border border-white/10 bg-[#0f0f0f] px-4 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Step 0{index + 1}</p>
-              <p className="mt-2 text-sm text-slate-200">{item}</p>
+            <div key={item} className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 backdrop-blur-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100/85">Step 0{index + 1}</p>
+              <p className="mt-2 text-sm text-slate-100">{item}</p>
             </div>
           ))}
         </div>

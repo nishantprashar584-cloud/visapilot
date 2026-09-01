@@ -67,15 +67,15 @@ const repeatedCountryPills = [...countryPills, ...countryPills];
 export function MarqueePills() {
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8">
-      <div className="group overflow-hidden rounded-[1.35rem] border border-zinc-200/10 bg-black/60 px-4 py-3 shadow-panel backdrop-blur-md">
+      <div className="group overflow-hidden rounded-[1.35rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.88),rgba(13,21,39,0.94))] px-4 py-3 shadow-panel backdrop-blur-md">
         <div className="flex min-w-max gap-3 whitespace-nowrap animate-marquee group-hover:[animation-play-state:paused]">
           {repeatedCountryPills.map((pill, index) => (
             <span
               key={`${pill.name}-${index}`}
-              className="inline-flex shrink-0 items-center gap-3 rounded-full border border-zinc-200/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100"
+              className="inline-flex shrink-0 items-center gap-3 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-medium text-slate-50 shadow-[0_10px_24px_rgba(8,15,35,0.15)]"
             >
               <pill.Flag className="h-4 w-6 rounded-[2px] shadow-sm" title={pill.name} />
-              <span className="font-semibold text-zinc-100">{pill.name}</span>
+              <span className="font-semibold text-slate-50">{pill.name}</span>
             </span>
           ))}
         </div>

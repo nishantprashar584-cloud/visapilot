@@ -17,10 +17,10 @@ export function RiskAuditCard({ audit }: { audit: RiskAuditResult }) {
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl bg-white/6 p-4 text-sm text-slate-200">
+        <div className="rounded-2xl border border-white/12 bg-white/10 p-4 text-sm text-slate-100">
           Liquid balance: EUR {audit.availableLiquidBalanceEur.toFixed(2)} / required EUR {audit.requiredLiquidBalanceEur.toFixed(2)}
         </div>
-        <div className="rounded-2xl bg-white/6 p-4 text-sm text-slate-200">
+        <div className="rounded-2xl border border-white/12 bg-white/10 p-4 text-sm text-slate-100">
           Passport valid through: {audit.passportValidThrough}
         </div>
       </div>

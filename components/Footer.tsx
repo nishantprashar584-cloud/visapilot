@@ -10,11 +10,11 @@ const footerLinks = [
 
 export function Footer() {
   return (
-    <footer className="mt-16 w-full border-t border-[color:var(--vp-border)] bg-[var(--vp-panel)] py-12 backdrop-blur-sm sm:mt-24">
+    <footer className="mt-16 w-full border-t border-[color:var(--vp-border)] bg-[linear-gradient(180deg,rgba(22,32,56,0.88),rgba(10,14,26,0.98))] py-12 backdrop-blur-sm sm:mt-24">
       <div className="mx-auto flex w-full max-w-none flex-col gap-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--vp-text-primary)]">VisaPilot</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-200">VisaPilot</p>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[color:var(--vp-text-secondary)]">
               Privacy-first Schengen tourist visa workflows, cover letters, and embassy-ready packet assembly.
             </p>
