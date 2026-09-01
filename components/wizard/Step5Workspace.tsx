@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, Square, WandSparkles } from "lucide-react";
 import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
+import { TravelIntentStudio } from "@/components/wizard/TravelIntentStudio";
 import { ConsulateChecklist } from "@/components/wizard/ConsulateChecklist";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
+import { subscribeToItinerarySync } from "@/lib/applications/moduleSyncBus";
 import { getPreviewApplicationForDestination } from "@/lib/mock/applications";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import type { ApplicantInfo, PricingTier, SupportingDocument } from "@/types";
@@ -149,6 +151,13 @@ export function Step5Workspace({
   const promptDictationSessionRef = useRef<PromptDictationSession | null>(null);
   const [promptDictationState, setPromptDictationState] = useState<PromptDictationState | null>(null);
   const [customVoiceMessage, setCustomVoiceMessage] = useState<string | null>(null);
+  const [itinerarySyncSummary, setItinerarySyncSummary] = useState<{
+    transitLegRequirements: string[];
+    accommodationGapWarnings: string[];
+  }>({
+    transitLegRequirements: [],
+    accommodationGapWarnings: [],
+  });
 
   useEffect(() => {
     return () => {
@@ -162,6 +171,14 @@ export function Step5Workspace({
       }
     };
   }, []);
+
+  useEffect(() => subscribeToItinerarySync((detail) => {
+    setItinerarySyncSummary({
+      transitLegRequirements: detail.result.transitLegRequirements,
+      accommodationGapWarnings: detail.result.accommodationGapWarnings,
+    });
+    onCoverLetterChange(detail.result.coverLetterMarkdown);
+  }), [onCoverLetterChange]);
 
   function slugify(value: string) {
     return value
@@ -527,15 +544,38 @@ export function Step5Workspace({
         </div>
 
         <div className={activeTab === "cover-letter" ? "mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]" : "hidden"}>
+              <div className="space-y-4">
+                <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Modular progressive disclosure</p>
+                    <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
+                      <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-sky-100">3 Travel & Intent</span>
+                      <span className="rounded-full border border-indigo-300/20 bg-indigo-400/10 px-3 py-1 text-indigo-100">4 Form & Narrative</span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-400">5 Readiness</span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-400">6 Export</span>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                    Only the current authoring modules stay in focus here. Readiness drills and export remain separated under the toolkit so the workspace does not collapse into a single crowded dashboard.
+                  </p>
+                </div>
+
+                <TravelIntentStudio
+                  applicant={applicant}
+                  coverLetterDraft={coverLetterDraft}
+                  supportingDocumentCount={supportingDocuments.length}
+                />
+              </div>
+
               <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
                       <Sparkles className="h-3.5 w-3.5" />
-                      GPT-4o Cover Letter Studio
+                      Module 4 of 6 · Form & Narrative Engine
                     </div>
                     <p className="mt-3 text-sm leading-6 text-slate-300">
-                      Generate and refine the embassy-facing narrative before package creation.
+                      Generate and refine the embassy-facing narrative before package creation. Travel timeline edits flow in automatically through the background sync channel.
                     </p>
                     <div className="mt-4 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
                       <div className="flex items-start gap-3">
@@ -596,6 +636,19 @@ export function Step5Workspace({
                     {coverLetterMessage}
                   </div>
                 ) : null}
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Transit sync</p>
+                    <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.transitLegRequirements.length} transfer note{itinerarySyncSummary.transitLegRequirements.length === 1 ? "" : "s"} queued</p>
+                    <p className="mt-2 leading-6">City changes update the itinerary matrix in the draft automatically.</p>
+                  </div>
+                  <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Accommodation sync</p>
+                    <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.accommodationGapWarnings.length === 0 ? "No stay gaps detected" : `${itinerarySyncSummary.accommodationGapWarnings.length} gap${itinerarySyncSummary.accommodationGapWarnings.length === 1 ? "" : "s"} flagged`}</p>
+                    <p className="mt-2 leading-6">Warnings stay isolated here instead of interrupting the editor while you write.</p>
+                  </div>
+                </div>
 
                 <div className="relative mt-4">
                   <textarea
