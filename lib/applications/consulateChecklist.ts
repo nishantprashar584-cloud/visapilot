@@ -1,5 +1,5 @@
 import { resolveConsulateCountryDetails } from "@/config/consulate-details";
-import { resolveSchengenCountryRule } from "@/config/schengen-rules";
+import { calculateStatutoryFundsRequirement } from "@/config/schengen-rules";
 import type { ApplicantInfo } from "@/types";
 
 export type ConsulateChecklistItem = {
@@ -21,11 +21,12 @@ export type ResolvedConsulateChecklist = {
 };
 
 export function calculateChecklistRequiredFunds(applicant: ApplicantInfo): number {
-  const rule = resolveSchengenCountryRule(applicant.trip.destinationCountry);
-  const stayDurationDays = Math.max(0, applicant.trip.stayDurationDays);
-  const stayBasedMinimum = rule.dailyFundsEur * stayDurationDays;
-
-  return Math.max(stayBasedMinimum, rule.minimumBalanceEur ?? 0);
+  return calculateStatutoryFundsRequirement({
+    destinationCountry: applicant.trip.destinationCountry,
+    stayDurationDays: applicant.trip.stayDurationDays,
+    hasAccommodationProof: applicant.trip.accommodations.trim().length > 0 && applicant.trip.hotelBookingReference.trim().length > 0,
+    transitBufferEur: applicant.financialEvidence?.transitBufferEur ?? 0,
+  }).requiredTotalEur;
 }
 
 export function resolveConsulateChecklist(applicant: ApplicantInfo): ResolvedConsulateChecklist {

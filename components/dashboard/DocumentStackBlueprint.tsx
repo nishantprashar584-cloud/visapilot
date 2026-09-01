@@ -1,40 +1,11 @@
+import { buildStrictDocumentSequence } from "@/lib/applications/consularPolicy";
 import type { ApplicantInfo, RefusalReasonCode } from "@/types";
 
 export function buildDocumentSequence(
   applicant: ApplicantInfo,
   refusalReasonCode: RefusalReasonCode | null,
 ): string[] {
-  const sequence = [
-    "Printed Schengen application form with signature fields reviewed.",
-    "Passport original plus biographical page photocopies.",
-    "AI-generated cover letter addressed to the correct consulate.",
-    "Round-trip flight reservation or onward itinerary.",
-    "Accommodation proof covering the complete stay.",
-    "Travel medical insurance certificate with Schengen coverage.",
-    `Recent bank statements proving at least EUR ${applicant.employment.savingsBalanceEur.toFixed(2)} in accessible funds.`,
-  ];
-
-  if (applicant.employment.employmentStatus === "student") {
-    sequence.push("Enrollment proof and student support documentation.");
-  } else {
-    sequence.push("Employment proof, leave approval, or self-employment evidence.");
-  }
-
-  if (applicant.sponsor.type !== "self") {
-    sequence.push("Sponsor declaration letter plus sponsor identity and financial proof.");
-  }
-
-  if (applicant.homeTies.returnIntentEvidence.trim().length > 0) {
-    sequence.push("Home-country ties evidence supporting return intent.");
-  }
-
-  if (refusalReasonCode) {
-    sequence.push(
-      `Previous refusal response note addressing Schengen refusal reason ${refusalReasonCode}.`,
-    );
-  }
-
-  return sequence;
+  return buildStrictDocumentSequence(applicant, refusalReasonCode);
 }
 
 export function DocumentStackBlueprint({

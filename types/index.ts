@@ -62,6 +62,75 @@ export interface PreviousSchengenVisaEntry {
 
 export type SupportingDocumentKind = "pdf" | "image";
 
+export type ApplicantProfileRoute =
+  | "salaried"
+  | "freelancer_self_employed"
+  | "student"
+  | "minor_non_school"
+  | "general";
+
+export interface FinancialEvidence {
+  closingBalanceEur?: number;
+  transitBufferEur?: number;
+  recentDepositsEur?: number[];
+  sourceOfFundsNote?: string;
+  incomeProofSources?: string[];
+}
+
+export interface UnitEconomicGuardrail {
+  id: "ocr_table_extraction" | "live_reservations_pnr" | "human_spot_check" | "cloud_pdf_vault";
+  label: string;
+  maxCostUsd: number;
+  description: string;
+}
+
+export interface UnitEconomicEstimate {
+  baselineCostUsd: number;
+  reservedManualReviewCostUsd: number;
+  maximumPotentialCostUsd: number;
+  withinBudgetGuardrail: boolean;
+}
+
+export interface InterviewQuestion {
+  id: string;
+  channel: "voice" | "text";
+  severity: "low" | "medium" | "high";
+  rationale: string;
+  prompt: string;
+}
+
+export interface RefusalDecoderResult {
+  refusalReasonCode: RefusalReasonCode;
+  title: string;
+  summary: string;
+  remediationSteps: string[];
+}
+
+export interface ItinerarySyncInput {
+  coverLetterMarkdown: string;
+  itineraryEntries: Array<{
+    dayLabel: string;
+    city: string;
+    stayType: string;
+    transitMode?: string;
+    accommodationReference?: string;
+  }>;
+}
+
+export interface ItinerarySyncResult {
+  coverLetterMarkdown: string;
+  accommodationGapWarnings: string[];
+  transitLegRequirements: string[];
+}
+
+export interface ApplicantProfileRequirements {
+  route: ApplicantProfileRoute;
+  label: string;
+  requiredDocuments: string[];
+  waivedDocuments: string[];
+  notes: string[];
+}
+
 export interface SupportingDocument {
   id: string;
   fileName: string;
@@ -160,6 +229,7 @@ export interface ApplicantInfo {
     finalDestinationPermitNumber?: string;
     finalDestinationPermitValidUntil?: string;
   };
+  financialEvidence?: FinancialEvidence;
   supportingDocuments?: SupportingDocument[];
 }
 
@@ -429,8 +499,11 @@ export type ParsedDocumentResult =
 export interface RiskAuditResult {
   status: AuditSeverity;
   destinationCountry: string;
+  profileRoute: ApplicantProfileRoute;
+  profileRequiredDocuments: string[];
   hasExactCountryRule: boolean;
   appliedDailyFundsRuleEur: number;
+  transitBufferEur: number;
   requiredLiquidBalanceEur: number;
   recommendedLiquidBalanceEur: number;
   availableLiquidBalanceEur: number;
@@ -439,14 +512,19 @@ export interface RiskAuditResult {
   statutoryRuleSummary: string;
   consultantWarning: boolean;
   consultantWarningMessage: string | null;
+  anomalyDetected: boolean;
+  anomalyThresholdEur: number | null;
+  anomalyBlockingReason: string | null;
   passportValidThrough: string;
   passportValiditySatisfied: boolean;
   financialBufferSatisfied: boolean;
   statutoryFundsSatisfied: boolean;
+  unitEconomics: UnitEconomicEstimate;
   missingDocuments: string[];
   fixInstructions: string[];
   checks: {
     financialSufficiency: boolean;
+    financialAnomalyClearance: boolean;
     passportValidity: boolean;
     accommodationEvidence: boolean;
     roundTripEvidence: boolean;

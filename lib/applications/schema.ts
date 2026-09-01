@@ -146,6 +146,18 @@ export const applicantInfoSchema = z
       finalDestinationPermitNumber: z.string().trim().optional().or(z.literal("")),
       finalDestinationPermitValidUntil: z.string().trim().optional().or(z.literal("")),
     }),
+    financialEvidence: z.object({
+      closingBalanceEur: z.number().min(0).optional(),
+      transitBufferEur: z.number().min(0).optional().default(0),
+      recentDepositsEur: z.array(z.number().min(0)).optional().default([]),
+      sourceOfFundsNote: z.string().trim().optional().or(z.literal("")),
+      incomeProofSources: z.array(z.string().trim().min(1)).optional().default([]),
+    }).optional().default({
+      transitBufferEur: 0,
+      recentDepositsEur: [],
+      sourceOfFundsNote: "",
+      incomeProofSources: [],
+    }),
     supportingDocuments: z.array(supportingDocumentSchema).optional().default([]),
   })
   .superRefine((value, context) => {
@@ -285,6 +297,12 @@ export const defaultApplicantInfo: ApplicantInfo = {
     finalDestinationPermitRequired: false,
     finalDestinationPermitNumber: "",
     finalDestinationPermitValidUntil: "",
+  },
+  financialEvidence: {
+    transitBufferEur: 0,
+    recentDepositsEur: [],
+    sourceOfFundsNote: "",
+    incomeProofSources: [],
   },
   supportingDocuments: [],
 };

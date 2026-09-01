@@ -1,4 +1,6 @@
 import { buildDocumentSequence } from "@/components/dashboard/DocumentStackBlueprint";
+import { decodeRefusalReason } from "@/lib/applications/refusalDecoder";
+import { generateConsularInterviewQuestions } from "@/lib/applications/interviewSimulator";
 import { runRiskAudit } from "@/lib/riskAudit";
 import type { ApplicantInfo, RefusalReasonCode } from "@/types";
 
@@ -45,16 +47,24 @@ export function buildFinancialAuditReport(applicant: ApplicantInfo): string {
     `Destination: ${applicant.trip.destinationCountry}`,
     `Travel window: ${applicant.trip.arrivalDate} to ${applicant.trip.departureDate}`,
     `Audit status: ${audit.status}`,
+    `Profile route: ${audit.profileRoute}`,
     `Required funds (EUR): ${audit.requiredLiquidBalanceEur.toFixed(2)}`,
+    `Transit buffer (EUR): ${audit.transitBufferEur.toFixed(2)}`,
     `Recommended buffer (EUR): ${audit.recommendedLiquidBalanceEur.toFixed(2)}`,
     `Available liquid balance (EUR): ${audit.availableLiquidBalanceEur.toFixed(2)}`,
+    `Estimated service cost (USD): ${audit.unitEconomics.maximumPotentialCostUsd.toFixed(2)} / 8.00 guardrail`,
     `Passport valid through: ${audit.passportValidThrough}`,
     "",
     "## Checks",
     `- Financial sufficiency: ${audit.checks.financialSufficiency ? "Pass" : "Review required"}`,
+    `- Deposit anomaly clearance: ${audit.checks.financialAnomalyClearance ? "Pass" : "Review required"}`,
     `- Passport validity: ${audit.checks.passportValidity ? "Pass" : "Review required"}`,
     `- Accommodation evidence: ${audit.checks.accommodationEvidence ? "Pass" : "Missing or weak"}`,
     `- Round-trip evidence: ${audit.checks.roundTripEvidence ? "Pass" : "Missing or weak"}`,
+    "",
+    "## Profile Requirements",
+    ...audit.profileRequiredDocuments.map((requirement) => `- ${requirement}`),
+    ...(audit.anomalyBlockingReason ? ["", "## Anomaly Review", `- ${audit.anomalyBlockingReason}`] : []),
     "",
     "## Recommended Fixes",
     ...audit.fixInstructions.map((instruction) => `- ${instruction}`),
@@ -79,5 +89,48 @@ export function buildRegionalFormGuidance(args: {
     '"Form auto-fill pending for this region. Your AI Cover Letter, Checklist, Financial Audit, and Insurance Slip are ready in your ZIP packet."',
     "",
     "Use the included harmonized Schengen template alongside the rest of the packet if your jurisdiction requires a country-specific blank form.",
+  ].join("\n");
+}
+
+export function buildConsularInterviewBrief(applicant: ApplicantInfo): string {
+  const questions = generateConsularInterviewQuestions(applicant);
+
+  return [
+    `# ${applicant.personal.firstName} ${applicant.personal.lastName} Consular Interview Simulator`,
+    "",
+    `Destination: ${applicant.trip.destinationCountry}`,
+    `Trip purpose: ${applicant.trip.purpose}`,
+    "",
+    ...questions.flatMap((question, index) => [
+      `## ${index + 1}. ${question.prompt}`,
+      `- Channel: ${question.channel}`,
+      `- Severity: ${question.severity}`,
+      `- Rationale: ${question.rationale}`,
+      "",
+    ]),
+  ].join("\n");
+}
+
+export function buildRefusalRecoveryBrief(refusalReasonCode: RefusalReasonCode | null): string {
+  if (!refusalReasonCode) {
+    return [
+      "# Annex VI Refusal Decoder",
+      "",
+      "No refusal code is currently attached to this file.",
+      "If the applicant has a refusal notice, upload the coded reason so VisaPilot can generate a targeted remediation plan.",
+    ].join("\n");
+  }
+
+  const decoded = decodeRefusalReason(refusalReasonCode);
+
+  return [
+    "# Annex VI Refusal Decoder",
+    "",
+    `Reason ${decoded.refusalReasonCode}: ${decoded.title}`,
+    "",
+    decoded.summary,
+    "",
+    "## Remediation Steps",
+    ...decoded.remediationSteps.map((step) => `- ${step}`),
   ].join("\n");
 }

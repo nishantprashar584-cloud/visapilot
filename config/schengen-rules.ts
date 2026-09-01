@@ -139,22 +139,25 @@ export function calculateStatutoryFundsRequirement(input: {
   destinationCountry: string;
   stayDurationDays: number;
   hasAccommodationProof: boolean;
+  transitBufferEur?: number;
 }) {
   const rule = resolveSchengenCountryRule(input.destinationCountry);
   const countryKey = normalizeCountryKey(input.destinationCountry);
   const tripDays = Math.max(0, input.stayDurationDays);
+  const transitBufferEur = Math.max(0, input.transitBufferEur ?? 0);
 
   if (countryKey === "italy") {
     const dailyComponent = tripDays > 20 ? tripDays * rule.dailyFundsEur : 0;
-    const requiredTotalEur = Math.max(dailyComponent, rule.minimumBalanceEur ?? 0);
+    const requiredTotalEur = Math.max(dailyComponent, rule.minimumBalanceEur ?? 0) + transitBufferEur;
 
     return {
       rule,
       appliedDailyRateEur: tripDays > 20 ? rule.dailyFundsEur : 0,
+      transitBufferEur,
       requiredTotalEur,
       summary: tripDays > 20
-        ? `Italy expects about EUR ${rule.dailyFundsEur.toFixed(2)} per day for longer stays, which makes your statutory target EUR ${requiredTotalEur.toFixed(2)}.`
-        : `Italy applies a fixed minimum of EUR ${(rule.minimumBalanceEur ?? 0).toFixed(2)} for shorter stays in this rules engine.`,
+        ? `Italy expects about EUR ${rule.dailyFundsEur.toFixed(2)} per day for longer stays${transitBufferEur > 0 ? ` plus a transit buffer of EUR ${transitBufferEur.toFixed(2)}` : ""}, which makes your statutory target EUR ${requiredTotalEur.toFixed(2)}.`
+        : `Italy applies a fixed minimum of EUR ${(rule.minimumBalanceEur ?? 0).toFixed(2)}${transitBufferEur > 0 ? ` plus a transit buffer of EUR ${transitBufferEur.toFixed(2)}` : ""} for shorter stays in this rules engine.`,
     };
   }
 
@@ -162,14 +165,16 @@ export function calculateStatutoryFundsRequirement(input: {
     ? rule.dailyFundsWithoutAccommodationEur
     : rule.dailyFundsEur;
   const stayBasedRequirementEur = tripDays * appliedDailyRateEur;
-  const requiredTotalEur = Math.max(stayBasedRequirementEur, rule.minimumBalanceEur ?? 0);
+  const requiredTotalEur = Math.max(stayBasedRequirementEur, rule.minimumBalanceEur ?? 0) + transitBufferEur;
   const dailyLabel = `EUR ${appliedDailyRateEur.toFixed(2)} per day`;
   const minimumLabel = rule.minimumBalanceEur ? ` with a hard minimum of EUR ${rule.minimumBalanceEur.toFixed(2)}` : "";
+  const transitBufferLabel = transitBufferEur > 0 ? ` plus a transit buffer of EUR ${transitBufferEur.toFixed(2)}` : "";
 
   return {
     rule,
     appliedDailyRateEur,
+    transitBufferEur,
     requiredTotalEur,
-    summary: `${rule.displayName} requires ${dailyLabel}${minimumLabel}. For ${tripDays} day${tripDays === 1 ? "" : "s"}, the current statutory target is EUR ${requiredTotalEur.toFixed(2)}.`,
+    summary: `${rule.displayName} requires ${dailyLabel}${minimumLabel}${transitBufferLabel}. For ${tripDays} day${tripDays === 1 ? "" : "s"}, the current statutory target is EUR ${requiredTotalEur.toFixed(2)}.`,
   };
 }

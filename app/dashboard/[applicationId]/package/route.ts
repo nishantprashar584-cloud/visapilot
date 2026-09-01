@@ -2,15 +2,20 @@ import JSZip from "jszip";
 import { Buffer } from "node:buffer";
 import {
   buildChecklistMarkdown,
+  buildConsularInterviewBrief,
   buildFinancialAuditReport,
   buildInsuranceVerificationSlip,
+  buildRefusalRecoveryBrief,
   buildRegionalFormGuidance,
 } from "@/lib/applications/packetArtifacts";
+import { strictDocumentSequence } from "@/lib/applications/consularPolicy";
 import { getPreviewApplication } from "@/lib/mock/applications";
+import { generateConsulateReadyPacket } from "@/lib/pdf/generateConsulateReadyPacket";
 import { generateFilledApplicationPdf } from "@/lib/pdf/generateFilledApplicationPdf";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import { generateTextPdf } from "@/lib/pdf/generateTextPdf";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
+import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ApplicantInfo, RefusalReasonCode } from "@/types";
 
@@ -77,7 +82,22 @@ export async function GET(
     ? Buffer.from(applicationData.filled_pdf_base64, "base64")
     : await generateFilledApplicationPdf(applicationData.application_data);
   const coverLetterPdf = await generateTextPdf(applicationData.cover_letter_markdown);
+  const interviewBriefMarkdown = buildConsularInterviewBrief(applicationData.application_data);
+  const interviewBriefPdf = await generateTextPdf(interviewBriefMarkdown);
+  const refusalRecoveryMarkdown = buildRefusalRecoveryBrief(applicationData.refusal_reason_code);
+  const refusalRecoveryPdf = await generateTextPdf(refusalRecoveryMarkdown);
+  const checklistPdf = await generateChecklistPdf(applicationData.application_data);
+  const financialAuditMarkdown = buildFinancialAuditReport(applicationData.application_data);
+  const financialAuditPdf = await generateTextPdf(financialAuditMarkdown);
   const applicationPdfFileName = buildApplicationPdfFileName(applicationData.application_data.trip.destinationCountry);
+  const packetSections: Array<{ title: string; bytes: Uint8Array | Buffer; mimeType: string }> = [
+    { title: strictDocumentSequence[0], bytes: await generateTextPdf(`VisaPilot system summary and appointment slip placeholder for ${applicationData.application_data.trip.destinationCountry}.`), mimeType: "application/pdf" },
+    { title: strictDocumentSequence[1], bytes: filledPdfBuffer, mimeType: "application/pdf" },
+    { title: strictDocumentSequence[3], bytes: coverLetterPdf, mimeType: "application/pdf" },
+    { title: strictDocumentSequence[6], bytes: await generateTextPdf(buildInsuranceVerificationSlip(applicationData.application_data)), mimeType: "application/pdf" },
+    { title: strictDocumentSequence[7], bytes: financialAuditPdf, mimeType: "application/pdf" },
+    { title: strictDocumentSequence[10], bytes: checklistPdf, mimeType: "application/pdf" },
+  ];
 
   const zip = new JSZip();
   zip.file("cover-letter.md", applicationData.cover_letter_markdown);
@@ -85,9 +105,14 @@ export async function GET(
   zip.file("application.pdf", filledPdfBuffer);
   zip.file(applicationPdfFileName, filledPdfBuffer);
   zip.file("document-checklist.md", buildChecklistMarkdown(applicationData.application_data, applicationData.refusal_reason_code));
-  zip.file("Consulate_Submission_Checklist.pdf", await generateChecklistPdf(applicationData.application_data));
-  zip.file("financial-audit-report.md", buildFinancialAuditReport(applicationData.application_data));
+  zip.file("Consulate_Submission_Checklist.pdf", checklistPdf);
+  zip.file("financial-audit-report.md", financialAuditMarkdown);
+  zip.file("financial-audit-report.pdf", financialAuditPdf);
   zip.file("insurance-verification-slip.txt", buildInsuranceVerificationSlip(applicationData.application_data));
+  zip.file("consular-interview-simulator.md", interviewBriefMarkdown);
+  zip.file("consular-interview-simulator.pdf", interviewBriefPdf);
+  zip.file("annex-vi-refusal-decoder.md", refusalRecoveryMarkdown);
+  zip.file("annex-vi-refusal-decoder.pdf", refusalRecoveryPdf);
 
   if (!pdfStrategy.supportsNativeAutofill && pdfStrategy.guidanceMessage) {
     zip.file(
@@ -104,7 +129,7 @@ export async function GET(
   if (!previewApplication && Array.isArray(applicationData.application_data.supportingDocuments) && applicationData.application_data.supportingDocuments.length > 0) {
     for (const document of applicationData.application_data.supportingDocuments) {
       const { data: fileData, error: fileError } = await supabase.storage
-        .from("visapilot-supporting-documents")
+        .from(supportingDocumentsBucket)
         .download(document.storagePath);
 
       if (fileError || !fileData) {
@@ -112,9 +137,17 @@ export async function GET(
       }
 
       const bytes = await fileData.arrayBuffer();
-      zip.file(`supporting-documents/${document.fileName}`, new Uint8Array(bytes));
+      const buffer = new Uint8Array(bytes);
+      zip.file(`supporting-documents/${document.fileName}`, buffer);
+      packetSections.push({
+        title: `Supporting Document - ${document.fileName}`,
+        bytes: buffer,
+        mimeType: document.mimeType,
+      });
     }
   }
+
+  zip.file("Consulate_Ready_Packet.pdf", await generateConsulateReadyPacket(packetSections));
 
   const archive = await zip.generateAsync({ type: "nodebuffer" });
 

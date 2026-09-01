@@ -1,4 +1,5 @@
 import { calculateStatutoryFundsRequirement, consultantDailyMinimumEur } from "@/config/schengen-rules";
+import { detectFinancialAnomaly, estimateUnitEconomicCost, resolveApplicantProfileRequirements } from "@/lib/applications/consularPolicy";
 import type { ApplicantInfo, ApplicationRow, RiskAuditResult } from "@/types";
 
 function addMonths(dateValue: string, months: number): Date {
@@ -12,16 +13,20 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
   const hasAccommodationProof =
     applicant.trip.accommodations.trim().length > 0 &&
     applicant.trip.hotelBookingReference.trim().length > 0;
+  const transitBufferEur = Math.max(0, applicant.financialEvidence?.transitBufferEur ?? 0);
   const financialRule = calculateStatutoryFundsRequirement({
     destinationCountry,
     stayDurationDays: applicant.trip.stayDurationDays,
     hasAccommodationProof,
+    transitBufferEur,
   });
   const countryRule = financialRule.rule;
+  const profileRequirements = resolveApplicantProfileRequirements(applicant);
+  const anomaly = detectFinancialAnomaly(applicant);
   const appliedDailyFundsRuleEur = financialRule.appliedDailyRateEur;
   const requiredLiquidBalanceEur = financialRule.requiredTotalEur;
   const recommendedLiquidBalanceEur = requiredLiquidBalanceEur * countryRule.recommendedBufferMultiplier;
-  const availableLiquidBalanceEur = applicant.employment.savingsBalanceEur;
+  const availableLiquidBalanceEur = applicant.financialEvidence?.closingBalanceEur ?? applicant.employment.savingsBalanceEur;
   const dailyBudgetEur = applicant.trip.stayDurationDays > 0
     ? availableLiquidBalanceEur / applicant.trip.stayDurationDays
     : 0;
@@ -52,6 +57,11 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
     );
   }
 
+  if (anomaly.detected && anomaly.blockingReason) {
+    missingDocuments.push("Source-of-funds explanation for large recent deposits.");
+    fixInstructions.push(anomaly.blockingReason);
+  }
+
   if (!passportValiditySatisfied) {
     missingDocuments.push("Passport renewed with at least 3 months of validity after return date.");
     fixInstructions.push(
@@ -79,12 +89,20 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
     );
   }
 
+  profileRequirements.notes.forEach((note) => {
+    fixInstructions.push(note);
+  });
+
   const status: RiskAuditResult["status"] =
-    !statutoryFundsSatisfied || !passportValiditySatisfied
+    !statutoryFundsSatisfied || !passportValiditySatisfied || anomaly.detected
       ? "RED"
       : missingDocuments.length > 0 || !financialBufferSatisfied || consultantWarning
         ? "YELLOW"
         : "GREEN";
+
+  const unitEconomics = estimateUnitEconomicCost({
+    requiresManualSpotCheck: status === "RED" || missingDocuments.length >= 4,
+  });
 
   if (status === "GREEN") {
     fixInstructions.push("Core financial, itinerary, and passport checks currently align with configured Schengen rules.");
@@ -93,8 +111,11 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
   return {
     status,
     destinationCountry,
+    profileRoute: profileRequirements.route,
+    profileRequiredDocuments: profileRequirements.requiredDocuments,
     hasExactCountryRule: countryRule.hasExactStatutoryRule,
     appliedDailyFundsRuleEur,
+    transitBufferEur,
     requiredLiquidBalanceEur,
     recommendedLiquidBalanceEur,
     availableLiquidBalanceEur,
@@ -105,14 +126,19 @@ export function runRiskAudit(applicant: ApplicantInfo): RiskAuditResult {
     consultantWarningMessage: consultantWarning
       ? `Your daily budget is below the recommended EUR ${consultantDailyMinimumEur.toFixed(0)}/day. Consulates often reject applications for insufficient funds. Consider adding a sponsor or attaching additional savings accounts.`
       : null,
+    anomalyDetected: anomaly.detected,
+    anomalyThresholdEur: anomaly.thresholdEur,
+    anomalyBlockingReason: anomaly.blockingReason,
     passportValidThrough: applicant.passport.dateOfExpiry,
     passportValiditySatisfied,
     financialBufferSatisfied,
     statutoryFundsSatisfied,
+    unitEconomics,
     missingDocuments,
     fixInstructions,
     checks: {
       financialSufficiency,
+      financialAnomalyClearance: !anomaly.detected,
       passportValidity: passportValiditySatisfied,
       accommodationEvidence,
       roundTripEvidence,
