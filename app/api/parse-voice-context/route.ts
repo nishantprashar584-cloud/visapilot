@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { schengenCountryRules } from "@/config/schengen-rules";
+import { normalizeTravelPurpose } from "@/lib/applications/travelPurpose";
 import { openai } from "@/lib/openai";
 import { applyRateLimitHeaders, enforcePersistentRateLimit } from "@/lib/security/rateLimit";
 import type { ParsedVoiceContextResult } from "@/types";
@@ -13,7 +14,7 @@ const jsonRequestSchema = z.object({
 const parsedVoiceContextSchema = z.object({
   destinationCountry: z.string().trim().default(""),
   firstEntryCountry: z.string().trim().default(""),
-  tripPurpose: z.enum(["tourism", "business", "family_visit", "conference"]),
+  tripPurpose: z.enum(["tourism", "business", "family_visit", "conference"]).transform((value) => normalizeTravelPurpose(value)),
   employmentStatus: z.enum(["employed", "self_employed", "student", "retired"]),
   fundingSource: z.enum(["self_funded", "family_sponsored", "company_sponsored"]),
   arrivalDate: z.string().trim().optional().default(""),
@@ -134,21 +135,7 @@ function detectCountryMentions(transcript: string): string[] {
     .map(([country]) => country);
 }
 
-function detectTripPurpose(transcript: string): ParsedVoiceContextResult["tripPurpose"] {
-  const lowerTranscript = transcript.toLowerCase();
-
-  if (/(conference|summit|expo|trade show)/.test(lowerTranscript)) {
-    return "conference";
-  }
-
-  if (/(business|meeting|client|office|work trip|official visit)/.test(lowerTranscript)) {
-    return "business";
-  }
-
-  if (/(brother|sister|mother|father|family|relative|cousin|host)/.test(lowerTranscript)) {
-    return "family_visit";
-  }
-
+function detectTripPurpose(): ParsedVoiceContextResult["tripPurpose"] {
   return "tourism";
 }
 
@@ -252,7 +239,7 @@ function buildHeuristicVoiceContext(transcript: string): ParsedVoiceContextResul
     transcript: normalizedTranscript,
     destinationCountry,
     firstEntryCountry: destinationCountry,
-    tripPurpose: detectTripPurpose(normalizedTranscript),
+    tripPurpose: detectTripPurpose(),
     employmentStatus,
     fundingSource,
     arrivalDate,
@@ -320,7 +307,7 @@ async function parseVoiceContext(transcript: string): Promise<ParsedVoiceContext
     {
       role: "user" as const,
       content:
-        `Extract and normalize these fields from the travel intake:\n- destinationCountry: string\n- firstEntryCountry: string\n- tripPurpose: 'tourism' | 'business' | 'family_visit' | 'conference'\n- employmentStatus: 'employed' | 'self_employed' | 'student' | 'retired'\n- fundingSource: 'self_funded' | 'family_sponsored' | 'company_sponsored'\n- arrivalDate: ISO string or empty\n- departureDate: ISO string or empty\n- accommodationSummary: string\n- hostContext: string\n- returnTieSignal: string\n- specialCircumstances: string\nInput transcript:\n${transcript}`,
+        `Extract and normalize these fields from the travel intake:\n- destinationCountry: string\n- firstEntryCountry: string\n- tripPurpose: always 'tourism'\n- employmentStatus: 'employed' | 'self_employed' | 'student' | 'retired'\n- fundingSource: 'self_funded' | 'family_sponsored' | 'company_sponsored'\n- arrivalDate: ISO string or empty\n- departureDate: ISO string or empty\n- accommodationSummary: string\n- hostContext: string\n- returnTieSignal: string\n- specialCircumstances: string\nVisaPilot currently supports short-stay tourism and leisure travel only, so keep the trip purpose fixed to tourism even if the transcript mentions business, conferences, or family visits.\nInput transcript:\n${transcript}`,
     },
   ];
 
@@ -343,7 +330,7 @@ async function parseVoiceContext(transcript: string): Promise<ParsedVoiceContext
       transcript,
       destinationCountry: parsed.destinationCountry,
       firstEntryCountry: parsed.firstEntryCountry || parsed.destinationCountry,
-      tripPurpose: parsed.tripPurpose,
+      tripPurpose: normalizeTravelPurpose(parsed.tripPurpose),
       employmentStatus: parsed.employmentStatus,
       fundingSource: parsed.fundingSource,
       arrivalDate: normalizeIsoDate(parsed.arrivalDate),

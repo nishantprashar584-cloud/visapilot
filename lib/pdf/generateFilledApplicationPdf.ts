@@ -2,6 +2,7 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { calculateStayDurationDays } from "@/lib/applications/schema";
+import { normalizeApplicantTourismScope } from "@/lib/applications/travelPurpose";
 import { fillSchengenForm } from "@/lib/pdf/fillSchengenForm";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import type { ApplicantInfo } from "@/types";
@@ -12,14 +13,16 @@ function normalizeApplicantInfo(applicant: ApplicantInfo): ApplicantInfo {
     applicant.trip.departureDate,
   );
 
+  const tourismScopedApplicant = normalizeApplicantTourismScope(applicant);
+
   return {
-    ...applicant,
+    ...tourismScopedApplicant,
     trip: {
-      ...applicant.trip,
+      ...tourismScopedApplicant.trip,
       memberStatesToVisit:
-        applicant.trip.memberStatesToVisit.length > 0
-          ? applicant.trip.memberStatesToVisit
-          : [applicant.trip.destinationCountry],
+        tourismScopedApplicant.trip.memberStatesToVisit.length > 0
+          ? tourismScopedApplicant.trip.memberStatesToVisit
+          : [tourismScopedApplicant.trip.destinationCountry],
       stayDurationDays,
     },
   };

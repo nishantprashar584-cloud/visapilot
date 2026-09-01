@@ -20,6 +20,7 @@ import {
   defaultApplicantInfo,
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
+import { normalizeTravelPurpose } from "@/lib/applications/travelPurpose";
 import { getPreviewApplicationForDestination, previewWizardApplicant } from "@/lib/mock/applications";
 import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
 import { FinancialSafetyGauge } from "@/components/wizard/FinancialSafetyGauge";
@@ -1584,7 +1585,7 @@ export function ApplicationWizard({
 
     setFieldIfDifferent("trip.destinationCountry", result.destinationCountry);
     setFieldIfDifferent("trip.firstEntryCountry", result.firstEntryCountry || result.destinationCountry);
-    setFieldIfDifferent("trip.purpose", result.tripPurpose === "conference" ? "business" : result.tripPurpose);
+    setFieldIfDifferent("trip.purpose", normalizeTravelPurpose(result.tripPurpose));
     setFieldIfDifferent("employment.employmentStatus", result.employmentStatus);
     setFieldIfDifferent("sponsor.fundingSource", result.fundingSource);
 
@@ -1617,7 +1618,7 @@ export function ApplicationWizard({
       );
     }
 
-    if (result.tripPurpose === "conference" && !form.getValues("employment.occupation").trim()) {
+    if (result.specialCircumstances.toLowerCase().includes("conference") && !form.getValues("employment.occupation").trim()) {
       setFieldIfDifferent("employment.occupation", "Conference attendee");
     }
 
