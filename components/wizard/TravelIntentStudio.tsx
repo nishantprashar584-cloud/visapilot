@@ -150,11 +150,11 @@ export function TravelIntentStudio({
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
             <TrainFront className="h-3.5 w-3.5" />
-            Module 3 of 6 · Travel & Intent Studio
+            Module 3 of 6 · Tourist Route Studio
           </div>
           <h3 className="mt-3 text-xl font-semibold text-white">Day-by-day itinerary without booking noise</h3>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-            Arrange the trip timeline here. VisaPilot converts city changes into standard inter-city transfer text and silently updates the narrative engine in the next module.
+            Arrange the tourist trip timeline here. VisaPilot converts city changes into standard inter-city transfer text and silently updates the narrative engine in the next module.
           </p>
         </div>
 
@@ -171,8 +171,8 @@ export function TravelIntentStudio({
       <div className="mt-5 flex flex-wrap rounded-[1rem] border border-white/10 bg-black/40 p-1">
         {[
           { key: "timeline", label: "Timeline Studio", icon: TrainFront },
-          { key: "flight", label: "Flight & PNR", icon: Plane },
-          { key: "stay", label: "Hotels & Vouchers", icon: Hotel },
+          { key: "flight", label: "Flight Route", icon: Plane },
+          { key: "stay", label: "Hotel Stay Proof", icon: Hotel },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;

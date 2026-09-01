@@ -23,10 +23,10 @@ export default async function ApplyPage({
           Start Application
         </p>
         <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-          Build your Schengen application packet
+          Build your Schengen tourist packet
         </h1>
         <p className="max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
-          Move through five clean stages for identity, travel, financial proof, accommodation ties, and final document packaging without losing context.
+          Move through five clean stages for identity, leisure travel, financial proof, accommodation ties, and final packet assembly without losing context.
         </p>
       </div>
       {previewMode ? (

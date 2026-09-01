@@ -148,7 +148,7 @@ export default async function DashboardPage({
               <FolderOpen className="mx-auto mb-4 h-16 w-16 text-slate-300" />
               <p className="text-lg font-semibold text-white">No applications yet.</p>
               <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
-                Start your first Schengen visa. After submission, this page will show your applicant name, destination, risk check, privacy countdown, tracking reference, and downloads.
+                Start your first Schengen tourist packet. After submission, this page will show your applicant name, destination, risk check, privacy countdown, tracking reference, and downloads.
               </p>
               <Link
                 href={previewMode ? "/apply?preview=1" : "/apply"}
@@ -182,7 +182,7 @@ export default async function DashboardPage({
                             <CountryFlag country={application.destination_country} />
                             {application.destination_country}
                           </span>
-                          <span>{application.application_data.trip.purpose.replace(/_/g, " ")}</span>
+                          <span>tourist track</span>
                           <span>submitted {new Date(application.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>

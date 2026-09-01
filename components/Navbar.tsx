@@ -23,7 +23,7 @@ export async function Navbar() {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-cyan">
               VisaPilot
             </p>
-            <p className="truncate text-xs text-slate-500">Schengen application intelligence</p>
+            <p className="truncate text-xs text-slate-500">Schengen tourist packet engine</p>
           </div>
         </Link>
 
