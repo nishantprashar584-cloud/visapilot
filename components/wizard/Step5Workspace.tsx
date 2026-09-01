@@ -500,24 +500,24 @@ export function Step5Workspace({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-[1.5rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+      <div className="rounded-[1.5rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Step 5 Workspace</p>
               <h3 className="text-xl font-semibold text-white">Document Studio</h3>
             </div>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-200">
               Finalize the AI cover letter, prepare supporting PDFs, and hand off the finished application package without any pricing-grid clutter.
             </p>
           </div>
 
-          <div className="flex flex-wrap rounded-[1rem] border border-white/10 bg-black/40 p-1">
+          <div className="flex flex-wrap rounded-[1rem] border border-white/14 bg-white/10 p-1 backdrop-blur-sm">
             <button
               type="button"
               onClick={() => onActiveTabChange("toolkit")}
               className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "toolkit" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
+                activeTab === "toolkit" ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-slate-100 hover:bg-white/10 hover:text-white"
               }`}
             >
               <FileStack className="h-4 w-4" />
@@ -527,7 +527,7 @@ export function Step5Workspace({
               type="button"
               onClick={() => onActiveTabChange("cover-letter")}
               className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "cover-letter" ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
+                activeTab === "cover-letter" ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-slate-100 hover:bg-white/10 hover:text-white"
               }`}
             >
               <Sparkles className="h-4 w-4" />
@@ -538,17 +538,17 @@ export function Step5Workspace({
 
         <div className={activeTab === "cover-letter" ? "mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]" : "hidden"}>
               <div className="space-y-4">
-                <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
+                <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Modular progressive disclosure</p>
                     <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
                       <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-sky-100">3 Travel & Intent</span>
                       <span className="rounded-full border border-indigo-300/20 bg-indigo-400/10 px-3 py-1 text-indigo-100">4 Form & Narrative</span>
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-400">5 Readiness</span>
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-400">6 Export</span>
+                      <span className="rounded-full border border-white/14 bg-white/10 px-3 py-1 text-slate-200">5 Readiness</span>
+                      <span className="rounded-full border border-white/14 bg-white/10 px-3 py-1 text-slate-200">6 Export</span>
                     </div>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                  <p className="mt-3 text-sm leading-6 text-slate-200">
                     Only the current authoring modules stay in focus here. Readiness drills and export remain separated under the toolkit so the workspace does not collapse into a single crowded dashboard.
                   </p>
                 </div>
@@ -560,14 +560,14 @@ export function Step5Workspace({
                 />
               </div>
 
-              <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
+              <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
                       <Sparkles className="h-3.5 w-3.5" />
                       Module 4 of 6 · Form & Narrative Engine
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-300">
+                    <p className="mt-3 text-sm leading-6 text-slate-200">
                       Generate and refine the embassy-facing narrative before package creation. Travel timeline edits flow in automatically through the background sync channel.
                     </p>
                     <div className="mt-4 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
@@ -590,7 +590,7 @@ export function Step5Workspace({
                         <button
                           type="button"
                           onClick={() => handleDownloadDoc(coverLetterDraft, "cover-letter")}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-[#151515] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30"
+                          className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                         >
                           <Download className="h-4 w-4" />
                           Download .doc
@@ -598,7 +598,7 @@ export function Step5Workspace({
                         <button
                           type="button"
                           onClick={() => void handleDownloadPdf(coverLetterDraft, "cover-letter")}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-[#151515] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30"
+                          className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                         >
                           <Download className="h-4 w-4" />
                           Download PDF
@@ -609,7 +609,7 @@ export function Step5Workspace({
                       type="button"
                       onClick={() => onGenerateCoverLetter(applicant)}
                       disabled={isGeneratingCoverLetter}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isGeneratingCoverLetter ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                       {isGeneratingCoverLetter ? "Generating..." : coverLetterDraft.trim() ? "Regenerate" : "Generate"}
@@ -625,19 +625,19 @@ export function Step5Workspace({
                 ) : null}
 
                 {coverLetterMessage ? (
-                  <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
+                  <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
                     {coverLetterMessage}
                   </div>
                 ) : null}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Transit sync</p>
+                  <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Transit sync</p>
                     <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.transitLegRequirements.length} transfer note{itinerarySyncSummary.transitLegRequirements.length === 1 ? "" : "s"} queued</p>
                     <p className="mt-2 leading-6">City changes update the itinerary matrix in the draft automatically.</p>
                   </div>
-                  <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Accommodation sync</p>
+                  <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Accommodation sync</p>
                     <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.accommodationGapWarnings.length === 0 ? "No stay gaps detected" : `${itinerarySyncSummary.accommodationGapWarnings.length} gap${itinerarySyncSummary.accommodationGapWarnings.length === 1 ? "" : "s"} flagged`}</p>
                     <p className="mt-2 leading-6">Warnings stay isolated here instead of interrupting the editor while you write.</p>
                   </div>
@@ -650,7 +650,7 @@ export function Step5Workspace({
                     disabled={isGeneratingCoverLetter}
                     rows={16}
                     placeholder="Generate or edit the final cover letter here before saving the application package."
-                    className="w-full rounded-[1rem] border border-white/12 bg-black/40 px-4 py-3 pr-12 text-sm leading-6 text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="w-full rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 pr-12 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35 disabled:cursor-not-allowed disabled:opacity-70"
                   />
                   {speechSupported ? (
                     <button
@@ -669,7 +669,7 @@ export function Step5Workspace({
                           ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
                           : promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "processing"
                             ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
-                            : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                                : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                       }`}
                       aria-label="Dictate cover letter"
                     >
@@ -691,33 +691,33 @@ export function Step5Workspace({
                   ) : null}
                 </div>
 
-                <div className="mt-5 rounded-[1.1rem] border border-white/10 bg-[#101010] p-4 sm:p-5">
+                <div className="mt-5 rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-4 shadow-[0_16px_40px_rgba(5,10,24,0.18)] sm:p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
                         <WandSparkles className="h-3.5 w-3.5" />
                         Additional AI Letters
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                      <p className="mt-2 text-sm leading-6 text-slate-200">
                         Generate up to two extra visa-supporting letters and dictate into any title, brief, or draft when typing is slower.
                       </p>
                     </div>
                     {speechSupported ? (
-                      <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
+                      <span className="inline-flex rounded-full border border-white/14 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
                         {microphonePermission === "granted" ? "Voice briefs ready" : "Voice briefs available"}
                       </span>
                     ) : null}
                   </div>
 
                   {customVoiceMessage ? (
-                    <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
+                    <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
                       {customVoiceMessage}
                     </div>
                   ) : null}
 
                   <div className="mt-4 grid gap-4 xl:grid-cols-2">
                     {customLetters.map((letter) => (
-                      <div key={letter.id} className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+                      <div key={letter.id} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
                         {(() => {
                           const dictationPhase = promptDictationState?.targetKey === `prompt:${letter.id}` ? promptDictationState.phase : null;
 
@@ -728,7 +728,7 @@ export function Step5Workspace({
                               value={letter.title}
                               onChange={(event) => onCustomLetterChange(letter.id, { title: event.target.value })}
                               placeholder="Letter title"
-                              className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 pr-12 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                              className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 pr-12 text-sm font-semibold text-white outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35"
                             />
                             {speechSupported ? (
                               <button
@@ -747,7 +747,7 @@ export function Step5Workspace({
                                     ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
                                     : promptDictationState?.targetKey === `title:${letter.id}` && promptDictationState.phase === "processing"
                                       ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
-                                      : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                                        : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                                 }`}
                                 aria-label={`Dictate title for ${letter.title || letter.id}`}
                               >
@@ -774,7 +774,7 @@ export function Step5Workspace({
                               onChange={(event) => onCustomLetterChange(letter.id, { prompt: event.target.value })}
                               rows={6}
                               placeholder="Describe what this extra letter should explain. Example: write a leave approval support letter mentioning my approved dates, role, employer, and that I am expected back after the trip."
-                              className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 pr-12 text-sm leading-6 text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                              className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 pr-12 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35"
                             />
                             {speechSupported ? (
                               <button
@@ -793,7 +793,7 @@ export function Step5Workspace({
                                     ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
                                     : dictationPhase === "processing" && promptDictationState?.targetKey === `prompt:${letter.id}`
                                       ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
-                                      : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                                        : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                                 }`}
                                 aria-label={`Dictate ${letter.title}`}
                               >
@@ -819,7 +819,7 @@ export function Step5Workspace({
                               type="button"
                               onClick={() => onGenerateCustomLetter(letter.id, applicant)}
                               disabled={activeCustomLetterId === letter.id}
-                              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {activeCustomLetterId === letter.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                               {activeCustomLetterId === letter.id ? "Generating..." : "Generate Letter"}
@@ -829,7 +829,7 @@ export function Step5Workspace({
                                 <button
                                   type="button"
                                   onClick={() => handleDownloadDoc(letter.content, letter.title || `letter-${letter.id}`)}
-                                  className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-[#151515] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30"
+                                  className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                                 >
                                   <Download className="h-4 w-4" />
                                   Download .doc
@@ -837,7 +837,7 @@ export function Step5Workspace({
                                 <button
                                   type="button"
                                   onClick={() => void handleDownloadPdf(letter.content, letter.title || `letter-${letter.id}`)}
-                                  className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-[#151515] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30"
+                                  className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                                 >
                                   <Download className="h-4 w-4" />
                                   Download PDF
@@ -847,7 +847,7 @@ export function Step5Workspace({
                           </div>
 
                           {letter.message ? (
-                            <div className="rounded-[0.9rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
+                            <div className="rounded-[0.9rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
                               {letter.message}
                             </div>
                           ) : null}
@@ -858,7 +858,7 @@ export function Step5Workspace({
                               onChange={(event) => onCustomLetterChange(letter.id, { content: event.target.value })}
                               rows={10}
                               placeholder="The generated additional letter will appear here."
-                              className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 pr-12 text-sm leading-6 text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                              className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 pr-12 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35"
                             />
                             {speechSupported ? (
                               <button
@@ -877,7 +877,7 @@ export function Step5Workspace({
                                     ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
                                     : promptDictationState?.targetKey === `content:${letter.id}` && promptDictationState.phase === "processing"
                                       ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
-                                      : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                                        : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                                 }`}
                                 aria-label={`Dictate content for ${letter.title || letter.id}`}
                               >
@@ -907,16 +907,16 @@ export function Step5Workspace({
                 </div>
               </div>
 
-              <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
                   <FileText className="h-3.5 w-3.5" />
                   Live Preview
                 </div>
-                <div className="mt-4 min-h-[420px] rounded-[1rem] border border-white/10 bg-black/50 p-4">
+                <div className="mt-4 min-h-[420px] rounded-[1rem] border border-amber-200/70 bg-[#fffaf0] p-4 shadow-[0_14px_34px_rgba(15,23,42,0.14)]">
                   {coverLetterDraft.trim() ? (
-                    <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{coverLetterDraft}</pre>
+                    <pre className="whitespace-pre-wrap text-sm leading-7 text-[#1b2430]">{coverLetterDraft}</pre>
                   ) : (
-                    <div className="flex min-h-[388px] items-center justify-center text-center text-sm text-slate-400">
+                    <div className="flex min-h-[388px] items-center justify-center text-center text-sm text-slate-500">
                       Generate or paste the final letter to preview the consular narrative before package creation.
                     </div>
                   )}
@@ -930,7 +930,7 @@ export function Step5Workspace({
             <ConsularInterviewPanel applicant={applicant} />
             <RefusalDecoderPanel refusalReasonCode={null} />
           </div>
-          <div className="rounded-[1.2rem] border border-white/10 bg-black/30 p-5">
+          <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
@@ -938,7 +938,7 @@ export function Step5Workspace({
                   Consulate-ready packet
                 </div>
                 <h3 className="mt-3 text-xl font-semibold text-white">Single merged PDF handoff</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-200">
                   Open the normalized A4 packet that combines the form, cover letter, insurance, audit, checklist, and saved supporting documents in consular order.
                 </p>
               </div>
@@ -963,12 +963,12 @@ export function Step5Workspace({
         </div>
       </div>
 
-      <div className="rounded-[1.5rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+      <div className="rounded-[1.5rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Final Handoff</p>
             <h3 className="mt-2 text-xl font-semibold text-white">Master VFS bundle generation</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
+            <p className="mt-2 text-sm leading-6 text-slate-200">
               {previewMode
                 ? "Preview mode opens a sample package vault instead of creating a live application."
                 : "Your master packet can be generated directly and saved to the dashboard vault."}
@@ -992,7 +992,7 @@ export function Step5Workspace({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             <PackageCheck className="h-4 w-4" />
             {previewMode

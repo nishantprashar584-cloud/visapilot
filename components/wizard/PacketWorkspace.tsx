@@ -1302,8 +1302,8 @@ export function PacketWorkspace({
   function renderMergeWorkbench() {
     if (documents.length === 0) {
       return (
-        <div className="rounded-[1.1rem] border border-white/10 bg-black/30 px-4 py-8 text-center text-sm text-slate-400">
-          <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[1rem] bg-white/5 text-slate-300">
+        <div className="rounded-[1.1rem] border border-white/14 bg-white/10 px-4 py-8 text-center text-sm text-slate-300 backdrop-blur-sm">
+          <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[1rem] bg-white/12 text-slate-100">
             <Layers3 className="h-6 w-6" />
           </div>
           <p className="mt-4 text-base font-semibold text-white">Add the files you want to merge</p>
@@ -1319,7 +1319,7 @@ export function PacketWorkspace({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-white">Merge order</p>
-            <p className="mt-1 text-sm text-slate-400">Drag cards to control the exported stack, then create one merged PDF.</p>
+            <p className="mt-1 text-sm text-slate-300">Drag cards to control the exported stack, then create one merged PDF.</p>
           </div>
           <button
             type="button"
@@ -1341,11 +1341,11 @@ export function PacketWorkspace({
               onDragEnd={() => setDraggedDocumentId(null)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDocumentDropReorder(document.id)}
-              className="rounded-[1rem] border border-white/10 bg-black/40 p-4"
+              className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-300">
+                  <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/12 text-slate-100">
                     <GripVertical className="h-5 w-5" />
                   </div>
                   <div>
@@ -1355,7 +1355,7 @@ export function PacketWorkspace({
                         {formatCategoryLabel(document.category)}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-slate-300">
                       {document.pageCount} {document.pageCount === 1 ? "page" : "pages"} · {formatBytes(document.file.size)}
                     </p>
                   </div>
@@ -1365,7 +1365,7 @@ export function PacketWorkspace({
                   <button
                     type="button"
                     onClick={() => openDocumentPreview(document.id)}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                   >
                     <Eye className="h-4 w-4" />
                     Open preview
@@ -1388,11 +1388,11 @@ export function PacketWorkspace({
 
   function renderSinglePdfSelector() {
     return (
-      <div className="space-y-3 rounded-[1rem] border border-white/10 bg-black/30 p-4">
+      <div className="space-y-3 rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-semibold text-white">Working PDF</p>
-            <p className="mt-1 text-sm text-slate-400">Pick the PDF you want to edit for this operation.</p>
+            <p className="mt-1 text-sm text-slate-300">Pick the PDF you want to edit for this operation.</p>
           </div>
           <select
             value={activePdfId}
@@ -1407,11 +1407,11 @@ export function PacketWorkspace({
         </div>
 
         {!activePdf ? (
-          <div className="rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+          <div className="rounded-[0.9rem] border border-dashed border-white/14 bg-white/8 px-4 py-5 text-sm text-slate-300">
             Upload a PDF for {selectedToolDefinition.shortLabel.toLowerCase()} to unlock this workspace.
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-3 text-sm text-slate-300">
+          <div className="flex flex-wrap items-center gap-3 rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-200">
             <span className="font-semibold text-white">{activePdf.file.name}</span>
             <span>{activePdf.pageCount} {activePdf.pageCount === 1 ? "page" : "pages"}</span>
             <span>{formatBytes(activePdf.file.size)}</span>
@@ -1425,12 +1425,12 @@ export function PacketWorkspace({
     return (
       <div className="space-y-4">
         {renderSinglePdfSelector()}
-        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
           <h4 className="flex items-center gap-2 text-base font-semibold text-white">
             <Scissors className="h-4 w-4 text-rose-400" />
             Extract page range
           </h4>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+          <p className="mt-2 text-sm leading-6 text-slate-200">
             Use ranges like 1-3, 5 or 2,4,8. The result opens in preview and lands in Generated Files for download.
           </p>
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end">
@@ -1528,7 +1528,7 @@ export function PacketWorkspace({
                         ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
                         : splitDictationPhase === "processing"
                           ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
-                          : "border-white/10 bg-black/50 text-slate-300 hover:border-white/20 hover:text-white"
+                            : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                     }`}
                     aria-label="Dictate page range"
                   >
@@ -1560,7 +1560,7 @@ export function PacketWorkspace({
             </button>
           </div>
           {splitVoiceMessage ? (
-            <p className="mt-3 text-sm text-slate-300">{splitVoiceMessage}</p>
+            <p className="mt-3 text-sm text-slate-200">{splitVoiceMessage}</p>
           ) : null}
         </div>
       </div>
@@ -1571,16 +1571,16 @@ export function PacketWorkspace({
     return (
       <div className="space-y-4">
         {renderSinglePdfSelector()}
-        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
           <h4 className="flex items-center gap-2 text-base font-semibold text-white">
             <Minimize className="h-4 w-4 text-emerald-400" />
             Create lighter PDF
           </h4>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+          <p className="mt-2 text-sm leading-6 text-slate-200">
             VisaPilot rebuilds the uploaded PDF into a cleaner export suited for portal limits while keeping the pages intact.
           </p>
           {activePdf ? (
-            <div className="mt-4 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-3 text-sm text-slate-300">
+            <div className="mt-4 rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-200">
               Current file size: <span className="font-semibold text-white">{formatBytes(activePdf.file.size)}</span>
             </div>
           ) : null}
@@ -1601,7 +1601,7 @@ export function PacketWorkspace({
     return (
       <div className="space-y-4">
         {renderSinglePdfSelector()}
-        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
           <h4 className="flex items-center gap-2 text-base font-semibold text-white">
             <RotateCw className="h-4 w-4 text-amber-400" />
             Choose rotation angle
@@ -1614,7 +1614,7 @@ export function PacketWorkspace({
                 onClick={() => setRotationPreset(preset)}
                 className={rotationPreset === preset
                   ? "rounded-[1rem] border border-amber-300/40 bg-amber-500/15 px-4 py-4 text-sm font-semibold text-white"
-                  : "rounded-[1rem] border border-white/10 bg-[#141414] px-4 py-4 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"}
+                  : "rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-4 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/12 hover:text-white"}
               >
                 Rotate {preset}°
               </button>
@@ -1637,14 +1637,14 @@ export function PacketWorkspace({
     return (
       <div className="space-y-4">
         {renderSinglePdfSelector()}
-        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h4 className="flex items-center gap-2 text-base font-semibold text-white">
                 <ArrowDownUp className="h-4 w-4 text-violet-400" />
                 Drag pages into final order
               </h4>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-200">
                 Keep the workspace compact, then open the full drag-and-drop board only when you are ready to finalize the packet order.
               </p>
             </div>
@@ -1653,7 +1653,7 @@ export function PacketWorkspace({
                 type="button"
                 onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
                 disabled={!activePdf}
-                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14 disabled:opacity-50"
               >
                 Reset order
               </button>
@@ -1674,14 +1674,14 @@ export function PacketWorkspace({
               Preparing page previews...
             </div>
           ) : !activePdf ? (
-            <div className="mt-4 rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+            <div className="mt-4 rounded-[0.9rem] border border-dashed border-white/14 bg-white/8 px-4 py-5 text-sm text-slate-300">
               Upload and choose a PDF to build the reorder board.
             </div>
           ) : (
-            <div className="mt-4 rounded-[0.9rem] border border-white/10 bg-[#141414] px-4 py-4 text-sm text-slate-300">
+            <div className="mt-4 rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-4 text-sm text-slate-200">
               <p className="font-semibold text-white">Current page order</p>
-              <p className="mt-2 leading-6 text-slate-400">{pageSequence.join(", ")}</p>
-              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">
+              <p className="mt-2 leading-6 text-slate-300">{pageSequence.join(", ")}</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">
                 {activePdf.pageCount} page{activePdf.pageCount === 1 ? "" : "s"} ready for drag-and-drop reordering in the modal board.
               </p>
             </div>
@@ -1695,12 +1695,12 @@ export function PacketWorkspace({
     return (
       <div className="space-y-4">
         {renderSinglePdfSelector()}
-        <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+        <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
           <h4 className="flex items-center gap-2 text-base font-semibold text-white">
             <Shield className="h-4 w-4 text-slate-300" />
             Remove metadata before submission
           </h4>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+          <p className="mt-2 text-sm leading-6 text-slate-200">
             This export strips metadata such as author, subject, language, and other editing traces while preserving the page content.
           </p>
           <button
@@ -1905,7 +1905,7 @@ export function PacketWorkspace({
     <>
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
-        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+        <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
@@ -1913,11 +1913,11 @@ export function PacketWorkspace({
                 PDF Editor
               </div>
               <h4 className="mt-3 text-lg font-semibold text-white">Operation-first PDF workspace</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-200">
                 Start by choosing what you want to do. VisaPilot then narrows the upload, preview, and export flow around that single job.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-100">
               <CheckCircle2 className="h-4 w-4 text-emerald-300" />
               Choose tool, upload, configure, export
             </div>
@@ -1934,28 +1934,28 @@ export function PacketWorkspace({
                   onClick={() => setSelectedTool(tool.id)}
                   className={selectedTool === tool.id
                     ? `rounded-[1.1rem] border p-4 text-left transition ${tool.accentClass}`
-                    : "rounded-[1.1rem] border border-white/10 bg-black/30 p-4 text-left text-slate-300 transition hover:border-white/20 hover:bg-white/[0.03]"}
+                    : "rounded-[1.1rem] border border-white/14 bg-white/10 p-4 text-left text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14"}
                 >
                   <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${tool.iconClass}`}>
                     <Icon className="h-5 w-5" />
                   </span>
                   <p className="mt-4 text-sm font-semibold text-white">{tool.label}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">{tool.description}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-200">{tool.description}</p>
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+        <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
                 <Zap className="h-3.5 w-3.5" />
                 Workspace
               </div>
               <h4 className="mt-2 text-lg font-semibold text-white">{selectedToolDefinition.uploadTitle}</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{selectedToolDefinition.uploadDescription}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-200">{selectedToolDefinition.uploadDescription}</p>
             </div>
             <div className="flex flex-col items-start gap-3 lg:items-end">
               <input
@@ -1980,7 +1980,7 @@ export function PacketWorkspace({
                 <Upload className="h-4 w-4" />
                 {buildUploadButtonLabel(selectedToolDefinition)}
               </button>
-              <p className="text-xs leading-5 text-slate-400 lg:max-w-[18rem] lg:text-right">
+              <p className="text-xs leading-5 text-slate-300 lg:max-w-[18rem] lg:text-right">
                 {selectedToolDefinition.sourceKind === "word"
                   ? "Word source files stay local to this workspace and convert through the server when you export."
                   : selectedToolDefinition.multiple
@@ -1998,7 +1998,7 @@ export function PacketWorkspace({
           ) : null}
 
           {toolkitMessage ? (
-            <div className="mt-4 rounded-[1rem] border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200">
+            <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
               {toolkitMessage}
             </div>
           ) : null}
@@ -2009,17 +2009,17 @@ export function PacketWorkspace({
         </div>
 
         {!previewMode && supportingDocuments.length > 0 ? (
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+          <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">
               <Tags className="h-3.5 w-3.5" />
               Saved to packet vault
             </div>
             <div className="mt-3 space-y-2">
               {supportingDocuments.map((document) => (
-                <div key={document.id} className="flex flex-col gap-3 rounded-[0.9rem] border border-white/10 bg-[#141414] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div key={document.id} className="flex flex-col gap-3 rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-medium text-white">{document.fileName}</p>
-                    <p className="text-xs text-slate-400">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
+                    <p className="text-xs text-slate-300">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
                   </div>
                   <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
                     Saved
@@ -2035,7 +2035,7 @@ export function PacketWorkspace({
         <div className="rounded-[1.2rem] border border-cyan-300/20 bg-cyan-500/10 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-black/20 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/24 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-50">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Consultant checklist
               </div>
@@ -2044,14 +2044,14 @@ export function PacketWorkspace({
                 Profile: {formatEmploymentStatusLabel(applicant.employment.employmentStatus)}. Funding: {formatFundingSourceLabel(applicant.sponsor.fundingSource)}.
               </p>
             </div>
-            <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200">
+            <div className="rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
               {requiredDocuments.length} required items
             </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {requiredDocuments.map((document) => (
-              <span key={document} className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+              <span key={document} className="rounded-full border border-white/14 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
                 {document}
               </span>
             ))}
@@ -2078,7 +2078,7 @@ export function PacketWorkspace({
 
             <div className="mt-4 space-y-3">
               {outputs.map((output) => (
-                <div key={output.id} className={`flex flex-col gap-3 rounded-[1rem] border p-4 sm:flex-row sm:items-center sm:justify-between ${previewOutputId === output.id ? "border-white/30 bg-black/40" : "border-white/10 bg-black/25"}`}>
+                <div key={output.id} className={`flex flex-col gap-3 rounded-[1rem] border p-4 sm:flex-row sm:items-center sm:justify-between ${previewOutputId === output.id ? "border-cyan-300/35 bg-white/14" : "border-white/14 bg-white/10"}`}>
                   <div>
                     <p className="text-sm font-semibold text-white">{output.label}</p>
                     <p className="mt-1 text-sm text-emerald-50/85">{output.fileName}</p>
@@ -2088,7 +2088,7 @@ export function PacketWorkspace({
                     <button
                       type="button"
                       onClick={() => openOutputPreview(output.id)}
-                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-3 py-2 text-xs font-semibold text-white transition hover:border-white/30"
+                      className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                     >
                       Open preview
                     </button>
@@ -2109,21 +2109,21 @@ export function PacketWorkspace({
             </div>
           </div>
         ) : (
-          <div ref={generatedFilesRef} className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
+          <div ref={generatedFilesRef} className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-100">
               <Download className="h-3.5 w-3.5" />
               Generated Files
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
+            <p className="mt-3 text-sm leading-6 text-slate-200">
               Your processed PDFs will appear here after each operation, with the newest result opened automatically in preview.
             </p>
           </div>
         )}
 
-        <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+        <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
                 <Eye className="h-3.5 w-3.5" />
                 Focus preview
               </div>
@@ -2139,7 +2139,7 @@ export function PacketWorkspace({
               </select>
             </div>
 
-            <div className="rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-300">
+            <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur-sm">
               {previewOutput
                 ? `Previewing generated file: ${previewOutput.fileName}.`
                 : previewDocument
@@ -2150,7 +2150,7 @@ export function PacketWorkspace({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-white/10 bg-[#141414] px-4 py-4 text-sm text-slate-300">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-4 text-sm text-slate-200">
             <div>
               <p className="font-semibold text-white">
                 {previewOutput?.fileName ?? previewDocument?.file.name ?? "No file selected"}
@@ -2180,12 +2180,12 @@ export function PacketWorkspace({
         </div>
 
         {selectedTool !== "merge" && activePdf ? (
-          <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
               <FileText className="h-3.5 w-3.5" />
               Active PDF snapshot
             </div>
-            <div className="mt-3 rounded-[1rem] border border-white/10 bg-black/30 px-4 py-4 text-sm text-slate-300">
+            <div className="mt-3 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 text-sm text-slate-200 backdrop-blur-sm">
               <p><span className="font-semibold text-white">File:</span> {activePdf.file.name}</p>
               <p className="mt-2"><span className="font-semibold text-white">Pages:</span> {activePdf.pageCount}</p>
               <p className="mt-2"><span className="font-semibold text-white">Size:</span> {formatBytes(activePdf.file.size)}</p>
@@ -2197,12 +2197,12 @@ export function PacketWorkspace({
         ) : null}
 
         {selectedTool === "wordToPdf" && activeWordDocument ? (
-          <div className="rounded-[1.2rem] border border-white/10 bg-[#101010] p-5">
+          <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
               <FileText className="h-3.5 w-3.5" />
               Active document snapshot
             </div>
-            <div className="mt-3 rounded-[1rem] border border-white/10 bg-black/30 px-4 py-4 text-sm text-slate-300">
+            <div className="mt-3 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 text-sm text-slate-200 backdrop-blur-sm">
               <p><span className="font-semibold text-white">File:</span> {activeWordDocument.file.name}</p>
               <p className="mt-2"><span className="font-semibold text-white">Size:</span> {formatBytes(activeWordDocument.file.size)}</p>
               <p className="mt-2"><span className="font-semibold text-white">Pipeline:</span> LibreOffice server conversion</p>
@@ -2214,11 +2214,11 @@ export function PacketWorkspace({
       </div>
 
       {activeModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
-          <div className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#090909] shadow-panel">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6 backdrop-blur-sm">
+          <div className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/14 bg-[linear-gradient(180deg,rgba(18,28,48,0.98),rgba(10,14,26,0.99))] shadow-panel">
             <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
                   {activeModal === "preview" ? "Focused preview" : "Reorder board"}
                 </p>
                 <p className="mt-1 text-lg font-semibold text-white">
@@ -2230,7 +2230,7 @@ export function PacketWorkspace({
               <button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/30 hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/10 text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                 aria-label="Close modal"
               >
                 <X className="h-4 w-4" />
@@ -2241,14 +2241,14 @@ export function PacketWorkspace({
               <div className="overflow-auto">{renderPreviewContent()}</div>
             ) : (
               <div className="flex max-h-[calc(92vh-5.5rem)] flex-col overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 text-sm text-slate-300">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 text-sm text-slate-200">
                   <p>Drag page cards into the final embassy order, then export the rebuilt PDF.</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
                       disabled={!activePdf}
-                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#161616] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 disabled:opacity-50"
+                      className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14 disabled:opacity-50"
                     >
                       Reset order
                     </button>
@@ -2270,7 +2270,7 @@ export function PacketWorkspace({
                       Preparing page previews...
                     </div>
                   ) : !activePdf ? (
-                    <div className="rounded-[0.9rem] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+                    <div className="rounded-[0.9rem] border border-dashed border-white/14 bg-white/8 px-4 py-5 text-sm text-slate-300">
                       Upload and choose a PDF to build the reorder board.
                     </div>
                   ) : (
@@ -2286,14 +2286,14 @@ export function PacketWorkspace({
                             onDragEnd={() => setDraggedPageNumber(null)}
                             onDragOver={(event) => event.preventDefault()}
                             onDrop={() => handlePageDropReorder(pageNumber)}
-                            className="rounded-[1rem] border border-white/10 bg-[#141414] p-3"
+                            className="rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] p-3"
                           >
                             <div className="mb-3 flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Position {index + 1}</p>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Position {index + 1}</p>
                                 <p className="text-sm font-semibold text-white">Page {pageNumber}</p>
                               </div>
-                              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                              <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-100">
                                 <GripVertical className="h-3.5 w-3.5" />
                                 Drag
                               </div>

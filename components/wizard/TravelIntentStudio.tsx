@@ -145,7 +145,7 @@ export function TravelIntentStudio({
   }
 
   return (
-    <div className="rounded-[1.35rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+    <div className="rounded-[1.35rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)] sm:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
@@ -153,7 +153,7 @@ export function TravelIntentStudio({
             Module 3 of 6 · Tourist Route Studio
           </div>
           <h3 className="mt-3 text-xl font-semibold text-white">Day-by-day itinerary without booking noise</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
             Arrange the tourist trip timeline here. VisaPilot converts city changes into standard inter-city transfer text and silently updates the narrative engine in the next module.
           </p>
         </div>
@@ -168,7 +168,7 @@ export function TravelIntentStudio({
         </button>
       </div>
 
-      <div className="mt-5 flex flex-wrap rounded-[1rem] border border-white/10 bg-black/40 p-1">
+      <div className="mt-5 flex flex-wrap rounded-[1rem] border border-white/14 bg-white/10 p-1 backdrop-blur-sm">
         {[
           { key: "timeline", label: "Timeline Studio", icon: TrainFront },
           { key: "flight", label: "Flight Route", icon: Plane },
@@ -183,7 +183,7 @@ export function TravelIntentStudio({
               type="button"
               onClick={() => setActiveTab(tab.key as TravelStudioTab)}
               className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                isActive ? "bg-white text-slate-950" : "text-slate-300 hover:text-white"
+                isActive ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-slate-100 hover:bg-white/10 hover:text-white"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -223,16 +223,16 @@ export function TravelIntentStudio({
                   });
                   setDraggedEntryId(null);
                 }}
-                className="rounded-[1rem] border border-white/10 bg-black/30 p-4"
+                className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm"
               >
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex items-start gap-3">
-                    <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200">
+                    <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 bg-white/12 text-slate-100">
                       <GripVertical className="h-4 w-4" />
                     </span>
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{entry.dayLabel}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-300">{transferLabel}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-200">{transferLabel}</p>
                     </div>
                   </div>
 
@@ -241,7 +241,7 @@ export function TravelIntentStudio({
                       type="button"
                       onClick={() => moveEntry(entry.id, -1)}
                       disabled={index === 0}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/10 text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label={`Move ${entry.dayLabel} earlier`}
                     >
                       <ArrowUp className="h-4 w-4" />
@@ -250,7 +250,7 @@ export function TravelIntentStudio({
                       type="button"
                       onClick={() => moveEntry(entry.id, 1)}
                       disabled={index === entries.length - 1}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/10 text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label={`Move ${entry.dayLabel} later`}
                     >
                       <ArrowDown className="h-4 w-4" />
@@ -264,7 +264,7 @@ export function TravelIntentStudio({
                     <input
                       value={entry.city}
                       onChange={(event) => updateEntry(entry.id, { city: event.target.value })}
-                      className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                      className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35"
                       placeholder="Paris"
                     />
                   </label>
@@ -274,7 +274,7 @@ export function TravelIntentStudio({
                     <select
                       value={entry.stayType}
                       onChange={(event) => updateEntry(entry.id, { stayType: event.target.value })}
-                      className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-white/30"
+                      className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-300/35"
                     >
                       <option value="arrival stay">Arrival stay</option>
                       <option value="hotel stay">Hotel stay</option>
@@ -288,7 +288,7 @@ export function TravelIntentStudio({
                     <input
                       value={entry.accommodationReference ?? ""}
                       onChange={(event) => updateEntry(entry.id, { accommodationReference: event.target.value })}
-                      className="w-full rounded-[0.9rem] border border-white/12 bg-black/40 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-white/30"
+                      className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35"
                       placeholder="Hotel voucher, Airbnb code, or host note"
                     />
                   </label>
@@ -301,19 +301,19 @@ export function TravelIntentStudio({
 
       {activeTab === "flight" ? (
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Flight intent anchor</p>
             <p className="mt-3 text-sm leading-6 text-slate-200">
               Route the cover letter around verifiable air travel only. No rail booking integration is required here, keeping the per-application cost ceiling intact.
             </p>
-            <div className="mt-4 rounded-[0.9rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300">
+            <div className="mt-4 rounded-[0.9rem] border border-white/14 bg-white/10 p-4 text-sm leading-6 text-slate-200">
               Arrival: {applicant.trip.arrivalDate || "Pending"} via {applicant.trip.portOfEntry || applicant.trip.firstEntryCountry || "Pending entry point"}
               <br />
               Departure: {applicant.trip.departureDate || "Pending"}
             </div>
           </div>
 
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Transfer proof handling</p>
             <p className="mt-3 text-sm leading-6 text-slate-200">
               City changes now become text-only transfer statements in the narrative. Optional train, bus, or car-rental proof can still be uploaded in the vault and will be appended to the travel section of the compiled packet.
@@ -327,15 +327,15 @@ export function TravelIntentStudio({
 
       {activeTab === "stay" ? (
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Accommodation baseline</p>
             <p className="mt-3 text-sm leading-6 text-slate-200">Current application stay note:</p>
-            <div className="mt-3 rounded-[0.9rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300">
+            <div className="mt-3 rounded-[0.9rem] border border-white/14 bg-white/10 p-4 text-sm leading-6 text-slate-200">
               {applicant.trip.accommodations || "Add hotel or host stay details earlier in the wizard."}
             </div>
           </div>
 
-          <div className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+          <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Live gap check</p>
             <div className="mt-3 space-y-3">
               {syncedResult.accommodationGapWarnings.length > 0 ? syncedResult.accommodationGapWarnings.map((warning) => (
@@ -353,21 +353,21 @@ export function TravelIntentStudio({
       ) : null}
 
       {isGuidanceDrawerOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm">
           <button type="button" aria-label="Close travel guidance" className="flex-1" onClick={() => setIsGuidanceDrawerOpen(false)} />
           <div className="relative h-full w-full max-w-[420px] overflow-y-auto border-l border-white/10 bg-[#0b0d11] p-5 sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-200">Travel guidance</p>
                 <h3 className="mt-2 text-xl font-semibold text-white">Narrative sync output</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-200">
                   Review the transfer statements and accommodation gaps that are being pushed quietly into the cover-letter engine.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsGuidanceDrawerOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/25 hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/10 text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
               >
                 <Info className="h-4 w-4" />
               </button>
@@ -382,9 +382,9 @@ export function TravelIntentStudio({
               </div>
             </div>
 
-            <div className="mt-5 rounded-[1rem] border border-white/10 bg-[#101010] p-4 text-sm text-slate-200">
+            <div className="mt-5 rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-100 backdrop-blur-sm">
               <p className="font-semibold text-white">Accommodation gaps</p>
-              <div className="mt-3 space-y-2 leading-6 text-slate-300">
+              <div className="mt-3 space-y-2 leading-6 text-slate-200">
                 {syncedResult.accommodationGapWarnings.length > 0 ? syncedResult.accommodationGapWarnings.map((warning) => (
                   <p key={warning}>{warning}</p>
                 )) : <p>No missing accommodation references detected.</p>}

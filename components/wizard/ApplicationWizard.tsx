@@ -2085,21 +2085,21 @@ export function ApplicationWizard({
                 <TextInput label="Entry date" name="trip.arrivalDate" type="date" register={form.register} errors={form.formState.errors} />
                 <TextInput label="Exit date" name="trip.departureDate" type="date" register={form.register} errors={form.formState.errors} />
                 <TextAreaInput label="Accommodation details" name="trip.accommodations" register={form.register} errors={form.formState.errors} placeholder="Hotel name, address, or host accommodation summary" enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "trip.accommodations" ? voiceCaptureState.phase : null} />
-                <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white">
+                <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm font-medium text-slate-100 backdrop-blur-sm">
                   Trip duration is calculated automatically from the entry and exit dates to drive the destination-specific funds audit.
                 </div>
-                <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm font-medium text-white">
+                <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm font-medium text-slate-100 backdrop-blur-sm">
                   VisaPilot automatically aligns the destination list and calculates stay duration from your travel dates.
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <div className="rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_16px_40px_rgba(5,10,24,0.18)]">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
                     <Plane className="h-3.5 w-3.5" />
                     Item 26 · Previous Schengen visas
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
                     The harmonized form asks whether you were issued any Schengen visas in the last 3 years. Add up to three entries so Item 26 is not left blank.
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -2125,8 +2125,8 @@ export function ApplicationWizard({
                         }}
                         className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition ${
                           previousSchengenVisasIssued === option.value
-                            ? "border-white/30 bg-white text-slate-950"
-                            : "border-white/10 bg-black/30 text-slate-300 hover:border-white/20 hover:text-white"
+                            ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+                            : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                         }`}
                       >
                         {option.label}
@@ -2140,7 +2140,7 @@ export function ApplicationWizard({
                   {previousSchengenVisasIssued ? (
                     <div className="mt-4 space-y-4">
                       {previousSchengenVisas.map((_, index) => (
-                        <div key={`previous-visa-${index}`} className="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+                        <div key={`previous-visa-${index}`} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
                           <div className="flex items-center justify-between gap-3">
                             <p className="text-sm font-semibold text-white">Previous visa {index + 1}</p>
                             {previousSchengenVisas.length > 1 ? (
@@ -2153,7 +2153,7 @@ export function ApplicationWizard({
                                     { shouldDirty: true, shouldValidate: true },
                                   );
                                 }}
-                                className="text-sm font-semibold text-slate-300 transition hover:text-white"
+                                className="text-sm font-semibold text-slate-200 transition hover:text-white"
                               >
                                 Remove
                               </button>
@@ -2179,7 +2179,7 @@ export function ApplicationWizard({
                               { shouldDirty: true, shouldValidate: false },
                             );
                           }}
-                          className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:text-white"
+                          className="inline-flex rounded-full border border-white/14 bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                         >
                           Add another previous visa
                         </button>
@@ -2188,12 +2188,12 @@ export function ApplicationWizard({
                   ) : null}
                 </div>
 
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <div className="rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_16px_40px_rgba(5,10,24,0.18)]">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
                     <Fingerprint className="h-3.5 w-3.5" />
                     Item 27 · VIS fingerprints
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
                     Declare whether your fingerprints were collected for a Schengen visa within the last 59 months. If yes, add the approximate date or year and any sticker number you still have.
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -2211,8 +2211,8 @@ export function ApplicationWizard({
                         })}
                         className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition ${
                           visFingerprintStatus === option.value
-                            ? "border-white/30 bg-white text-slate-950"
-                            : "border-white/10 bg-black/30 text-slate-300 hover:border-white/20 hover:text-white"
+                            ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+                            : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
                         }`}
                       >
                         {option.label}
@@ -2230,16 +2230,16 @@ export function ApplicationWizard({
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Duration</p>
+                <div className="rounded-[1.1rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Duration</p>
                   <p className="mt-2 text-2xl font-semibold text-white">{stayDuration} days</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">This duration feeds the destination-specific daily funds requirement used in the live audit engine.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">This duration feeds the destination-specific daily funds requirement used in the live audit engine.</p>
                 </div>
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Consular rule verification</p>
+                <div className="rounded-[1.1rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Consular rule verification</p>
                   <p className="mt-2 text-sm leading-6 text-slate-200">{consularRuleMessage}</p>
                   {transitCountries?.trim() ? (
-                    <p className="mt-3 text-sm leading-6 text-slate-400">Transit countries noted: {transitCountries}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">Transit countries noted: {transitCountries}</p>
                   ) : null}
                 </div>
               </div>
@@ -2286,8 +2286,8 @@ export function ApplicationWizard({
                     ) : "Upload bank statement"}
                   </button>
                 </div>
-                <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Live compliance audit</p>
+                <div className="rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_16px_40px_rgba(5,10,24,0.18)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Live compliance audit</p>
                   <div className="mt-3 flex items-center gap-3">
                     <span
                       className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
@@ -2300,12 +2300,12 @@ export function ApplicationWizard({
                     >
                       {liveAudit.status}
                     </span>
-                    <p className="text-sm text-slate-300">Required today: EUR {liveAudit.requiredLiquidBalanceEur.toFixed(2)}</p>
+                    <p className="text-sm text-slate-200">Required today: EUR {liveAudit.requiredLiquidBalanceEur.toFixed(2)}</p>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                  <p className="mt-3 text-sm leading-6 text-slate-200">
                     {liveAudit.statutoryRuleSummary}
                   </p>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                  <p className="mt-3 text-sm leading-6 text-slate-200">
                     Available EUR {liveAudit.availableLiquidBalanceEur.toFixed(2)}. Daily budget: {tripDailyBudgetLabel}. Safer target with buffer: EUR {liveAudit.recommendedLiquidBalanceEur.toFixed(2)}.
                   </p>
                   {liveAudit.consultantWarningMessage ? (
@@ -2338,7 +2338,7 @@ export function ApplicationWizard({
               ) : null}
 
               {bankStatementParseMessage ? (
-                <div className="rounded-[1rem] border border-white/10 bg-black/50 px-4 py-3 text-sm text-slate-200">
+                <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
                   {bankStatementParseMessage}
                 </div>
               ) : null}
@@ -2357,17 +2357,17 @@ export function ApplicationWizard({
                   />
                 </div>
                 <TextInput label="Employer phone" name="employment.employerPhone" register={form.register} errors={form.formState.errors} enableVoice={speechSupported} onVoiceCapture={handleVoiceCapture} voicePhase={voiceCaptureState?.field === "employment.employerPhone" ? voiceCaptureState.phase : null} />
-                <div className="rounded-[1rem] border border-white/12 bg-[#101010] px-4 py-3 text-sm text-slate-300">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Consultant triage</p>
+                <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Consultant triage</p>
                   <p className="mt-2 leading-6">
                     Employment profile: {form.getValues("employment.employmentStatus").replace(/_/g, " ")}. Funding source: {form.getValues("sponsor.fundingSource").replace(/_/g, " ")}.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-[1.1rem] border border-white/10 bg-[#101010] p-5">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Why this status is {liveAudit.status}</p>
-                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
+              <div className="rounded-[1.1rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Why this status is {liveAudit.status}</p>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-200">
                   {liveAudit.fixInstructions.map((instruction) => (
                     <li key={instruction}>• {instruction}</li>
                   ))}
@@ -2384,14 +2384,14 @@ export function ApplicationWizard({
               icon={Home}
               tone="emerald"
             >
-              <div className="rounded-[1.3rem] border border-white/10 bg-[#101010] p-5 sm:p-6">
+              <div className="rounded-[1.3rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_16px_40px_rgba(5,10,24,0.18)] sm:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100">
                       <Home className="h-3.5 w-3.5" />
                       Accommodations & Home Ties
                     </div>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-200">
                       Capture the hotel reference, filing location, accommodation details, and return anchors that strengthen the final application narrative.
                     </p>
                   </div>
@@ -2473,7 +2473,7 @@ export function ApplicationWizard({
               type="button"
               onClick={handlePreviousStep}
               disabled={currentStep === 0 || isSubmitting}
-              className="inline-flex min-w-[15rem] items-center justify-center gap-2 rounded-full border border-white/12 bg-[#101010] px-6 py-3 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-w-[15rem] items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to previous step
@@ -2484,7 +2484,7 @@ export function ApplicationWizard({
                 type="button"
                 onClick={handleNextStep}
                 disabled={isSubmitting || financialStepBlocked}
-                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
               >
                 {currentStep === 3 ? "Continue to Document Studio" : "Save and continue"}
               </button>
@@ -2504,28 +2504,28 @@ export function ApplicationWizard({
       <button
         type="button"
         onClick={() => setIsKnowledgeDrawerOpen(true)}
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[#111827]/95 px-4 py-3 text-sm font-semibold text-cyan-50 shadow-panel backdrop-blur-xl transition hover:border-cyan-200/35 hover:bg-[#162033]"
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-cyan-300/28 bg-[linear-gradient(180deg,rgba(17,24,39,0.92),rgba(24,34,58,0.95))] px-4 py-3 text-sm font-semibold text-cyan-50 shadow-panel backdrop-blur-xl transition hover:border-cyan-200/45 hover:bg-[linear-gradient(180deg,rgba(21,31,50,0.96),rgba(30,41,82,0.96))]"
       >
         <HelpCircle className="h-4 w-4" />
         Visa Guide
       </button>
 
       {isKnowledgeDrawerOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm">
           <button type="button" aria-label="Close visa guide" className="flex-1" onClick={() => setIsKnowledgeDrawerOpen(false)} />
-          <div className="relative h-full w-full max-w-[420px] overflow-y-auto border-l border-white/10 bg-[#0b0d11] p-5 sm:p-6">
+          <div className="relative h-full w-full max-w-[420px] overflow-y-auto border-l border-white/14 bg-[linear-gradient(180deg,rgba(18,28,48,0.98),rgba(10,14,26,0.99))] p-5 sm:p-6 shadow-[-24px_0_60px_rgba(5,10,24,0.28)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Knowledge Base</p>
                 <h3 className="mt-2 text-xl font-semibold text-white">Visa Guide</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-200">
                   Country-specific fund rules, biometric reminders, and document guidance without leaving your application.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsKnowledgeDrawerOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/25 hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/16 bg-white/10 text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -2544,14 +2544,14 @@ export function ApplicationWizard({
                 const Icon = knowledgeBaseIcons[section.icon];
 
                 return (
-                  <details key={section.id} className="rounded-[1rem] border border-white/10 bg-[#101010] p-4" open={section.id === "rule-90-180"}>
+                  <details key={section.id} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm" open={section.id === "rule-90-180"}>
                     <summary className="flex cursor-pointer list-none items-center gap-3 text-sm font-semibold text-white">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-cyan-100">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/12 text-cyan-100">
                         <Icon className="h-4 w-4" />
                       </span>
                       {section.title}
                     </summary>
-                    <div className="mt-3 text-sm leading-7 text-slate-300">
+                    <div className="mt-3 text-sm leading-7 text-slate-200">
                       {section.body}
                     </div>
                   </details>
@@ -2563,7 +2563,7 @@ export function ApplicationWizard({
       ) : null}
 
       {toast ? (
-        <div className="fixed bottom-5 left-5 z-50 max-w-sm rounded-[1rem] border border-emerald-300/20 bg-[#0f172a]/95 px-4 py-3 text-sm text-emerald-50 shadow-panel backdrop-blur-xl">
+        <div className="fixed bottom-5 left-5 z-50 max-w-sm rounded-[1rem] border border-emerald-300/24 bg-[linear-gradient(180deg,rgba(17,24,39,0.94),rgba(15,23,42,0.98))] px-4 py-3 text-sm text-emerald-50 shadow-panel backdrop-blur-xl">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
               <CheckCircle2 className="h-4 w-4" />

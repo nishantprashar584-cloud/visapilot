@@ -304,13 +304,13 @@ export function VoiceIntakeCard({
             <span>TAP TO SPEAK - TELL US ABOUT YOUR TRIP</span>
           </button>
 
-          <p className="max-w-md text-sm leading-6 text-slate-300 xl:text-right">
+          <p className="max-w-md text-sm leading-6 text-slate-200 xl:text-right">
             Faster than typing. Mention your trip dates, who is paying, or any special circumstances and VisaPilot will pre-fill the next steps.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 rounded-[1.1rem] border border-white/10 bg-black/25 p-4">
+      <div className="mt-5 rounded-[1.1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
         <div className={`flex min-h-[82px] items-start gap-3 rounded-[1rem] border px-4 py-3 text-sm ${
           phase === "listening"
             ? "border-rose-400/20 bg-rose-400/10 text-rose-50"
@@ -318,9 +318,9 @@ export function VoiceIntakeCard({
               ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-50"
               : phase === "success"
                 ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-50"
-                : "border-white/10 bg-black/20 text-slate-300"
+                : "border-white/14 bg-white/10 text-slate-100"
         }`}>
-          <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white">
+          <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/14 bg-white/12 text-white">
             {phase === "listening" ? (
               <>
                 <span className="absolute inset-0 rounded-full bg-rose-300/25 animate-ping" />
@@ -358,7 +358,7 @@ export function VoiceIntakeCard({
             className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
               phase === "listening"
                 ? "border-rose-300/35 bg-rose-400/12 text-rose-50 hover:border-rose-200/50 hover:bg-rose-400/18"
-                : "border-white/10 bg-white/5 text-slate-400 opacity-70"
+                : "border-white/14 bg-white/10 text-slate-300 opacity-70"
             }`}
           >
             <Square className="h-3.5 w-3.5 fill-current" />
@@ -366,8 +366,8 @@ export function VoiceIntakeCard({
           </button>
         </div>
 
-        <div className="mt-3 rounded-[1rem] border border-white/10 bg-black/20 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Heard You Say</p>
+        <div className="mt-3 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 backdrop-blur-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Heard You Say</p>
           <p className="mt-2 min-h-[72px] text-sm leading-6 text-white">
             {heardText || "Your live trip summary will appear here while you speak."}
           </p>
@@ -375,9 +375,9 @@ export function VoiceIntakeCard({
       </div>
 
       {showFallback ? (
-        <div className="mt-5 rounded-[1.1rem] border border-white/10 bg-black/25 p-4">
+        <div className="mt-5 rounded-[1.1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
           <p className="text-sm font-semibold text-white">Or type a quick note about your trip</p>
-          <p className="mt-1 text-sm leading-6 text-slate-300">
+          <p className="mt-1 text-sm leading-6 text-slate-200">
             Example: I am going to Paris for a conference from 12 to 18 October, my company is paying for flights, and I am staying in a hotel.
           </p>
           <textarea
@@ -385,13 +385,13 @@ export function VoiceIntakeCard({
             onChange={(event) => setFallbackNote(event.target.value)}
             rows={4}
             placeholder="Type your trip context here..."
-            className="mt-3 w-full rounded-[1rem] border border-white/12 bg-black/40 px-4 py-3 text-sm leading-6 text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/30"
+            className="mt-3 w-full rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35"
           />
           <button
             type="button"
             onClick={() => void parseTranscript(fallbackNote)}
             disabled={phase === "processing"}
-            className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {phase === "processing" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Parse Note
@@ -406,10 +406,10 @@ export function VoiceIntakeCard({
             Extracted trip profile
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full border border-emerald-300/20 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Destination: {parsedResult.destinationCountry}</span>
-            <span className="rounded-full border border-emerald-300/20 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Purpose: {formatPurposeLabel(parsedResult.tripPurpose)}</span>
-            <span className="rounded-full border border-emerald-300/20 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Funding: {formatFundingLabel(parsedResult.fundingSource)}</span>
-            <span className="rounded-full border border-emerald-300/20 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Employment: {formatEmploymentLabel(parsedResult.employmentStatus)}</span>
+            <span className="rounded-full border border-emerald-300/24 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-50">Destination: {parsedResult.destinationCountry}</span>
+            <span className="rounded-full border border-emerald-300/24 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-50">Purpose: {formatPurposeLabel(parsedResult.tripPurpose)}</span>
+            <span className="rounded-full border border-emerald-300/24 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-50">Funding: {formatFundingLabel(parsedResult.fundingSource)}</span>
+            <span className="rounded-full border border-emerald-300/24 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-50">Employment: {formatEmploymentLabel(parsedResult.employmentStatus)}</span>
           </div>
           {parsedResult.specialCircumstances ? (
             <p className="mt-3 leading-6 text-emerald-50/90">{parsedResult.specialCircumstances}</p>
