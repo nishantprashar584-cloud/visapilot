@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+const { createResponseWithFallbackMock } = vi.hoisted(() => ({
+  createResponseWithFallbackMock: vi.fn(),
+}));
+
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/openai", () => ({
-  createResponseWithFallback: vi.fn().mockRejectedValue(new Error("Force fallback")),
+  createResponseWithFallback: createResponseWithFallbackMock,
 }));
 
 import { generateCoverLetterResult } from "../lib/openai/generateCoverLetter";
@@ -47,6 +51,8 @@ function buildApplicant(overrides: Partial<ApplicantInfo> = {}): ApplicantInfo {
 
 describe("generateCoverLetterResult", () => {
   it("uses the applicant residence country in fallback output", async () => {
+    createResponseWithFallbackMock.mockRejectedValueOnce(new Error("Force fallback"));
+
     const applicant = buildApplicant({
       contact: {
         ...previewWizardApplicant.contact,
@@ -80,5 +86,31 @@ describe("generateCoverLetterResult", () => {
     expect(result.coverLetterMarkdown).toContain("family responsibilities in Pakistan");
     expect(result.coverLetterMarkdown).not.toContain("**2. Employment & Professional Ties to India**");
     expect(result.coverLetterMarkdown).not.toContain(", India");
+  });
+
+  it("forces tourism-only framing in the AI prompt even when legacy purpose data differs", async () => {
+    createResponseWithFallbackMock.mockResolvedValueOnce({
+      output_text: "Tourism-only cover letter",
+    });
+
+    const applicant = buildApplicant({
+      trip: {
+        ...previewWizardApplicant.trip,
+        purpose: "business",
+      },
+    });
+
+    const result = await generateCoverLetterResult(applicant);
+    const requestPayload = createResponseWithFallbackMock.mock.calls[0][0];
+    const inputText = requestPayload.input
+      .flatMap((message: { content: Array<{ text?: string }> }) => message.content)
+      .map((part: { text?: string }) => part.text ?? "")
+      .join("\n");
+
+    expect(result.source).toBe("openai");
+    expect(inputText).toContain("supports short-stay tourism and leisure travel only");
+    expect(inputText).toContain('"purposeOfVisit": "tourism"');
+    expect(inputText).not.toContain('"purposeOfVisit": "business"');
+    expect(inputText).toContain("supported trip purpose is tourism and leisure");
   });
 });

@@ -1,5 +1,6 @@
 import { buildDocumentSequence } from "@/components/dashboard/DocumentStackBlueprint";
 import { decodeRefusalReason } from "@/lib/applications/refusalDecoder";
+import { getSupportedTravelPurposeLabel } from "@/lib/applications/travelPurpose";
 import { generateConsularInterviewQuestions } from "@/lib/applications/interviewSimulator";
 import { runRiskAudit } from "@/lib/riskAudit";
 import type { ApplicantInfo, RefusalReasonCode } from "@/types";
@@ -99,7 +100,7 @@ export function buildConsularInterviewBrief(applicant: ApplicantInfo): string {
     `# ${applicant.personal.firstName} ${applicant.personal.lastName} Consular Interview Simulator`,
     "",
     `Destination: ${applicant.trip.destinationCountry}`,
-    `Trip purpose: ${applicant.trip.purpose}`,
+    `Trip purpose: ${getSupportedTravelPurposeLabel()}`,
     "",
     ...questions.flatMap((question, index) => [
       `## ${index + 1}. ${question.prompt}`,

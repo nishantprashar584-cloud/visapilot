@@ -1,4 +1,5 @@
 import "server-only";
+import { getSupportedTravelPurposeLabel, getSupportedTravelPurposeValue, getSupportedTravelPurposeVisaLabel } from "@/lib/applications/travelPurpose";
 import { createResponseWithFallback } from "@/lib/openai";
 import { buildConsultantContext, isSponsoredFundingSource } from "@/lib/consultantIntelligence";
 import type { ApplicantInfo } from "@/types";
@@ -17,7 +18,8 @@ function buildApplicantSummary(applicant: ApplicantInfo): string {
       nationality: applicant.personal.currentNationality,
       passportNumber: applicant.passport.number,
       destinationCountry: applicant.trip.destinationCountry,
-      purposeOfVisit: applicant.trip.purpose,
+      purposeOfVisit: getSupportedTravelPurposeValue(),
+      supportedTravelScope: "short_stay_tourism_only",
       itinerary: {
         arrivalDate: applicant.trip.arrivalDate,
         departureDate: applicant.trip.departureDate,
@@ -98,7 +100,7 @@ function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
     .join(", ");
   const arrivalDate = formatDate(applicant.trip.arrivalDate);
   const departureDate = formatDate(applicant.trip.departureDate);
-  const purpose = applicant.trip.purpose.replace(/_/g, " ");
+  const purpose = getSupportedTravelPurposeVisaLabel();
   const accommodations = applicant.trip.accommodations.trim();
   const bookingReference = applicant.trip.hotelBookingReference.trim();
   const firstEntryCountry = applicant.trip.firstEntryCountry.trim();
@@ -227,7 +229,7 @@ function buildCustomLetterFallback(applicant: ApplicantInfo, options: LetterGene
   const instructions = cleanSentence(options.customInstructions?.trim() ?? "") || "Please prepare this additional visa-supporting letter using the applicant context below.";
   const arrivalDate = formatDate(applicant.trip.arrivalDate);
   const departureDate = formatDate(applicant.trip.departureDate);
-  const purpose = applicant.trip.purpose.replace(/_/g, " ");
+  const purpose = getSupportedTravelPurposeVisaLabel();
 
   return [
     fullName,
@@ -276,8 +278,8 @@ export async function generateCoverLetterResult(
                 type: "input_text",
                 text:
                   isCustomLetter
-                    ? "You write formal supporting letters for Schengen visa applications. Output polished markdown only, with no preamble and no code fences. The result must read like a real applicant submission and follow the requested purpose precisely."
-                    : "You are an expert immigration lawyer writing Schengen cover letters. Output polished markdown only, with no preamble and no code fences. The result must read like a real consular submission, not generic AI copy. Preemptively address reasonable doubts tied to the applicant's employment profile, funding source, finances, and return intent without inventing facts.",
+                    ? "You write formal supporting letters for Schengen visa applications. VisaPilot currently supports short-stay tourism and leisure travel only. Output polished markdown only, with no preamble and no code fences. Keep the letter aligned to a tourist visa packet even if historical applicant data contains another purpose value. The result must read like a real applicant submission and follow the requested letter objective precisely without reframing the application into another visa category."
+                    : "You are an expert immigration lawyer writing Schengen cover letters. VisaPilot currently supports short-stay tourism and leisure travel only. Output polished markdown only, with no preamble and no code fences. Treat the application as a tourist visa packet even if historical applicant data contains another purpose value. The result must read like a real consular submission, not generic AI copy. Preemptively address reasonable doubts tied to the applicant's employment profile, funding source, finances, and return intent without inventing facts."
               },
             ],
           },
@@ -287,8 +289,8 @@ export async function generateCoverLetterResult(
               {
                 type: "input_text",
                 text: isCustomLetter
-                  ? `Draft a formal Schengen visa supporting letter addressed to ${consulateName}. The requested letter title is: ${options.customTitle ?? "Additional supporting letter"}. The user wants this letter to cover the following points: ${options.customInstructions ?? ""}. Use the applicant context below to make the letter specific, factual, and visa-relevant. Keep it formal and credible. Do not invent facts. If a requested point is not present in the applicant record, acknowledge it carefully without fabricating details. Applicant record:\n${buildApplicantSummary(applicant)}`
-                  : `Draft a consular-grade Schengen visa cover letter addressed to ${consulateName}. The applicant is a ${consultantContext.employmentStatusLabel} and the trip is ${consultantContext.fundingSourceLabel.toLowerCase()}. If the applicant is a freelancer, emphasize home-country client ties and continuing professional obligations. If the trip is sponsored, explicitly reference the sponsor's attached financial guarantees. Use the structure typically seen in real Schengen cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Preemptively address any doubts a consular officer may have about return intent or financial sufficiency based on this specific profile. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Applicant record:\n${buildApplicantSummary(applicant)}`,
+                  ? `Draft a formal supporting letter for a short-stay Schengen tourist application addressed to ${consulateName}. The requested letter title is: ${options.customTitle ?? "Additional supporting letter"}. The user wants this letter to cover the following points: ${options.customInstructions ?? ""}. Keep the context anchored to tourism and leisure travel only, regardless of any stale purpose field in the applicant record. Use the applicant context below to make the letter specific, factual, and visa-relevant. Keep it formal and credible. Do not invent facts. If a requested point is not present in the applicant record, acknowledge it carefully without fabricating details. Applicant record:\n${buildApplicantSummary(applicant)}`
+                  : `Draft a consular-grade short-stay Schengen tourist visa cover letter addressed to ${consulateName}. The applicant is a ${consultantContext.employmentStatusLabel} and the trip is ${consultantContext.fundingSourceLabel.toLowerCase()}. Keep the letter anchored to tourism and leisure travel only, regardless of any stale purpose field in the applicant record. If the applicant is a freelancer, emphasize home-country client ties and continuing professional obligations. If the trip is sponsored, explicitly reference the sponsor's attached financial guarantees. Use the structure typically seen in real Schengen tourist cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Preemptively address any doubts a consular officer may have about return intent or financial sufficiency based on this specific profile. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. The supported trip purpose is ${getSupportedTravelPurposeLabel().toLowerCase()}. Applicant record:\n${buildApplicantSummary(applicant)}`,
               },
             ],
           },
