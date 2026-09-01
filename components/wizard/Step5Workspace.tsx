@@ -530,6 +530,16 @@ export function Step5Workspace({
     "Bank Statements",
   ];
 
+  const advancedPdfEditorTools = [
+    "merge",
+    "split",
+    "compress",
+    "reorder",
+    "rotate",
+    "sanitize",
+    "wordToPdf",
+  ] as const;
+
   const workspaceTabs: Array<{
     id: WorkspaceTab;
     label: string;
@@ -1093,6 +1103,7 @@ export function Step5Workspace({
                   previewMode={previewMode}
                   supportingDocuments={supportingDocuments}
                   onSupportingDocumentsChange={onSupportingDocumentsChange}
+                  allowedTools={[...advancedPdfEditorTools]}
                 />
               </div>
             ) : null}

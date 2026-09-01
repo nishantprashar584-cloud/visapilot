@@ -111,6 +111,14 @@ type ToolDefinition = {
   iconClass: string;
 };
 
+type PacketWorkspaceProps = {
+  applicant: ApplicantInfo;
+  previewMode: boolean;
+  supportingDocuments: SupportingDocument[];
+  onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
+  allowedTools?: ToolkitMode[];
+};
+
 const wordMimeTypes = new Set([
   "application/msword",
   "application/rtf",
@@ -491,12 +499,8 @@ export function PacketWorkspace({
   previewMode,
   supportingDocuments,
   onSupportingDocumentsChange,
-}: {
-  applicant: ApplicantInfo;
-  previewMode: boolean;
-  supportingDocuments: SupportingDocument[];
-  onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
-}) {
+  allowedTools,
+}: PacketWorkspaceProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const generatedFilesRef = useRef<HTMLDivElement | null>(null);
   const splitRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -524,9 +528,23 @@ export function PacketWorkspace({
   const [isPreparingPageBoard, setIsPreparingPageBoard] = useState(false);
   const [activeModal, setActiveModal] = useState<WorkspaceModal>(null);
 
+  const visibleToolDefinitions = useMemo(() => {
+    if (!allowedTools?.length) {
+      return toolDefinitions;
+    }
+
+    return toolDefinitions.filter((tool) => allowedTools.includes(tool.id));
+  }, [allowedTools]);
+
+  useEffect(() => {
+    if (!visibleToolDefinitions.some((tool) => tool.id === selectedTool)) {
+      setSelectedTool(visibleToolDefinitions[0]?.id ?? "merge");
+    }
+  }, [selectedTool, visibleToolDefinitions]);
+
   const selectedToolDefinition = useMemo(
-    () => toolDefinitions.find((tool) => tool.id === selectedTool) ?? toolDefinitions[0],
-    [selectedTool],
+    () => visibleToolDefinitions.find((tool) => tool.id === selectedTool) ?? visibleToolDefinitions[0] ?? toolDefinitions[0],
+    [selectedTool, visibleToolDefinitions],
   );
 
   const pdfDocuments = useMemo(
@@ -1924,7 +1942,7 @@ export function PacketWorkspace({
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {toolDefinitions.map((tool) => {
+            {visibleToolDefinitions.map((tool) => {
               const Icon = tool.icon;
 
               return (
