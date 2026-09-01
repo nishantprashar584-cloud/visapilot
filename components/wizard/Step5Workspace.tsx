@@ -949,11 +949,11 @@ export function Step5Workspace({
                     </p>
                   </div>
 
-                  <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[19rem]">
+                  <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:min-w-[32rem] lg:justify-end">
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-4 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(99,102,241,0.34)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-4 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(99,102,241,0.34)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1 lg:min-w-[18rem]"
                     >
                       <PackageCheck className="h-4 w-4" />
                       {previewMode
@@ -966,7 +966,7 @@ export function Step5Workspace({
                       type="button"
                       onClick={handleOpenConsulateReadyPacket}
                       disabled={!previewMode}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/16 bg-white/8 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/16 bg-white/8 px-6 py-4 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1 lg:min-w-[13rem]"
                     >
                       <Eye className="h-4 w-4" />
                       {previewMode ? "Open full interactive viewer" : "Viewer unlocks after dashboard save"}
