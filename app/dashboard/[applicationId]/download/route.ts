@@ -1,10 +1,14 @@
 import { Buffer } from "node:buffer";
 import { getPreviewApplication } from "@/lib/mock/applications";
+import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
 import { generateFilledApplicationPdf } from "@/lib/pdf/generateFilledApplicationPdf";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-function buildApplicationPdfFileName(destinationCountry: string): string {
-  return `schengen_application_${destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")}.pdf`;
+function buildApplicationPdfFileName(destinationCountry: string, supportsNativeAutofill: boolean): string {
+  const slug = destinationCountry.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return supportsNativeAutofill
+    ? `schengen_application_${slug}.pdf`
+    : `schengen_form_draft_${slug}.pdf`;
 }
 
 export async function GET(
@@ -20,12 +24,13 @@ export async function GET(
       return new Response("Application PDF not found.", { status: 404 });
     }
 
+    const pdfStrategy = await resolvePdfGenerationStrategy(previewApplication.destination_country);
     const pdfBuffer = await generateFilledApplicationPdf(previewApplication.application_data);
 
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${buildApplicationPdfFileName(previewApplication.destination_country)}"`,
+        "Content-Disposition": `attachment; filename="${buildApplicationPdfFileName(previewApplication.destination_country, pdfStrategy.supportsNativeAutofill)}"`,
       },
     });
   }
@@ -49,12 +54,13 @@ export async function GET(
     return new Response("Application PDF not found.", { status: 404 });
   }
 
+  const pdfStrategy = await resolvePdfGenerationStrategy(data.destination_country);
   const pdfBuffer = Buffer.from(data.filled_pdf_base64, "base64");
 
   return new Response(new Uint8Array(pdfBuffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${buildApplicationPdfFileName(data.destination_country)}"`,
+      "Content-Disposition": `attachment; filename="${buildApplicationPdfFileName(data.destination_country, pdfStrategy.supportsNativeAutofill)}"`,
     },
   });
 }

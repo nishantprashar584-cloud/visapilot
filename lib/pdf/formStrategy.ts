@@ -37,6 +37,16 @@ export type PdfGenerationStrategy = {
   guidanceMessage: string | null;
 };
 
+export type TemplateAuditStatus = {
+  key: string;
+  destinationCountry: string;
+  templatePath: string;
+  templateLabel: string;
+  portalUrl: string;
+  templateExists: boolean;
+  supportsNativeAutofill: boolean;
+};
+
 export function normalizeCountryKey(country: string): string {
   return country.trim().toLowerCase();
 }
@@ -62,6 +72,45 @@ async function templateHasAcroFormFields(templatePath: string): Promise<boolean>
   } catch {
     return false;
   }
+}
+
+export async function getTemplateAuditStatuses(): Promise<TemplateAuditStatus[]> {
+  const configuredStatuses = await Promise.all(
+    Object.entries(nativePdfMapsByCountry).map(async ([key, pdfMap]) => {
+      const hasTemplateFile = await templateExists(pdfMap.templatePath);
+      const supportsNativeAutofill = hasTemplateFile
+        ? await templateHasAcroFormFields(pdfMap.templatePath)
+        : false;
+
+      return {
+        key,
+        destinationCountry: pdfMap.country,
+        templatePath: pdfMap.templatePath,
+        templateLabel: `${pdfMap.country} official Schengen form`,
+        portalUrl: getVisaGuidanceUrl(pdfMap.country),
+        templateExists: hasTemplateFile,
+        supportsNativeAutofill,
+      };
+    }),
+  );
+
+  const universalTemplatePath = "public/templates/schengen_universal.pdf";
+  const universalTemplateExists = await templateExists(universalTemplatePath);
+  const universalSupportsNativeAutofill = universalTemplateExists
+    ? await templateHasAcroFormFields(universalTemplatePath)
+    : false;
+
+  configuredStatuses.push({
+    key: "universal",
+    destinationCountry: "Universal",
+    templatePath: universalTemplatePath,
+    templateLabel: "Universal harmonized Schengen form",
+    portalUrl: defaultVisaGuidanceUrl,
+    templateExists: universalTemplateExists,
+    supportsNativeAutofill: universalSupportsNativeAutofill,
+  });
+
+  return configuredStatuses;
 }
 
 export async function resolvePdfGenerationStrategy(

@@ -223,6 +223,14 @@ export default async function ApplicationDashboardPage({
                 {pdfStrategy.supportsNativeAutofill ? "Download Filled PDF" : "Download Form Draft (.PDF)"}
               </Link>
             )}
+            {!pdfStrategy.supportsNativeAutofill ? (
+              <Link
+                href={pdfStrategy.portalUrl}
+                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#121212] px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30"
+              >
+                Open Official Form Guidance
+              </Link>
+            ) : null}
           </div>
         </div>
 
