@@ -1862,7 +1862,7 @@ export function ApplicationWizard({
         </div>
 
         <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
-          {speechSupported ? (
+          {speechSupported && currentStep !== 4 ? (
             <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(25,37,64,0.84),rgba(14,22,42,0.9))] p-4 shadow-[0_18px_44px_rgba(5,10,24,0.22)] sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
