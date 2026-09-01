@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, Square, WandSparkles } from "lucide-react";
+import { ChevronDown, Download, FileStack, LoaderCircle, Mic, PackageCheck, Sparkles, Square, WandSparkles, X } from "lucide-react";
 import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { TravelIntentStudio } from "@/components/wizard/TravelIntentStudio";
@@ -107,8 +107,6 @@ export function Step5Workspace({
   previewMode,
   supportingDocuments,
   onSupportingDocumentsChange,
-  activeTab,
-  onActiveTabChange,
   isSubmitting,
   isGeneratingCoverLetter,
   activeCustomLetterId,
@@ -127,8 +125,6 @@ export function Step5Workspace({
   previewMode: boolean;
   supportingDocuments: SupportingDocument[];
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
-  activeTab: "cover-letter" | "toolkit";
-  onActiveTabChange: (tab: "cover-letter" | "toolkit") => void;
   isSubmitting: boolean;
   isGeneratingCoverLetter: boolean;
   activeCustomLetterId: string | null;
@@ -142,6 +138,7 @@ export function Step5Workspace({
   const customRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptDictationSessionRef = useRef<PromptDictationSession | null>(null);
+  const [isAdvancedPdfEditorOpen, setIsAdvancedPdfEditorOpen] = useState(false);
   const [promptDictationState, setPromptDictationState] = useState<PromptDictationState | null>(null);
   const [customVoiceMessage, setCustomVoiceMessage] = useState<string | null>(null);
   const [itinerarySyncSummary, setItinerarySyncSummary] = useState<{
@@ -498,231 +495,304 @@ export function Step5Workspace({
     recognition.start();
   }
 
+  const coverLetterPreviewLines = coverLetterDraft.trim()
+    ? coverLetterDraft.trim().split("\n").filter(Boolean).slice(0, 7)
+    : [
+        `${applicant.trip.destinationCountry || "Schengen"} tourist packet`,
+        "Cover letter and supporting documents will preview here before final export.",
+      ];
+
+  const bundlePreviewSections = [
+    "Application form or worksheet",
+    "Consular cover letter",
+    "Flight and stay evidence",
+    `Financial audit and supporting proofs${supportingDocuments.length > 0 ? ` + ${supportingDocuments.length} uploaded file${supportingDocuments.length === 1 ? "" : "s"}` : ""}`,
+  ];
+
   return (
     <div className="space-y-5">
       <div className="rounded-[1.5rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Step 5 Workspace</p>
-              <h3 className="text-xl font-semibold text-white">Document Studio</h3>
-            </div>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-200">
-              Finalize the AI cover letter, prepare supporting PDFs, and hand off the finished application package without any pricing-grid clutter.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap rounded-[1rem] border border-white/14 bg-white/10 p-1 backdrop-blur-sm">
-            <button
-              type="button"
-              onClick={() => onActiveTabChange("toolkit")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "toolkit" ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-slate-100 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <FileStack className="h-4 w-4" />
-              PDF Editor
-            </button>
-            <button
-              type="button"
-              onClick={() => onActiveTabChange("cover-letter")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "cover-letter" ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-slate-100 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-              AI Cover Letter
-            </button>
-          </div>
-        </div>
-
-        <div className={activeTab === "cover-letter" ? "mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]" : "hidden"}>
-              <div className="space-y-4">
-                <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Modular progressive disclosure</p>
-                    <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
-                      <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-sky-100">3 Travel & Intent</span>
-                      <span className="rounded-full border border-indigo-300/20 bg-indigo-400/10 px-3 py-1 text-indigo-100">4 Form & Narrative</span>
-                      <span className="rounded-full border border-white/14 bg-white/10 px-3 py-1 text-slate-200">5 Readiness</span>
-                      <span className="rounded-full border border-white/14 bg-white/10 px-3 py-1 text-slate-200">6 Export</span>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-200">
-                    Only the current authoring modules stay in focus here. Readiness drills and export remain separated under the toolkit so the workspace does not collapse into a single crowded dashboard.
-                  </p>
+        <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-[1.3rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/24 bg-emerald-400/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-50">
+                  <PackageCheck className="h-3.5 w-3.5" />
+                  96% VFS Compliant & Ready
                 </div>
+                <h3 className="mt-4 text-2xl font-semibold text-white sm:text-[1.75rem]">Master VFS bundle ready for final review</h3>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                  Step 5 now stays focused on one outcome: verify the assembled packet, open the final viewer, and export the finished consulate-ready bundle.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {bundlePreviewSections.map((section) => (
+                    <div key={section} className="rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-100">
+                      {section}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
+              <div className="flex flex-col gap-3 lg:min-w-[18rem] lg:items-end">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                >
+                  <PackageCheck className="h-4 w-4" />
+                  {previewMode
+                    ? "Download Master VFS Bundle .PDF"
+                    : isSubmitting
+                      ? "Generating master bundle..."
+                      : "Generate & Save Master VFS Bundle"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenConsulateReadyPacket}
+                  disabled={!previewMode}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                >
+                  <Download className="h-4 w-4" />
+                  {previewMode ? "Open full interactive viewer" : "Viewer unlocks after dashboard save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedPdfEditorOpen(true)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 lg:w-auto"
+                >
+                  <FileStack className="h-4 w-4" />
+                  Advanced PDF Editor
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-[1.15rem] border border-amber-200/65 bg-[#fffaf0] p-5 shadow-[0_16px_36px_rgba(15,23,42,0.14)]">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Master preview</p>
+                  <p className="mt-1 text-lg font-semibold text-[#1b2430]">{applicant.trip.destinationCountry || "Schengen"} tourist packet</p>
+                </div>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                  Ready to submit
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-4 text-[#1b2430]">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[0.95rem] border border-slate-200 bg-white px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Applicant</p>
+                    <p className="mt-2 text-sm font-semibold">{applicant.personal.firstName || "Applicant"} {applicant.personal.lastName || "Profile"}</p>
+                  </div>
+                  <div className="rounded-[0.95rem] border border-slate-200 bg-white px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bundle contents</p>
+                    <p className="mt-2 text-sm font-semibold">{bundlePreviewSections.length} core sections assembled</p>
+                  </div>
+                </div>
+                <div className="rounded-[0.95rem] border border-slate-200 bg-white px-4 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Preview excerpt</p>
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                    {coverLetterPreviewLines.map((line, index) => (
+                      <p key={`${line}-${index}`}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <details className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Compact checklist</p>
+                  <p className="mt-2 text-lg font-semibold text-white">Consulate stacking order</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">Expand only when you want the appointment-day order and downloadable checklist.</p>
+                </div>
+                <ChevronDown className="h-5 w-5 shrink-0 text-slate-300" />
+              </summary>
+              <div className="mt-4">
+                <ConsulateChecklist applicant={applicant} onDownloadPdf={handleDownloadChecklistPdf} />
+              </div>
+            </details>
+
+            <details className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Narrative review</p>
+                  <p className="mt-2 text-lg font-semibold text-white">Cover letter and supporting letters</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">Open the AI writing tools only when you need to refine the narrative before export.</p>
+                </div>
+                <ChevronDown className="h-5 w-5 shrink-0 text-slate-300" />
+              </summary>
+              <div className="mt-4 space-y-4">
                 <TravelIntentStudio
                   applicant={applicant}
                   coverLetterDraft={coverLetterDraft}
                   supportingDocumentCount={supportingDocuments.length}
                 />
-              </div>
 
-              <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Module 4 of 6 · Form & Narrative Engine
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-200">
-                      Generate and refine the embassy-facing narrative before package creation. Travel timeline edits flow in automatically through the background sync channel.
-                    </p>
-                    <div className="mt-4 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
-                      <div className="flex items-start gap-3">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
-                          <WandSparkles className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="font-semibold text-white">Consular-grade structure</p>
-                          <p className="mt-1 leading-6 text-indigo-100/90">
-                            VisaPilot now targets a real Schengen-style letter structure: purpose, travel plan, accommodation, finances, home ties, and a formal approval request.
-                          </p>
+                <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Embassy-facing cover letter
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-200">
+                        Generate and refine the final consular narrative only if something still needs correction before bundle export.
+                      </p>
+                      <div className="mt-4 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+                        <div className="flex items-start gap-3">
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+                            <WandSparkles className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <p className="font-semibold text-white">Consular-grade structure</p>
+                            <p className="mt-1 leading-6 text-indigo-100/90">
+                              The letter keeps the purpose, itinerary, accommodation, finances, and return-tie narrative aligned with the destination profile.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {coverLetterDraft.trim() ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadDoc(coverLetterDraft, "cover-letter")}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download .doc
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDownloadPdf(coverLetterDraft, "cover-letter")}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download PDF
-                        </button>
-                      </>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => onGenerateCoverLetter(applicant)}
-                      disabled={isGeneratingCoverLetter}
-                      className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isGeneratingCoverLetter ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      {isGeneratingCoverLetter ? "Generating..." : coverLetterDraft.trim() ? "Regenerate" : "Generate"}
-                    </button>
-                  </div>
-                </div>
-
-                {isGeneratingCoverLetter ? (
-                  <div className="mt-4 flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    Generating your cover letter draft. This can take a few seconds.
-                  </div>
-                ) : null}
-
-                {coverLetterMessage ? (
-                  <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
-                    {coverLetterMessage}
-                  </div>
-                ) : null}
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Transit sync</p>
-                    <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.transitLegRequirements.length} transfer note{itinerarySyncSummary.transitLegRequirements.length === 1 ? "" : "s"} queued</p>
-                    <p className="mt-2 leading-6">City changes update the itinerary matrix in the draft automatically.</p>
-                  </div>
-                  <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Accommodation sync</p>
-                    <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.accommodationGapWarnings.length === 0 ? "No stay gaps detected" : `${itinerarySyncSummary.accommodationGapWarnings.length} gap${itinerarySyncSummary.accommodationGapWarnings.length === 1 ? "" : "s"} flagged`}</p>
-                    <p className="mt-2 leading-6">Warnings stay isolated here instead of interrupting the editor while you write.</p>
-                  </div>
-                </div>
-
-                <div className="relative mt-4">
-                  <textarea
-                    value={coverLetterDraft}
-                    onChange={(event) => onCoverLetterChange(event.target.value)}
-                    disabled={isGeneratingCoverLetter}
-                    rows={16}
-                    placeholder="Generate or edit the final cover letter here before saving the application package."
-                    className="w-full rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 pr-12 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35 disabled:cursor-not-allowed disabled:opacity-70"
-                  />
-                  {speechSupported ? (
-                    <button
-                      type="button"
-                      onClick={() => void handlePromptDictation({
-                        targetKey: "cover-letter-draft",
-                        baselineText: coverLetterDraft,
-                        onPreviewChange: onCoverLetterChange,
-                        onFinalize: onCoverLetterChange,
-                        startMessage: "Recording live. Speak naturally and tap the mic again when the cover letter phrasing looks right.",
-                        permissionMessage: "Microphone access enabled. Speak your cover letter edits now.",
-                        successMessage: "Voice dictation inserted into the cover letter draft.",
-                      })}
-                      className={`absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${
-                        promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "listening"
-                          ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
-                          : promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "processing"
-                            ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
-                                : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
-                      }`}
-                      aria-label="Dictate cover letter"
-                    >
-                      {promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "listening" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {coverLetterDraft.trim() ? (
                         <>
-                          <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
-                          <Square className="relative h-3.5 w-3.5 fill-current" />
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadDoc(coverLetterDraft, "cover-letter")}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download .doc
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDownloadPdf(coverLetterDraft, "cover-letter")}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download PDF
+                          </button>
                         </>
-                      ) : promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "processing" ? (
-                        <>
-                          <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-pulse" />
-                          <span className="absolute inset-0 rounded-full border border-emerald-300/40 border-t-transparent animate-spin" />
-                          <Mic className="relative h-4 w-4" />
-                        </>
-                      ) : (
-                        <Mic className="h-4 w-4" />
-                      )}
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="mt-5 rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-4 shadow-[0_16px_40px_rgba(5,10,24,0.18)] sm:p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
-                        <WandSparkles className="h-3.5 w-3.5" />
-                        Additional AI Letters
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-200">
-                        Generate up to two extra visa-supporting letters and dictate into any title, brief, or draft when typing is slower.
-                      </p>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => onGenerateCoverLetter(applicant)}
+                        disabled={isGeneratingCoverLetter}
+                        className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isGeneratingCoverLetter ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        {isGeneratingCoverLetter ? "Generating..." : coverLetterDraft.trim() ? "Regenerate" : "Generate"}
+                      </button>
                     </div>
-                    {speechSupported ? (
-                      <span className="inline-flex rounded-full border border-white/14 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
-                        {microphonePermission === "granted" ? "Voice briefs ready" : "Voice briefs available"}
-                      </span>
-                    ) : null}
                   </div>
 
-                  {customVoiceMessage ? (
+                  {isGeneratingCoverLetter ? (
+                    <div className="mt-4 flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Generating your cover letter draft. This can take a few seconds.
+                    </div>
+                  ) : null}
+
+                  {coverLetterMessage ? (
                     <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
-                      {customVoiceMessage}
+                      {coverLetterMessage}
                     </div>
                   ) : null}
 
-                  <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                    {customLetters.map((letter) => (
-                      <div key={letter.id} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
-                        {(() => {
-                          const dictationPhase = promptDictationState?.targetKey === `prompt:${letter.id}` ? promptDictationState.phase : null;
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Transit sync</p>
+                      <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.transitLegRequirements.length} transfer note{itinerarySyncSummary.transitLegRequirements.length === 1 ? "" : "s"} queued</p>
+                      <p className="mt-2 leading-6">City changes update the itinerary matrix in the draft automatically.</p>
+                    </div>
+                    <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Accommodation sync</p>
+                      <p className="mt-2 leading-6 text-white">{itinerarySyncSummary.accommodationGapWarnings.length === 0 ? "No stay gaps detected" : `${itinerarySyncSummary.accommodationGapWarnings.length} gap${itinerarySyncSummary.accommodationGapWarnings.length === 1 ? "" : "s"} flagged`}</p>
+                      <p className="mt-2 leading-6">Warnings stay isolated here instead of interrupting the editor while you write.</p>
+                    </div>
+                  </div>
 
-                          return (
-                        <div className="flex flex-col gap-3">
+                  <div className="relative mt-4">
+                    <textarea
+                      value={coverLetterDraft}
+                      onChange={(event) => onCoverLetterChange(event.target.value)}
+                      disabled={isGeneratingCoverLetter}
+                      rows={16}
+                      placeholder="Generate or edit the final cover letter here before saving the application package."
+                      className="w-full rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 pr-12 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300/35 disabled:cursor-not-allowed disabled:opacity-70"
+                    />
+                    {speechSupported ? (
+                      <button
+                        type="button"
+                        onClick={() => void handlePromptDictation({
+                          targetKey: "cover-letter-draft",
+                          baselineText: coverLetterDraft,
+                          onPreviewChange: onCoverLetterChange,
+                          onFinalize: onCoverLetterChange,
+                          startMessage: "Recording live. Speak naturally and tap the mic again when the cover letter phrasing looks right.",
+                          permissionMessage: "Microphone access enabled. Speak your cover letter edits now.",
+                          successMessage: "Voice dictation inserted into the cover letter draft.",
+                        })}
+                        className={`absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-emerald-300/40 ${
+                          promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "listening"
+                            ? "border-rose-300/50 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.28),0_0_24px_rgba(251,113,133,0.35)]"
+                            : promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "processing"
+                              ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(110,231,183,0.22),0_0_24px_rgba(16,185,129,0.32)]"
+                              : "border-white/14 bg-white/10 text-slate-100 hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
+                        }`}
+                        aria-label="Dictate cover letter"
+                      >
+                        {promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "listening" ? (
+                          <>
+                            <span className="absolute inset-0 rounded-full bg-rose-400/20 animate-ping" />
+                            <Square className="relative h-3.5 w-3.5 fill-current" />
+                          </>
+                        ) : promptDictationState?.targetKey === "cover-letter-draft" && promptDictationState.phase === "processing" ? (
+                          <>
+                            <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-pulse" />
+                            <span className="absolute inset-0 rounded-full border border-emerald-300/40 border-t-transparent animate-spin" />
+                            <Mic className="relative h-4 w-4" />
+                          </>
+                        ) : (
+                          <Mic className="h-4 w-4" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-5 rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-4 shadow-[0_16px_40px_rgba(5,10,24,0.18)] sm:p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
+                          <WandSparkles className="h-3.5 w-3.5" />
+                          Additional AI Letters
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-200">
+                          Generate up to two extra visa-supporting letters and dictate into any title, brief, or draft when typing is slower.
+                        </p>
+                      </div>
+                      {speechSupported ? (
+                        <span className="inline-flex rounded-full border border-white/14 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
+                          {microphonePermission === "granted" ? "Voice briefs ready" : "Voice briefs available"}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {customVoiceMessage ? (
+                      <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
+                        {customVoiceMessage}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                      {customLetters.map((letter) => {
+                        const dictationPhase = promptDictationState?.targetKey === `prompt:${letter.id}` ? promptDictationState.phase : null;
+
+                        return (
+                          <div key={letter.id} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
+                            <div className="flex flex-col gap-3">
                           <div className="relative">
                             <input
                               value={letter.title}
@@ -898,111 +968,63 @@ export function Step5Workspace({
                               </button>
                             ) : null}
                           </div>
-                        </div>
-                          );
-                        })()}
-                      </div>
-                    ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
+            </details>
 
-              <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
-                  <FileText className="h-3.5 w-3.5" />
-                  Live Preview
+            <details className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Optional prep tools</p>
+                  <p className="mt-2 text-lg font-semibold text-white">Interview simulator and refusal decoder</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">Keep prep utilities out of the main export path until you explicitly need them.</p>
                 </div>
-                <div className="mt-4 min-h-[420px] rounded-[1rem] border border-amber-200/70 bg-[#fffaf0] p-4 shadow-[0_14px_34px_rgba(15,23,42,0.14)]">
-                  {coverLetterDraft.trim() ? (
-                    <pre className="whitespace-pre-wrap text-sm leading-7 text-[#1b2430]">{coverLetterDraft}</pre>
-                  ) : (
-                    <div className="flex min-h-[388px] items-center justify-center text-center text-sm text-slate-500">
-                      Generate or paste the final letter to preview the consular narrative before package creation.
-                    </div>
-                  )}
-                </div>
+                <ChevronDown className="h-5 w-5 shrink-0 text-slate-300" />
+              </summary>
+              <div className="mt-4 grid gap-4 xl:grid-cols-1">
+                <ConsularInterviewPanel applicant={applicant} />
+                <RefusalDecoderPanel refusalReasonCode={null} />
               </div>
-        </div>
-
-        <div className={activeTab === "toolkit" ? "mt-6 space-y-4 xl:col-span-2" : "mt-6 hidden"}>
-          <ConsulateChecklist applicant={applicant} onDownloadPdf={handleDownloadChecklistPdf} />
-          <div className="grid gap-4 xl:grid-cols-2">
-            <ConsularInterviewPanel applicant={applicant} />
-            <RefusalDecoderPanel refusalReasonCode={null} />
+            </details>
           </div>
-          <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
-                  <FileStack className="h-3.5 w-3.5" />
-                  Consulate-ready packet
-                </div>
-                <h3 className="mt-3 text-xl font-semibold text-white">Single merged PDF handoff</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-200">
-                  Open the normalized A4 packet that combines the form, cover letter, insurance, audit, checklist, and saved supporting documents in consular order.
-                </p>
-              </div>
+        </div>
+      </div>
 
+      {isAdvancedPdfEditorOpen ? (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm">
+          <div className="flex h-full flex-col px-4 py-4 sm:px-6 sm:py-6">
+            <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(18,28,48,0.98),rgba(10,14,26,0.99))] px-5 py-4 shadow-[0_24px_64px_rgba(4,8,24,0.34)]">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Advanced utility workspace</p>
+                <h3 className="mt-2 text-xl font-semibold text-white">PDF editor</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-200">Merge, split, compress, rotate, sanitize, or reorder documents without crowding the main Step 5 handoff experience.</p>
+              </div>
               <button
                 type="button"
-                onClick={handleOpenConsulateReadyPacket}
-                disabled={!previewMode}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setIsAdvancedPdfEditorOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/10 text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 hover:text-white"
               >
-                <Download className="h-4 w-4" />
-                {previewMode ? "Open Preview PDF" : "Available after dashboard save"}
+                <X className="h-4 w-4" />
               </button>
             </div>
+
+            <div className="mx-auto mt-4 w-full max-w-7xl overflow-y-auto rounded-[1.4rem] border border-white/14 bg-[linear-gradient(180deg,rgba(18,28,48,0.98),rgba(10,14,26,0.99))] p-4 shadow-[0_24px_64px_rgba(4,8,24,0.34)] sm:p-5">
+              <PacketWorkspace
+                applicant={applicant}
+                previewMode={previewMode}
+                supportingDocuments={supportingDocuments}
+                onSupportingDocumentsChange={onSupportingDocumentsChange}
+              />
+            </div>
           </div>
-          <PacketWorkspace
-            applicant={applicant}
-            previewMode={previewMode}
-            supportingDocuments={supportingDocuments}
-            onSupportingDocumentsChange={onSupportingDocumentsChange}
-          />
         </div>
-      </div>
-
-      <div className="rounded-[1.5rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Final Handoff</p>
-            <h3 className="mt-2 text-xl font-semibold text-white">Master VFS bundle generation</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-200">
-              {previewMode
-                ? "Preview mode opens a sample package vault instead of creating a live application."
-                : "Your master packet can be generated directly and saved to the dashboard vault."}
-            </p>
-          </div>
-
-          {previewMode ? (
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
-              <PackageCheck className="h-4 w-4" />
-              Sample package ready
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
-              <PackageCheck className="h-4 w-4" />
-              Verified for bundle generation
-            </span>
-          )}
-        </div>
-
-        <div className="mt-5">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-          >
-            <PackageCheck className="h-4 w-4" />
-            {previewMode
-              ? "Open Sample Master Bundle"
-              : isSubmitting
-                ? "Generating master bundle..."
-                : "Generate & Save Master VFS Bundle"}
-          </button>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }

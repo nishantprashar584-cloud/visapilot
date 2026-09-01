@@ -857,7 +857,6 @@ export function ApplicationWizard({
   const [isParsingBankStatement, setIsParsingBankStatement] = useState(false);
   const [bankStatementParseMessage, setBankStatementParseMessage] = useState<string | null>(null);
   const [coverLetterDraft, setCoverLetterDraft] = useState("");
-  const [documentStudioTab, setDocumentStudioTab] = useState<"cover-letter" | "toolkit">("toolkit");
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
   const [customLetters, setCustomLetters] = useState<CustomLetterDraft[]>(defaultCustomLetters);
@@ -2488,8 +2487,6 @@ export function ApplicationWizard({
                 previewMode={previewMode}
                 supportingDocuments={supportingDocuments}
                 onSupportingDocumentsChange={handleSupportingDocumentsChange}
-                activeTab={documentStudioTab}
-                onActiveTabChange={setDocumentStudioTab}
                 isSubmitting={isSubmitting}
                 isGeneratingCoverLetter={isGeneratingCoverLetter}
                 activeCustomLetterId={activeCustomLetterId}
