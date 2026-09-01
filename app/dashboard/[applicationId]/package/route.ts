@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { Buffer } from "node:buffer";
+import { buildProfessionalCoverLetterFallback, stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { buildConsulateReadyPacketPdf, type PacketApplicationData } from "@/lib/applications/consulateReadyPacket";
 import {
   buildChecklistMarkdown,
@@ -42,7 +43,7 @@ export async function GET(
     applicationData = {
       id: previewApplication.id,
       application_data: previewApplication.application_data,
-      cover_letter_markdown: previewApplication.cover_letter_markdown,
+      cover_letter_markdown: buildProfessionalCoverLetterFallback(previewApplication.application_data),
       filled_pdf_base64: previewApplication.filled_pdf_base64,
       refusal_reason_code: previewApplication.refusal_reason_code,
     };
@@ -65,7 +66,10 @@ export async function GET(
       return new Response("Application package not found.", { status: 404 });
     }
 
-    applicationData = data;
+    applicationData = {
+      ...(data as PacketApplicationData),
+      cover_letter_markdown: stripItineraryMatrixSection((data as PacketApplicationData).cover_letter_markdown),
+    };
   }
 
   const pdfStrategy = await resolvePdfGenerationStrategy(

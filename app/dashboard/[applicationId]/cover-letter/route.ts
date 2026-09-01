@@ -1,4 +1,5 @@
 import { getPreviewApplication } from "@/lib/mock/applications";
+import { buildProfessionalCoverLetterFallback, stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { generateTextPdf } from "@/lib/pdf/generateTextPdf";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -15,7 +16,7 @@ export async function GET(
       return new Response("Cover letter not found.", { status: 404 });
     }
 
-    const previewBytes = await generateTextPdf(previewApplication.cover_letter_markdown);
+    const previewBytes = await generateTextPdf(buildProfessionalCoverLetterFallback(previewApplication.application_data));
     const responseBytes = new Uint8Array(previewBytes.length);
     responseBytes.set(previewBytes);
 
@@ -46,7 +47,7 @@ export async function GET(
     return new Response("Cover letter not found.", { status: 404 });
   }
 
-  const bytes = await generateTextPdf(data.cover_letter_markdown);
+  const bytes = await generateTextPdf(stripItineraryMatrixSection(data.cover_letter_markdown));
   const responseBytes = new Uint8Array(bytes.length);
   responseBytes.set(bytes);
 

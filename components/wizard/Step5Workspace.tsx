@@ -7,6 +7,7 @@ import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { TravelIntentStudio } from "@/components/wizard/TravelIntentStudio";
 import { ConsulateChecklist } from "@/components/wizard/ConsulateChecklist";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
+import { stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { subscribeToItinerarySync } from "@/lib/applications/moduleSyncBus";
 import { getPreviewApplicationForDestination } from "@/lib/mock/applications";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
@@ -521,6 +522,7 @@ export function Step5Workspace({
   const queuedTransferNotesCount = itinerarySyncSummary.transitLegRequirements.filter(
     (requirement) => !/flight arrival via|local stay in/i.test(requirement),
   ).length;
+  const visibleCoverLetterDraft = stripItineraryMatrixSection(coverLetterDraft);
 
   const checklistVisualizerItems = [
     "Cover Letter",
@@ -590,11 +592,11 @@ export function Step5Workspace({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {coverLetterDraft.trim() ? (
+              {visibleCoverLetterDraft.trim() ? (
                 <>
                   <button
                     type="button"
-                    onClick={() => handleDownloadDoc(coverLetterDraft, "cover-letter")}
+                    onClick={() => handleDownloadDoc(visibleCoverLetterDraft, "cover-letter")}
                     className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                   >
                     <Download className="h-4 w-4" />
@@ -602,7 +604,7 @@ export function Step5Workspace({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleDownloadPdf(coverLetterDraft, "cover-letter")}
+                    onClick={() => void handleDownloadPdf(visibleCoverLetterDraft, "cover-letter")}
                     className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                   >
                     <Download className="h-4 w-4" />
@@ -617,7 +619,7 @@ export function Step5Workspace({
                 className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isGeneratingCoverLetter ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isGeneratingCoverLetter ? "Generating..." : coverLetterDraft.trim() ? "Regenerate" : "Generate"}
+                {isGeneratingCoverLetter ? "Generating..." : visibleCoverLetterDraft.trim() ? "Regenerate" : "Generate"}
               </button>
             </div>
           </div>
@@ -637,7 +639,7 @@ export function Step5Workspace({
 
           <div className="relative mt-4">
             <textarea
-              value={coverLetterDraft}
+              value={visibleCoverLetterDraft}
               onChange={(event) => onCoverLetterChange(event.target.value)}
               disabled={isGeneratingCoverLetter}
               rows={16}
@@ -649,7 +651,7 @@ export function Step5Workspace({
                 type="button"
                 onClick={() => void handlePromptDictation({
                   targetKey: "cover-letter-draft",
-                  baselineText: coverLetterDraft,
+                  baselineText: visibleCoverLetterDraft,
                   onPreviewChange: onCoverLetterChange,
                   onFinalize: onCoverLetterChange,
                   startMessage: "Recording live. Speak naturally and tap the mic again when the cover letter phrasing looks right.",

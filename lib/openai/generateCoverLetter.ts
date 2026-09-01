@@ -1,7 +1,8 @@
 import "server-only";
+import { buildProfessionalCoverLetterFallback } from "@/lib/applications/coverLetter";
 import { getSupportedTravelPurposeLabel, getSupportedTravelPurposeValue, getSupportedTravelPurposeVisaLabel } from "@/lib/applications/travelPurpose";
 import { createResponseWithFallback } from "@/lib/openai";
-import { buildConsultantContext, isSponsoredFundingSource } from "@/lib/consultantIntelligence";
+import { buildConsultantContext } from "@/lib/consultantIntelligence";
 import type { ApplicantInfo } from "@/types";
 
 function buildConsulateName(destinationCountry: string): string {
@@ -48,6 +49,16 @@ function buildApplicantSummary(applicant: ApplicantInfo): string {
   );
 }
 
+function cleanSentence(value: string): string {
+  const trimmed = value.trim().replace(/\s+/g, " ").replace(/\.{2,}/g, ".");
+
+  if (!trimmed) {
+    return "";
+  }
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 function formatDate(value: string): string {
   if (!value) {
     return "the planned travel dates";
@@ -71,133 +82,6 @@ function formatDate(value: string): string {
     month: "long",
     year: "numeric",
   });
-}
-
-function cleanSentence(value: string): string {
-  const trimmed = value.trim().replace(/\s+/g, " ").replace(/\.{2,}/g, ".");
-
-  if (!trimmed) {
-    return "";
-  }
-
-  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
-}
-
-function resolveResidenceCountry(applicant: ApplicantInfo): string {
-  return applicant.contact.residenceCountry?.trim()
-    || applicant.contact.country.trim()
-    || "country of residence";
-}
-
-function buildLocalCoverLetterFallback(applicant: ApplicantInfo): string {
-  const consultantContext = buildConsultantContext(applicant);
-  const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim();
-  const destinationCountry = applicant.trip.destinationCountry;
-  const residenceCountry = resolveResidenceCountry(applicant);
-  const placeOfApplication = applicant.application.placeOfApplication.trim();
-  const placeOfApplicationLine = [placeOfApplication, residenceCountry === "country of residence" ? "" : residenceCountry]
-    .filter(Boolean)
-    .join(", ");
-  const arrivalDate = formatDate(applicant.trip.arrivalDate);
-  const departureDate = formatDate(applicant.trip.departureDate);
-  const purpose = getSupportedTravelPurposeVisaLabel();
-  const accommodations = applicant.trip.accommodations.trim();
-  const bookingReference = applicant.trip.hotelBookingReference.trim();
-  const firstEntryCountry = applicant.trip.firstEntryCountry.trim();
-  const portOfEntry = applicant.trip.portOfEntry.trim();
-  const employerName = applicant.employment.employerName?.trim() ?? "";
-  const occupation = applicant.employment.occupation.trim();
-  const monthlyIncome = applicant.employment.monthlyIncomeEur.toFixed(0);
-  const savingsBalance = applicant.financialEvidence?.closingBalanceEur ?? applicant.employment.savingsBalanceEur;
-  const maskedAccountEnding = applicant.passport.number.slice(-4) || "XXXX";
-  const currentBalanceInr = Math.round(savingsBalance * 95);
-  const currentBalanceEur = savingsBalance.toFixed(0);
-  const dailyAllowance = applicant.trip.stayDurationDays > 0
-    ? (savingsBalance / applicant.trip.stayDurationDays).toFixed(0)
-    : currentBalanceEur;
-  const tiesCountry = residenceCountry === "country of residence" ? "my country of residence" : residenceCountry;
-  const returnIntent = cleanSentence(applicant.homeTies.returnIntentEvidence.trim()) || "I maintain strong professional and personal ties in my country of residence and will return promptly after my approved travel period.";
-  const dependentInformation = cleanSentence(applicant.homeTies.dependentInformation?.trim() ?? "");
-  const sponsorLine = applicant.sponsor.type === "self"
-    ? "All expenses associated with this trip, including flights, accommodation, local movement, and daily subsistence, will be fully self-funded from my personal savings."
-    : `My trip is ${consultantContext.fundingSourceLabel.toLowerCase()}, and the sponsor's financial guarantees are enclosed with this application.`;
-  const employmentLine = employerName || occupation
-    ? `I am gainfully employed in ${tiesCountry} as ${occupation || consultantContext.employmentStatusLabel.toLowerCase()}${employerName ? ` with ${employerName}` : ""}. My professional continuity there remains intact throughout this planned vacation.`
-    : "My professional and personal commitments in my country of residence support my planned return after travel.";
-  const accommodationLine = accommodations
-    ? `My confirmed accommodation arrangements are attached and remain consistent with the submitted travel dates${bookingReference ? ` under booking reference ${bookingReference}` : ""}. ${cleanSentence(accommodations)}`
-    : `My accommodation arrangements have been organized in line with the submitted travel dates.${bookingReference ? ` Booking reference: ${bookingReference}.` : ""}`;
-  const routeLine = firstEntryCountry || portOfEntry
-    ? `My detailed itinerary reflects entry through ${firstEntryCountry || destinationCountry}${portOfEntry ? ` via ${portOfEntry}` : ""}, with travel planned from ${arrivalDate} to ${departureDate}.`
-    : `My detailed itinerary is planned from ${arrivalDate} to ${departureDate} and remains consistent across the submitted travel evidence.`;
-  const dependentLine = dependentInformation
-    ? `I also maintain ongoing family responsibilities in ${tiesCountry}, including ${dependentInformation.replace(/[.]$/, "")}.`
-    : null;
-  const consultantRiskLine = applicant.employment.employmentStatus === "self_employed"
-    ? `My active client relationships, tax records, and continuing work commitments in ${tiesCountry} are part of the enclosed professional evidence and reinforce my return intent.`
-    : isSponsoredFundingSource(applicant.sponsor.fundingSource)
-      ? "The enclosed sponsor documents confirm the financial backing for this trip and should be read together with my itinerary and return-tie evidence."
-      : null;
-
-  return [
-    new Date().toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }),
-    "",
-    "To,",
-    "The Visa Officer,",
-    `Embassy of ${destinationCountry},`,
-    placeOfApplicationLine || residenceCountry,
-    "",
-    `Subject: Application for Short-Stay Schengen Visa (${purpose.charAt(0).toUpperCase()}${purpose.slice(1)}) - ${fullName || "Applicant"} (Passport No: ${applicant.passport.number})`,
-    "",
-    "Respected Visa Officer,",
-    "",
-    `I am writing to formally submit my application for a short-stay Schengen ${purpose} visa to visit ${destinationCountry} and other participating Schengen member states from ${arrivalDate} to ${departureDate}.`,
-    "",
-    "1. Purpose of Visit & Itinerary Overview",
-    "The primary objective of my travel is tourism, sightseeing, and experiencing the cultural heritage of Europe. My detailed day-by-day itinerary, confirmed accommodation vouchers, and travel logistics have been meticulously planned and attached to this application bundle.",
-    `- Cities to be visited: ${applicant.trip.memberStatesToVisit.join(", ") || destinationCountry}`,
-    `- Entry port: ${portOfEntry || firstEntryCountry || destinationCountry}`,
-    `- Exit port: ${applicant.trip.destinationCountry}`,
-    "",
-    routeLine,
-    "",
-    `2. Employment & Professional Ties to ${tiesCountry === "my country of residence" ? "the Home Country" : tiesCountry}`,
-    employmentLine,
-    `To substantiate my financial and professional roots in ${tiesCountry}, I have attached my tax and income records, employment evidence, and leave approvals where applicable.`,
-    "- My 3-year tax filing acknowledgments or equivalent tax records.",
-    "- My most recent salary slips or income proofs covering the recent earning cycle.",
-    "- My leave approval and employer NOC where applicable.",
-    "",
-    "3. Financial Sufficiency & Bank Liquidity",
-    sponsorLine,
-    `- Primary financial capacity: EUR ${currentBalanceEur} in accessible funds (approximately INR ${currentBalanceInr.toLocaleString("en-IN")}).`,
-    `- Average daily allowance: Approximately EUR ${dailyAllowance} per day across the planned stay.`,
-    `- Income profile: Monthly income equivalent recorded at EUR ${monthlyIncome}.`,
-    `- Reference marker: Supporting financial records are attached and indexed against account ending ${maskedAccountEnding}.`,
-    "",
-    accommodationLine,
-    "",
-    consultantRiskLine,
-    consultantRiskLine ? "" : null,
-    dependentLine,
-    dependentLine ? "" : null,
-    "4. Strong Ties and Obligation to Return",
-    `I maintain deep personal, familial, and economic ties to ${tiesCountry} that guarantee my return upon the conclusion of my authorized stay. ${returnIntent}`,
-    "",
-    "I respectfully request you to process and approve my short-stay Schengen visa application. Thank you for your time, consideration, and professional evaluation of my file.",
-    "",
-    "Yours sincerely,",
-    "",
-    "___________________________",
-    `${fullName || "Applicant"}`,
-    `Email: ${applicant.contact.email}`,
-    `Phone: ${applicant.contact.phone}`,
-    `Address: ${[applicant.contact.addressLine1, applicant.contact.addressLine2, applicant.contact.city, applicant.contact.postalCode, residenceCountry === "country of residence" ? "" : residenceCountry].filter(Boolean).join(", ")}`,
-  ].filter((line): line is string => line !== null).join("\n");
 }
 
 export type CoverLetterGenerationSource = "openai" | "fallback";
@@ -282,8 +166,8 @@ export async function generateCoverLetterResult(
                 type: "input_text",
                 text:
                   isCustomLetter
-                    ? "You write formal supporting letters for Schengen visa applications. VisaPilot currently supports short-stay tourism and leisure travel only. Output polished plain text only, with no markdown, no bullets made from asterisks, no code fences, and no preamble. Keep the letter aligned to a tourist visa packet even if historical applicant data contains another purpose value. The result must read like a real applicant submission and follow the requested letter objective precisely without reframing the application into another visa category."
-                    : "You are an expert immigration lawyer writing Schengen cover letters. VisaPilot currently supports short-stay tourism and leisure travel only. Output polished plain text only, with no markdown, no code fences, and no preamble. Treat the application as a tourist visa packet even if historical applicant data contains another purpose value. The result must read like a real consular submission, not generic AI copy. Preemptively address reasonable doubts tied to the applicant's employment profile, funding source, finances, and return intent without inventing facts. Use a formal structure with a subject line, salutation, four numbered sections, and a closing signature block."
+                    ? "You write formal supporting letters for Schengen visa applications. VisaPilot currently supports short-stay tourism and leisure travel only. Output polished plain text only, with no markdown, no bullets made from asterisks, no code fences, and no preamble. Keep the letter aligned to a tourist visa packet even if historical applicant data contains another purpose value. The result must read like a real applicant submission and follow the requested letter objective precisely without reframing the application into another visa category. Use business-letter spacing and professional paragraph structure."
+                    : "You are an expert immigration lawyer writing Schengen cover letters. VisaPilot currently supports short-stay tourism and leisure travel only. Output polished plain text only, with no markdown, no code fences, and no preamble. Treat the application as a tourist visa packet even if historical applicant data contains another purpose value. The result must read like a real consular submission, not generic AI copy. Preemptively address reasonable doubts tied to the applicant's employment profile, funding source, finances, and return intent without inventing facts. Use a formal structure with a subject line, salutation, four numbered sections, and a closing signature block. Do not use checklist bullets inside the body unless the user explicitly asked for them. Use business-letter spacing and concise professional paragraphs."
               },
             ],
           },
@@ -294,7 +178,7 @@ export async function generateCoverLetterResult(
                 type: "input_text",
                 text: isCustomLetter
                   ? `Draft a formal supporting letter for a short-stay Schengen tourist application addressed to ${consulateName}. The requested letter title is: ${options.customTitle ?? "Additional supporting letter"}. The user wants this letter to cover the following points: ${options.customInstructions ?? ""}. Keep the context anchored to tourism and leisure travel only, regardless of any stale purpose field in the applicant record. Use the applicant context below to make the letter specific, factual, and visa-relevant. Keep it formal and credible. Do not invent facts. If a requested point is not present in the applicant record, acknowledge it carefully without fabricating details. Applicant record:\n${buildApplicantSummary(applicant)}`
-                  : `Draft a consular-grade short-stay Schengen tourist visa cover letter addressed to ${consulateName}. The applicant is a ${consultantContext.employmentStatusLabel} and the trip is ${consultantContext.fundingSourceLabel.toLowerCase()}. Keep the letter anchored to tourism and leisure travel only, regardless of any stale purpose field in the applicant record. If the applicant is a freelancer, emphasize home-country client ties and continuing professional obligations. If the trip is sponsored, explicitly reference the sponsor's attached financial guarantees. Use the structure typically seen in real Schengen tourist cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Preemptively address any doubts a consular officer may have about return intent or financial sufficiency based on this specific profile. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. The supported trip purpose is ${getSupportedTravelPurposeLabel().toLowerCase()}. Applicant record:\n${buildApplicantSummary(applicant)}`,
+                  : `Draft a consular-grade short-stay Schengen tourist visa cover letter addressed to ${consulateName}. The applicant is a ${consultantContext.employmentStatusLabel} and the trip is ${consultantContext.fundingSourceLabel.toLowerCase()}. Keep the letter anchored to tourism and leisure travel only, regardless of any stale purpose field in the applicant record. If the applicant is a freelancer, emphasize home-country client ties and continuing professional obligations. If the trip is sponsored, explicitly reference the sponsor's attached financial guarantees. Use the structure typically seen in real Schengen tourist cover letters: applicant introduction, purpose of travel, exact itinerary and first-entry logic, accommodation confirmation, employment and financial capacity, home-country ties, and a respectful closing request. Include a clear subject line and salutation. Preemptively address any doubts a consular officer may have about return intent or financial sufficiency based on this specific profile. Avoid sounding generic, robotic, or promotional. Do not invent facts. If a fact is missing, omit it rather than speculate. Do not append raw itinerary tables, markdown headings, or developer-style notes to the letter body. The supported trip purpose is ${getSupportedTravelPurposeLabel().toLowerCase()}. Applicant record:\n${buildApplicantSummary(applicant)}`,
               },
             ],
           },
@@ -321,7 +205,7 @@ export async function generateCoverLetterResult(
     return {
       coverLetterMarkdown: isCustomLetter
         ? buildCustomLetterFallback(applicant, options)
-        : buildLocalCoverLetterFallback(applicant),
+          : buildProfessionalCoverLetterFallback(applicant),
       source: "fallback",
     };
   }

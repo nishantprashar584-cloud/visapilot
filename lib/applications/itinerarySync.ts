@@ -13,12 +13,9 @@ export function syncItineraryArtifacts(input: ItinerarySyncInput): ItinerarySync
     .filter((entry) => Boolean(entry.transitMode?.trim()))
     .map((entry) => `${entry.city}: attach ${entry.transitMode} ticket or reservation evidence.`);
 
-  const coverLetterMarkdown = input.coverLetterMarkdown.includes("## Itinerary Matrix")
-    ? input.coverLetterMarkdown.replace(/## Itinerary Matrix[\s\S]*$/m, `## Itinerary Matrix\n${itineraryNarrative}`)
-    : `${input.coverLetterMarkdown.trim()}\n\n## Itinerary Matrix\n${itineraryNarrative}`;
-
   return {
-    coverLetterMarkdown,
+    coverLetterMarkdown: input.coverLetterMarkdown,
+    itineraryNarrative,
     accommodationGapWarnings,
     transitLegRequirements,
   };

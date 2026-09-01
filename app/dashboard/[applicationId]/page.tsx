@@ -23,6 +23,7 @@ import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewP
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
+import { buildProfessionalCoverLetterFallback, stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
 import { getPreviewApplication } from "@/lib/mock/applications";
 import { resolvePdfGenerationStrategy } from "@/lib/pdf/formStrategy";
@@ -76,6 +77,9 @@ export default async function ApplicationDashboardPage({
   const pdfStrategy = await resolvePdfGenerationStrategy(application.destination_country);
   const privacyCountdownDays = getPrivacyCountdownDays(application.privacy_purge_at);
   const fullName = `${application.application_data.personal.firstName} ${application.application_data.personal.lastName}`.trim();
+  const visibleCoverLetterMarkdown = previewMode
+    ? buildProfessionalCoverLetterFallback(application.application_data)
+    : stripItineraryMatrixSection(application.cover_letter_markdown);
   const interviewDownloadHref = previewMode
     ? `/dashboard/${application.id}/interview-simulator?preview=1`
     : `/dashboard/${application.id}/interview-simulator`;
@@ -248,7 +252,7 @@ export default async function ApplicationDashboardPage({
           <h2 className="mt-4 text-xl font-semibold text-white">Consular Cover Letter</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">Embassy-addressed rationale statement aligned to your itinerary and return ties.</p>
           <div id="cover-letter-preview" className="mt-5 rounded-[1rem] border border-amber-200/70 bg-[#fffaf0] p-5 text-[#1b2430] shadow-[0_18px_40px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.55)]">
-            <pre className="whitespace-pre-wrap font-serif text-[13px] leading-7 text-[#1b2430]">{application.cover_letter_markdown}</pre>
+            <pre className="whitespace-pre-wrap font-serif text-[13px] leading-7 text-[#1b2430]">{visibleCoverLetterMarkdown}</pre>
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link

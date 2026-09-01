@@ -175,7 +175,8 @@ describe("consularPolicy", () => {
       ],
     });
 
-    expect(synced.coverLetterMarkdown).toContain("## Itinerary Matrix");
+    expect(synced.coverLetterMarkdown).toBe("# Cover Letter");
+    expect(synced.itineraryNarrative).toContain("1. Day 1: Paris via Eurostar staying at hotel (HTL-100).");
     expect(synced.transitLegRequirements).toContain("Paris: attach Eurostar ticket or reservation evidence.");
     expect(synced.accommodationGapWarnings).toContain("Missing accommodation reference for Day 2 in Lyon.");
   });

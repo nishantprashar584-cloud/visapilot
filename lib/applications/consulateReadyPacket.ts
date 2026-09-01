@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { buildFinancialAuditReport, buildInsuranceVerificationSlip } from "@/lib/applications/packetArtifacts";
 import { strictDocumentSequence } from "@/lib/applications/consularPolicy";
 import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
@@ -26,10 +27,11 @@ export async function buildConsulateReadyPacketPdf(args: {
   const pdfStrategy = await resolvePdfGenerationStrategy(
     applicationData.application_data.trip.destinationCountry,
   );
+  const coverLetterMarkdown = stripItineraryMatrixSection(applicationData.cover_letter_markdown);
   const filledPdfBuffer = pdfStrategy.supportsNativeAutofill && applicationData.filled_pdf_base64
     ? Buffer.from(applicationData.filled_pdf_base64, "base64")
     : await generateFilledApplicationPdf(applicationData.application_data);
-  const coverLetterPdf = await generateTextPdf(applicationData.cover_letter_markdown);
+  const coverLetterPdf = await generateTextPdf(coverLetterMarkdown);
   const checklistPdf = await generateChecklistPdf(applicationData.application_data);
   const financialAuditPdf = await generateTextPdf(buildFinancialAuditReport(applicationData.application_data));
   const insuranceSlipPdf = await generateTextPdf(buildInsuranceVerificationSlip(applicationData.application_data));

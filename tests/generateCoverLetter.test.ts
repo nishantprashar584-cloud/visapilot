@@ -82,10 +82,12 @@ describe("generateCoverLetterResult", () => {
 
     expect(result.source).toBe("fallback");
     expect(result.coverLetterMarkdown).toContain("Lahore, Pakistan");
-    expect(result.coverLetterMarkdown).toContain("financial and professional roots in Pakistan");
-    expect(result.coverLetterMarkdown).toContain("family responsibilities in Pakistan");
+    expect(result.coverLetterMarkdown).toContain("Dear Visa Officer,");
+    expect(result.coverLetterMarkdown).toContain("2. Employment and Professional Commitments in Pakistan");
+    expect(result.coverLetterMarkdown).toContain("4. Return Assurances and Ties to Pakistan");
     expect(result.coverLetterMarkdown).not.toContain("**2. Employment & Professional Ties to India**");
     expect(result.coverLetterMarkdown).not.toContain(", India");
+    expect(result.coverLetterMarkdown).not.toContain("## Itinerary Matrix");
   });
 
   it("forces tourism-only framing in the AI prompt even when legacy purpose data differs", async () => {

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { calculateStayDurationDays } from "@/lib/applications/schema";
 import { normalizeApplicantTourismScope } from "@/lib/applications/travelPurpose";
 import { generateCoverLetterMarkdown } from "@/lib/openai/generateCoverLetter";
@@ -62,7 +63,7 @@ export async function generateApplicationPackage(
 }> {
   const normalizedApplicant = normalizeApplicantInfo(applicant);
   const coverLetterMarkdown = owner.coverLetterMarkdown?.trim().length
-    ? owner.coverLetterMarkdown.trim()
+    ? stripItineraryMatrixSection(owner.coverLetterMarkdown.trim())
     : await generateCoverLetterMarkdown(normalizedApplicant);
   const filledPdfBuffer = await generateFilledApplicationPdf(normalizedApplicant);
 

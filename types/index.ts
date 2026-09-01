@@ -119,6 +119,7 @@ export interface ItinerarySyncInput {
 
 export interface ItinerarySyncResult {
   coverLetterMarkdown: string;
+  itineraryNarrative: string;
   accommodationGapWarnings: string[];
   transitLegRequirements: string[];
 }
