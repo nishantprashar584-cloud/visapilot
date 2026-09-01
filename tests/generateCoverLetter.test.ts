@@ -90,6 +90,23 @@ describe("generateCoverLetterResult", () => {
     expect(result.coverLetterMarkdown).not.toContain("## Itinerary Matrix");
   });
 
+  it("normalizes occupation casing in fallback output", async () => {
+    createResponseWithFallbackMock.mockRejectedValueOnce(new Error("Force fallback"));
+
+    const applicant = buildApplicant({
+      employment: {
+        ...previewWizardApplicant.employment,
+        occupation: "product manager",
+        employerName: "Northlane Systems",
+      },
+    });
+
+    const result = await generateCoverLetterResult(applicant);
+
+    expect(result.source).toBe("fallback");
+    expect(result.coverLetterMarkdown).toContain("as Product Manager with Northlane Systems");
+  });
+
   it("forces tourism-only framing in the AI prompt even when legacy purpose data differs", async () => {
     createResponseWithFallbackMock.mockResolvedValueOnce({
       output_text: "Tourism-only cover letter",

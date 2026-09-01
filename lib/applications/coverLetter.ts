@@ -39,6 +39,20 @@ function cleanSentence(value: string): string {
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
+function formatProfessionalTitle(value: string): string {
+  return value
+    .trim()
+    .split(/(\s+|-|\/)/)
+    .map((part) => {
+      if (!/[A-Za-z]/.test(part) || /^[A-Z]{2,}$/.test(part)) {
+        return part;
+      }
+
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join("");
+}
+
 function resolveResidenceCountry(applicant: ApplicantInfo): string {
   return applicant.contact.residenceCountry?.trim()
     || applicant.contact.country.trim()
@@ -98,7 +112,7 @@ export function buildProfessionalCoverLetterFallback(applicant: ApplicantInfo): 
   const memberStates = applicant.trip.memberStatesToVisit.filter(Boolean);
   const itineraryScope = memberStates.length > 0 ? memberStates.join(", ") : destinationCountry;
   const employerName = applicant.employment.employerName?.trim() ?? "";
-  const occupation = applicant.employment.occupation.trim();
+  const occupation = formatProfessionalTitle(applicant.employment.occupation);
   const employmentLabel = occupation || consultantContext.employmentStatusLabel.toLowerCase();
   const savingsBalance = applicant.financialEvidence?.closingBalanceEur ?? applicant.employment.savingsBalanceEur;
   const currentBalanceEur = savingsBalance.toFixed(0);
