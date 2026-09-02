@@ -1,4 +1,4 @@
-import { buildDocumentSequence } from "@/components/dashboard/DocumentStackBlueprint";
+import { buildDocumentSequence } from "@/lib/applications/documentSequence";
 import { decodeRefusalReason } from "@/lib/applications/refusalDecoder";
 import { getSupportedTravelPurposeLabel } from "@/lib/applications/travelPurpose";
 import { generateConsularInterviewQuestions } from "@/lib/applications/interviewSimulator";

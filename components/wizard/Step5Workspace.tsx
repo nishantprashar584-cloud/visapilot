@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Download, Eye, FileImage, Layers3, LoaderCircle, MessageSquareText, Mic, Minus, PackageCheck, Plus, RotateCcw, Sparkles, Square } from "lucide-react";
-import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
-import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
+import { Download, FileImage, Layers3, LoaderCircle, Mic, Sparkles, Square } from "lucide-react";
+import { A4TextPreview } from "@/components/wizard/step5/A4TextPreview";
+import { BundleTabPanel } from "@/components/wizard/step5/BundleTabPanel";
+import { ChecklistTabPanel } from "@/components/wizard/step5/ChecklistTabPanel";
+import { PrepTabPanel } from "@/components/wizard/step5/PrepTabPanel";
+import { Step5TabBar, type WorkspaceTab } from "@/components/wizard/step5/Step5TabBar";
 import { TravelIntentStudio } from "@/components/wizard/TravelIntentStudio";
-import { ConsulateChecklist } from "@/components/wizard/ConsulateChecklist";
 import { PacketWorkspace } from "@/components/wizard/PacketWorkspace";
 import { stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
 import { subscribeToItinerarySync } from "@/lib/applications/moduleSyncBus";
 import { getPreviewApplicationForDestination } from "@/lib/mock/applications";
+import { buildA4TextLayout, generateA4TextPdf, type A4TextLayout } from "@/lib/pdf/a4TextLayout";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
 import type { ApplicantInfo, SupportingDocument } from "@/types";
 
@@ -78,8 +81,6 @@ type PromptDictationSession = {
   successMessage: string;
 };
 
-type WorkspaceTab = "bundle" | "cover-letter" | "pdf-editor" | "checklist" | "prep";
-
 type BundlePreviewPage = {
   id: string;
   label: string;
@@ -107,120 +108,6 @@ function sanitizeSpeechTranscript(value: string): string {
 
 function buildDictatedText(baselineText: string, transcript: string): string {
   return baselineText.trim() ? `${baselineText.trim()} ${transcript}` : transcript;
-}
-
-type CoverLetterPreviewSheet = {
-  paragraphs: string[];
-  density: "comfortable" | "compact";
-};
-
-function estimatePreviewUnits(paragraph: string) {
-  const normalized = paragraph.replace(/\s+/g, " ").trim();
-
-  if (!normalized) {
-    return 0;
-  }
-
-  return Math.max(1, Math.ceil(normalized.length / 82)) + (normalized.length < 72 ? 1 : 0);
-}
-
-function splitParagraphForPreview(paragraph: string, maxLength: number) {
-  const normalized = paragraph.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= maxLength) {
-    return [normalized];
-  }
-
-  const sentenceParts = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
-
-  if (sentenceParts.length === 1) {
-    const words = normalized.split(" ");
-    const chunks: string[] = [];
-    let currentChunk = "";
-
-    words.forEach((word) => {
-      const nextChunk = currentChunk ? `${currentChunk} ${word}` : word;
-
-      if (nextChunk.length > maxLength && currentChunk) {
-        chunks.push(currentChunk);
-        currentChunk = word;
-        return;
-      }
-
-      currentChunk = nextChunk;
-    });
-
-    if (currentChunk) {
-      chunks.push(currentChunk);
-    }
-
-    return chunks;
-  }
-
-  const chunks: string[] = [];
-  let currentChunk = "";
-
-  sentenceParts.forEach((sentence) => {
-    const nextChunk = currentChunk ? `${currentChunk} ${sentence}` : sentence;
-
-    if (nextChunk.length > maxLength && currentChunk) {
-      chunks.push(currentChunk);
-      currentChunk = sentence;
-      return;
-    }
-
-    currentChunk = nextChunk;
-  });
-
-  if (currentChunk) {
-    chunks.push(currentChunk);
-  }
-
-  return chunks;
-}
-
-function paginateCoverLetterPreview(value: string, fallbackTitle: string): CoverLetterPreviewSheet[] {
-  const baseParagraphs = value.trim()
-    ? value.split(/\n+/).map((line) => line.trim()).filter(Boolean)
-    : [
-        fallbackTitle,
-        "Cover letter and supporting documents will preview here before final export.",
-      ];
-
-  const totalLength = baseParagraphs.reduce((sum, paragraph) => sum + paragraph.length, 0);
-  const density = totalLength > 2200 ? "compact" : "comfortable";
-  const maxParagraphLength = density === "compact" ? 360 : 460;
-  const maxUnitsPerSheet = density === "compact" ? 30 : 24;
-  const normalizedParagraphs = baseParagraphs.flatMap((paragraph) => splitParagraphForPreview(paragraph, maxParagraphLength));
-  const sheets: CoverLetterPreviewSheet[] = [];
-  let currentParagraphs: string[] = [];
-  let currentUnits = 0;
-
-  normalizedParagraphs.forEach((paragraph) => {
-    const paragraphUnits = estimatePreviewUnits(paragraph);
-
-    if (currentParagraphs.length > 0 && currentUnits + paragraphUnits > maxUnitsPerSheet) {
-      sheets.push({
-        paragraphs: currentParagraphs,
-        density,
-      });
-      currentParagraphs = [paragraph];
-      currentUnits = paragraphUnits;
-      return;
-    }
-
-    currentParagraphs.push(paragraph);
-    currentUnits += paragraphUnits;
-  });
-
-  if (currentParagraphs.length > 0) {
-    sheets.push({
-      paragraphs: currentParagraphs,
-      density,
-    });
-  }
-
-  return sheets.length > 0 ? sheets : [{ paragraphs: baseParagraphs, density: "comfortable" }];
 }
 
 export function Step5Workspace({
@@ -268,6 +155,7 @@ export function Step5Workspace({
   const [activeBundlePreviewPage, setActiveBundlePreviewPage] = useState(0);
   const [promptDictationState, setPromptDictationState] = useState<PromptDictationState | null>(null);
   const [customVoiceMessage, setCustomVoiceMessage] = useState<string | null>(null);
+  const [coverLetterPreviewLayout, setCoverLetterPreviewLayout] = useState<A4TextLayout | null>(null);
   const [itinerarySyncSummary, setItinerarySyncSummary] = useState<{
     transitLegRequirements: string[];
     accommodationGapWarnings: string[];
@@ -296,6 +184,22 @@ export function Step5Workspace({
     });
     onCoverLetterChange(detail.result.coverLetterMarkdown);
   }), [onCoverLetterChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const previewContent = stripItineraryMatrixSection(coverLetterDraft).trim()
+      || `${applicant.trip.destinationCountry || "Schengen"} tourist packet\n\nCover letter and supporting documents will preview here before final export.`;
+
+    void buildA4TextLayout(previewContent).then((layout) => {
+      if (!cancelled) {
+        setCoverLetterPreviewLayout(layout);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applicant.trip.destinationCountry, coverLetterDraft]);
 
   function slugify(value: string) {
     return value
@@ -416,75 +320,7 @@ export function Step5Workspace({
       return;
     }
 
-    const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
-    const pdf = await PDFDocument.create();
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
-    const fontSize = 11;
-    const pageWidth = 595;
-    const pageHeight = 842;
-    const margin = 48;
-    const maxWidth = pageWidth - margin * 2;
-    const lineHeight = 18;
-    const paragraphs = content.replace(/\r/g, "").split("\n");
-
-    function wrapLine(line: string) {
-      const words = line.split(/\s+/).filter(Boolean);
-
-      if (words.length === 0) {
-        return [""];
-      }
-
-      const wrappedLines: string[] = [];
-      let currentLine = "";
-
-      for (const word of words) {
-        const nextLine = currentLine ? `${currentLine} ${word}` : word;
-        if (font.widthOfTextAtSize(nextLine, fontSize) <= maxWidth) {
-          currentLine = nextLine;
-          continue;
-        }
-
-        if (currentLine) {
-          wrappedLines.push(currentLine);
-        }
-
-        currentLine = word;
-      }
-
-      if (currentLine) {
-        wrappedLines.push(currentLine);
-      }
-
-      return wrappedLines;
-    }
-
-    let page = pdf.addPage([pageWidth, pageHeight]);
-    let y = pageHeight - margin;
-
-    for (const paragraph of paragraphs) {
-      const lines = wrapLine(paragraph);
-
-      for (const line of lines) {
-        if (y <= margin) {
-          page = pdf.addPage([pageWidth, pageHeight]);
-          y = pageHeight - margin;
-        }
-
-        page.drawText(line, {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
-          color: rgb(0.08, 0.09, 0.12),
-        });
-
-        y -= lineHeight;
-      }
-
-      y -= 8;
-    }
-
-    const bytes = await pdf.save();
+    const bytes = await generateA4TextPdf(content);
     const blob = new Blob([Uint8Array.from(bytes)], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -624,7 +460,6 @@ export function Step5Workspace({
 
   const visibleCoverLetterDraft = stripItineraryMatrixSection(coverLetterDraft);
   const previewPacketTitle = `${applicant.trip.destinationCountry || "Schengen"} tourist packet`;
-  const coverLetterPreviewSheets = paginateCoverLetterPreview(visibleCoverLetterDraft, previewPacketTitle);
 
   function renderBundlePreviewSheet({
     sheetKey,
@@ -728,21 +563,15 @@ export function Step5Workspace({
       sectionLabel: "Page 2 of 4",
       accentNote: "Embassy-facing narrative",
       render: () => (
-        <div className="space-y-4">
-          {coverLetterPreviewSheets.map((sheet, index) => renderBundlePreviewSheet({
-            sheetKey: `cover-letter-${index + 1}`,
-            counterLabel: `Page ${index + 1} of ${coverLetterPreviewSheets.length}`,
-            accentNote: index === 0 ? "Embassy-facing narrative" : "Cover letter continued",
-            density: sheet.density,
-            children: (
-              <div className="space-y-3 text-slate-700">
-                {sheet.paragraphs.map((paragraph, paragraphIndex) => (
-                  <p key={`${paragraph}-${paragraphIndex}`}>{paragraph}</p>
-                ))}
-              </div>
-            ),
-          }))}
-        </div>
+        coverLetterPreviewLayout
+          ? <A4TextPreview layout={coverLetterPreviewLayout} title={previewPacketTitle} />
+          : renderBundlePreviewSheet({
+              sheetKey: "cover-letter-loading",
+              counterLabel: "Preparing",
+              accentNote: "Rendering A4 preview",
+              density: "comfortable",
+              children: <div className="flex h-full items-center justify-center text-sm text-slate-500">Preparing exact A4 preview...</div>,
+            })
       ),
     },
     {
@@ -809,16 +638,6 @@ export function Step5Workspace({
       ),
     },
   ];
-  const currentBundlePreviewPage = bundlePreviewPages[activeBundlePreviewPage] ?? bundlePreviewPages[0];
-
-  const checklistVisualizerItems = [
-    "Cover Letter",
-    "Application Form",
-    "Flight Itinerary",
-    "Hotel Voucher",
-    "Bank Statements",
-  ];
-
   const advancedPdfEditorTools = [
     "merge",
     "split",
@@ -1270,151 +1089,26 @@ export function Step5Workspace({
     <div className="space-y-5">
       <div className="rounded-[1.6rem] bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-4 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
         <div className="rounded-[1.4rem] bg-[linear-gradient(160deg,rgba(27,42,74,0.92),rgba(12,19,36,0.98))] p-4 shadow-[0_24px_64px_rgba(5,10,24,0.28)] sm:p-6">
-          <div className="hide-scrollbar flex gap-6 overflow-x-auto whitespace-nowrap border-b border-white/10 pb-1">
-            {workspaceTabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={isActive
-                    ? "inline-flex shrink-0 flex-col border-b-2 border-indigo-500 pb-3 text-left text-indigo-300"
-                    : "inline-flex shrink-0 flex-col border-b-2 border-transparent pb-3 text-left text-slate-400 transition hover:text-slate-100"}
-                >
-                  <span className={isActive
-                    ? "text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-200/80"
-                    : "text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500"}>{tab.eyebrow}</span>
-                  <span className="mt-1 text-sm font-semibold">{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <Step5TabBar tabs={workspaceTabs} activeTab={activeTab} onSelect={setActiveTab} />
 
           <div className="mt-5">
             {activeTab === "bundle" ? (
-              <div className="space-y-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-2xl">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/24 bg-emerald-400/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-50">
-                      <PackageCheck className="h-3.5 w-3.5" />
-                      96% VFS Compliant & Ready
-                    </div>
-                    <h3 className="mt-4 text-2xl font-semibold text-white sm:text-[1.9rem]">Master Bundle</h3>
-                    <p className="mt-3 text-sm leading-6 text-slate-200">
-                      Review the first page, confirm the packet metrics, and take the primary export action without leaving this landing context.
-                    </p>
-                  </div>
-
-                  <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:min-w-[32rem] lg:justify-end">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-4 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(99,102,241,0.34)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1 lg:min-w-[18rem]"
-                    >
-                      <PackageCheck className="h-4 w-4" />
-                      {previewMode
-                        ? "Download Master VFS Bundle .PDF"
-                        : isSubmitting
-                          ? "Generating master bundle..."
-                          : "Generate & Save Master VFS Bundle"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleOpenConsulateReadyPacket}
-                      disabled={!previewMode}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/16 bg-white/8 px-6 py-4 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1 lg:min-w-[13rem]"
-                    >
-                      <Eye className="h-4 w-4" />
-                      {previewMode ? "Open full interactive viewer" : "Viewer unlocks after dashboard save"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  {bundleMetricItems.map((metric) => (
-                    <div key={metric.label} className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 text-slate-100 backdrop-blur-sm">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">{metric.label}</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">{metric.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-[1.2rem] bg-[#fffaf0] p-4 shadow-[0_16px_40px_rgba(15,23,42,0.16)] sm:p-5">
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Interactive A4 preview</p>
-                      <p className="mt-2 text-base font-semibold text-[#1b2430]">{previewPacketTitle}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setBundlePreviewPage("previous")}
-                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"
-                      >
-                        Prev page
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBundlePreviewPage("next")}
-                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"
-                      >
-                        Next page
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => adjustPreviewScale("out")}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-                        aria-label="Zoom out"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => adjustPreviewScale("reset")}
-                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"
-                      >
-                        {Math.round(previewScale * 100)}%
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => adjustPreviewScale("in")}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-                        aria-label="Zoom in"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2 overflow-x-auto pb-1">
-                    {bundlePreviewPages.map((page, index) => (
-                      <button
-                        key={page.id}
-                        type="button"
-                        onClick={() => setActiveBundlePreviewPage(index)}
-                        className={index === activeBundlePreviewPage
-                          ? "rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.12)]"
-                          : "rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"}
-                      >
-                        {page.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 max-h-[80vh] overflow-y-auto rounded-[1rem] bg-[#f4ead2] p-3 sm:p-5">
-                    <div
-                      className="mx-auto w-full max-w-[30rem] transition-transform duration-200"
-                      style={{ transform: `scale(${previewScale})`, transformOrigin: "top center" }}
-                    >
-                      <div className="space-y-4">
-                        {currentBundlePreviewPage.render()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <BundleTabPanel
+                previewMode={previewMode}
+                isSubmitting={isSubmitting}
+                previewPacketTitle={previewPacketTitle}
+                bundleMetricItems={bundleMetricItems}
+                bundlePreviewPages={bundlePreviewPages}
+                activeBundlePreviewPage={activeBundlePreviewPage}
+                previewScale={previewScale}
+                onPreviousPage={() => setBundlePreviewPage("previous")}
+                onNextPage={() => setBundlePreviewPage("next")}
+                onZoomOut={() => adjustPreviewScale("out")}
+                onZoomReset={() => adjustPreviewScale("reset")}
+                onZoomIn={() => adjustPreviewScale("in")}
+                onSelectPage={setActiveBundlePreviewPage}
+                onOpenConsulateReadyPacket={handleOpenConsulateReadyPacket}
+              />
             ) : null}
 
             {activeTab === "cover-letter" ? renderCoverLetterStudio() : null}
@@ -1432,69 +1126,11 @@ export function Step5Workspace({
             ) : null}
 
             {activeTab === "checklist" ? (
-              <div className="space-y-4">
-                <div className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
-                    <ClipboardList className="h-3.5 w-3.5" />
-                    Physical appointment guide
-                  </div>
-                  <h3 className="mt-3 text-lg font-semibold text-white">VFS Checklist & Stacking Order</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-200">
-                    Review the physical packet sequence below so there is zero ambiguity when the applicant reaches the submission counter.
-                  </p>
-                </div>
-
-                <div className="rounded-[1.2rem] border border-white/14 bg-[rgba(9,16,31,0.72)] p-5 backdrop-blur-sm">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
-                    <Layers3 className="h-3.5 w-3.5" />
-                    Interactive stacking visualizer
-                  </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-5">
-                    {checklistVisualizerItems.map((item, index) => (
-                      <div key={item} className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 text-slate-100">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-semibold text-slate-950">
-                          {index + 1}
-                        </span>
-                        <p className="mt-3 text-sm font-semibold text-white">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <ConsulateChecklist applicant={applicant} onDownloadPdf={handleDownloadChecklistPdf} />
-              </div>
+              <ChecklistTabPanel applicant={applicant} onDownloadPdf={handleDownloadChecklistPdf} />
             ) : null}
 
             {activeTab === "prep" ? (
-              <div className="space-y-4">
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-[1.15rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-100">
-                      <MessageSquareText className="h-3.5 w-3.5" />
-                      Simulation workspace
-                    </div>
-                    <h3 className="mt-3 text-lg font-semibold text-white">Interview Prep</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-200">
-                      Practice risk-targeted voice and text questions derived from this applicant&apos;s itinerary and financial story without cluttering the main delivery tabs.
-                    </p>
-                  </div>
-                  <div className="rounded-[1.15rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100">
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Remediation tracker
-                    </div>
-                    <h3 className="mt-3 text-lg font-semibold text-white">Recovery Path</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-200">
-                      Annex VI refusal guidance remains available here for remediation planning if a rejection code ever needs to be decoded.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 xl:grid-cols-2">
-                  <ConsularInterviewPanel applicant={applicant} />
-                  <RefusalDecoderPanel refusalReasonCode={null} />
-                </div>
-              </div>
+              <PrepTabPanel applicant={applicant} />
             ) : null}
           </div>
         </div>

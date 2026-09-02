@@ -16,6 +16,12 @@ export type ResolvedConsulateChecklist = {
   passportValidityRule: string;
   appointmentDocumentLabel: string;
   documentStackOrder: string[];
+  stackingBlueprints: Array<{
+    hub: string;
+    provider: string;
+    appointmentDocumentLabel: string;
+    documentStackOrder: string[];
+  }>;
   requiredFundsEur: number;
   checklistItems: ConsulateChecklistItem[];
 };
@@ -41,6 +47,7 @@ export function resolveConsulateChecklist(applicant: ApplicantInfo): ResolvedCon
     passportValidityRule: details.passportValidityRule,
     appointmentDocumentLabel: details.appointmentDocumentLabel,
     documentStackOrder: details.documentStackOrder,
+    stackingBlueprints: details.stackingBlueprints,
     requiredFundsEur,
     checklistItems: [
       {

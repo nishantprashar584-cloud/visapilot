@@ -37,14 +37,11 @@ describe("resolveConsulateChecklist", () => {
       }),
     );
 
-    expect(checklist.provider).toBe("VFS Global / TLScontact");
-    expect(checklist.documentStackOrder).toEqual([
-      "Cover Letter",
-      "Application Form",
-      "Flight Itinerary",
-      "Hotel Voucher",
-      "Bank Statements",
-    ]);
+    expect(checklist.provider).toBe("VFS Global");
+    expect(checklist.documentStackOrder[0]).toBe("VFS France appointment confirmation");
+    expect(checklist.documentStackOrder).toContain("Embassy cover letter and document manifest");
+    expect(checklist.stackingBlueprints).toHaveLength(2);
+    expect(checklist.stackingBlueprints[1]?.provider).toBe("TLScontact");
   });
 
   it("returns a valid Germany checklist output", () => {
@@ -55,7 +52,7 @@ describe("resolveConsulateChecklist", () => {
       }),
     );
 
-    expect(checklist.provider).toBe("VFS Global / TLScontact");
+    expect(checklist.provider).toBe("VFS Global");
     expect(checklist.checklistItems).toHaveLength(5);
     expect(checklist.requiredFundsEur).toBeCloseTo(225, 2);
   });
@@ -68,8 +65,27 @@ describe("resolveConsulateChecklist", () => {
       }),
     );
 
-    expect(checklist.provider).toBe("VFS Global / TLScontact");
+    expect(checklist.provider).toBe("VFS Global");
     expect(checklist.requiredFundsEur).toBeCloseTo(270, 2);
     expect(checklist.checklistItems.find((item) => item.id === "appointment")?.label).toContain("appointment");
+  });
+
+  it("adds explicit stacks for Switzerland and the Netherlands", () => {
+    const switzerlandChecklist = resolveConsulateChecklist(
+      buildApplicant({
+        destinationCountry: "Switzerland",
+        stayDurationDays: 6,
+      }),
+    );
+
+    const netherlandsChecklist = resolveConsulateChecklist(
+      buildApplicant({
+        destinationCountry: "Netherlands",
+        stayDurationDays: 6,
+      }),
+    );
+
+    expect(switzerlandChecklist.documentStackOrder[0]).toContain("VFS Switzerland");
+    expect(netherlandsChecklist.stackingBlueprints.some((blueprint) => blueprint.provider === "TLScontact")).toBe(true);
   });
 });

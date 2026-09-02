@@ -138,6 +138,7 @@ describe("consularPolicy", () => {
       },
       financialEvidence: {
         recentDepositsEur: [100, 110, 120, 480],
+        sourceOfFundsNote: "",
       },
     });
 

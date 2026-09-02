@@ -26,7 +26,7 @@ export default async function AuthPage({
           Continue with your email to unlock your VisaPilot workspace.
         </h1>
         <p className="text-base leading-7 text-slate-300">
-          Your account session now controls dashboard access, package ownership, downloads, and Stripe purchase recovery so the app matches the database security model end to end.
+          Your account session now controls dashboard access, package ownership, downloads, and Razorpay credit recovery so the app matches the database security model end to end.
         </p>
       </div>
 

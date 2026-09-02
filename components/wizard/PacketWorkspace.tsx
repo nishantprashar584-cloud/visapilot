@@ -13,19 +13,18 @@ import {
   LoaderCircle,
   Mic,
   Minimize,
-  Plus,
-  RotateCcw,
   RotateCw,
   Scissors,
   Shield,
   Square,
-  Trash2,
   Upload,
   X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
+import { ReorderBoard } from "@/components/wizard/pdf/ReorderBoard";
+import { renderPdfPageThumbnails } from "@/lib/pdf/renderPdfPageThumbnails";
 import type { SupportingDocument } from "@/types";
 
 type WorkspaceDocument = {
@@ -571,6 +570,7 @@ export function PacketWorkspace({
   const [reorderInsertIndex, setReorderInsertIndex] = useState<number | null>(null);
   const [pagePreviews, setPagePreviews] = useState<WorkspacePagePreview[]>([]);
   const [reorderBoardItems, setReorderBoardItems] = useState<ReorderBoardItem[]>([]);
+  const [removedReorderBoardItemIds, setRemovedReorderBoardItemIds] = useState<string[]>([]);
   const [isPreparingPageBoard, setIsPreparingPageBoard] = useState(false);
   const [activeModal, setActiveModal] = useState<WorkspaceModal>(null);
   const [workspaceStage, setWorkspaceStage] = useState<WorkspaceStage>("select");
@@ -763,23 +763,17 @@ export function PacketWorkspace({
       setIsPreparingPageBoard(true);
 
       try {
-        const { PDFDocument } = await import("pdf-lib");
         const nextPreviews: WorkspacePagePreview[] = [];
 
         for (const document of reorderDocuments) {
-          const source = await PDFDocument.load(await document.file.arrayBuffer());
+          const thumbnails = await renderPdfPageThumbnails(document.file);
 
-          for (let index = 0; index < source.getPageCount(); index += 1) {
-            const singlePagePdf = await PDFDocument.create();
-            const [page] = await singlePagePdf.copyPages(source, [index]);
-            singlePagePdf.addPage(page);
-            const bytes = await singlePagePdf.save({ useObjectStreams: true, addDefaultPage: false });
-            const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }));
+          for (const thumbnail of thumbnails) {
             nextPreviews.push({
-              id: buildReorderBoardItemId(document.id, index + 1),
+              id: buildReorderBoardItemId(document.id, thumbnail.pageNumber),
               documentId: document.id,
-              pageNumber: index + 1,
-              url,
+              pageNumber: thumbnail.pageNumber,
+              url: thumbnail.url,
             });
           }
         }
@@ -815,10 +809,12 @@ export function PacketWorkspace({
       reorderInsertIndexRef.current = null;
       setReorderInsertIndex(null);
       setReorderBoardItems([]);
+      setRemovedReorderBoardItemIds([]);
       return;
     }
 
-    const baseItems = buildReorderBoardBaseItems(documents);
+    const removedIds = new Set(removedReorderBoardItemIds);
+    const baseItems = buildReorderBoardBaseItems(documents).filter((item) => !removedIds.has(item.id));
 
     setReorderBoardItems((currentItems) => {
       const baseItemsById = new Map(baseItems.map((item) => [item.id, item]));
@@ -857,7 +853,7 @@ export function PacketWorkspace({
         ...retained.slice(boundedInsertIndex),
       ];
     });
-  }, [documents, selectedTool]);
+  }, [documents, removedReorderBoardItemIds, selectedTool]);
 
   function syncSavedSupportingOrder(nextDocuments: WorkspaceDocument[]) {
     if (previewMode || supportingDocuments.length === 0) {
@@ -1552,6 +1548,30 @@ export function PacketWorkspace({
 
       return reorderItems(currentItems, fromIndex, targetIndex);
     });
+
+    setDraggedBoardItemId(null);
+  }
+
+  function moveBoardItemByOffset(itemId: string, offset: number) {
+    if (offset === 0) {
+      return;
+    }
+
+    setReorderBoardItems((currentItems) => {
+      const fromIndex = currentItems.findIndex((item) => item.id === itemId);
+
+      if (fromIndex < 0) {
+        return currentItems;
+      }
+
+      const targetIndex = Math.max(0, Math.min(currentItems.length - 1, fromIndex + offset));
+
+      if (targetIndex === fromIndex) {
+        return currentItems;
+      }
+
+      return reorderItems(currentItems, fromIndex, targetIndex);
+    });
   }
 
   function handleBoardInsertDrop(targetIndex: number) {
@@ -1578,6 +1598,7 @@ export function PacketWorkspace({
   }
 
   function resetReorderBoard() {
+    setRemovedReorderBoardItemIds([]);
     setReorderBoardItems(buildReorderBoardBaseItems(documentsRef.current));
     setToolkitMessage("Packet page order reset to the source upload order.");
   }
@@ -1601,10 +1622,17 @@ export function PacketWorkspace({
   }
 
   function removeReorderBoardItem(itemId: string) {
+    setRemovedReorderBoardItemIds((currentIds) => (currentIds.includes(itemId) ? currentIds : [...currentIds, itemId]));
     setReorderBoardItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
   }
 
-  function getReorderBoardPreviewUrl(item: ReorderBoardItem) {
+  function getReorderBoardPreviewUrl(itemId: string) {
+    const item = reorderBoardItems.find((candidate) => candidate.id === itemId);
+
+    if (!item) {
+      return "";
+    }
+
     if (item.documentKind === "image") {
       return documents.find((document) => document.id === item.documentId)?.previewUrl ?? "";
     }
@@ -1616,29 +1644,6 @@ export function PacketWorkspace({
     reorderInsertIndexRef.current = index;
     setReorderInsertIndex(index);
     reorderInsertInputRef.current?.click();
-  }
-
-  function renderReorderInsertSlot(index: number, isTail = false) {
-    const isHighlighted = reorderInsertIndex === index;
-
-    return (
-      <button
-        type="button"
-        onClick={() => openReorderInsertPicker(index)}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={() => handleBoardInsertDrop(index)}
-        className={isHighlighted
-          ? "flex aspect-[1/1.414] flex-col items-center justify-center rounded-[1rem] border border-cyan-300/40 bg-cyan-500/16 px-4 text-center text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.18)]"
-          : "flex aspect-[1/1.414] flex-col items-center justify-center rounded-[1rem] border border-dashed border-cyan-300/28 bg-cyan-500/10 px-4 text-center text-cyan-50 transition hover:bg-cyan-500/14"}
-        aria-label={`Insert files at position ${index + 1}`}
-      >
-        <Plus className="h-5 w-5" />
-        <span className="mt-3 text-sm font-semibold">{isTail ? "Add More Files" : "Insert Here"}</span>
-        <span className="mt-2 text-xs leading-5 text-cyan-100/90">
-          {isTail ? "Append extra PDFs or image scans to the end of the packet." : "Place new pages at this exact point in the packet order."}
-        </span>
-      </button>
-    );
   }
 
   function renderMergeWorkbench() {
@@ -2028,100 +2033,21 @@ export function PacketWorkspace({
               The packet board is empty. Add a PDF or scan to begin arranging the final sequence.
             </div>
           ) : (
-            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-              {renderReorderInsertSlot(0)}
-              {reorderBoardItems.map((item, index) => {
-                const previewUrl = getReorderBoardPreviewUrl(item);
-
-                return (
-                  <Fragment key={item.id}>
-                    <div
-                      draggable
-                      onDragStart={() => setDraggedBoardItemId(item.id)}
-                      onDragEnd={() => setDraggedBoardItemId(null)}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={() => handlePageDropReorder(item.id)}
-                      className="group rounded-[1rem] bg-[rgba(10,18,34,0.64)] p-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
-                        <span>{index + 1}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white/8 px-2 py-1 text-[10px] text-slate-100">
-                          <GripVertical className="h-3 w-3" />
-                          Drag
-                        </span>
-                      </div>
-
-                      <div className="relative overflow-hidden rounded-[0.8rem] bg-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-                        <div className="absolute inset-x-2 top-2 z-10 flex items-center justify-between gap-1 opacity-100">
-                          <button
-                            type="button"
-                            onClick={() => removeReorderBoardItem(item.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/82 text-rose-100 transition hover:bg-rose-500/90"
-                            aria-label={`Delete ${item.fileName} page ${item.pageNumber}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => rotateReorderBoardItem(item.id, "left")}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/82 text-white transition hover:bg-slate-900"
-                              aria-label={`Rotate ${item.fileName} page ${item.pageNumber} left`}
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => rotateReorderBoardItem(item.id, "right")}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/82 text-white transition hover:bg-slate-900"
-                              aria-label={`Rotate ${item.fileName} page ${item.pageNumber} right`}
-                            >
-                              <RotateCw className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div
-                          className="aspect-[1/1.414] overflow-hidden bg-white"
-                          style={{ transform: `rotate(${item.rotation}deg)` }}
-                        >
-                          {previewUrl ? (
-                            item.documentKind === "image" ? (
-                              <Image
-                                src={previewUrl}
-                                alt={`${item.fileName} page ${item.pageNumber}`}
-                                width={320}
-                                height={452}
-                                unoptimized
-                                className="h-full w-full object-contain"
-                              />
-                            ) : (
-                              <iframe
-                                src={previewUrl}
-                                title={`${item.fileName} page ${item.pageNumber}`}
-                                className="h-full w-full bg-white"
-                              />
-                            )
-                          ) : (
-                            <div className="flex h-full items-center justify-center px-3 text-center text-xs text-slate-400">
-                              Preview unavailable
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 space-y-1">
-                        <p className="truncate text-xs font-semibold text-white">{item.fileName}</p>
-                        <p className="text-[11px] text-slate-300">
-                          Page {item.pageNumber}{item.rotation !== 0 ? ` · ${item.rotation}°` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    {renderReorderInsertSlot(index + 1, index === reorderBoardItems.length - 1)}
-                  </Fragment>
-                );
-              })}
-            </div>
+            <ReorderBoard
+              items={reorderBoardItems}
+              draggedItemId={draggedBoardItemId}
+              highlightedInsertIndex={reorderInsertIndex}
+              resolvePreviewUrl={getReorderBoardPreviewUrl}
+              onGrabItem={setDraggedBoardItemId}
+              onReleaseItem={() => setDraggedBoardItemId(null)}
+              onDropOnItem={handlePageDropReorder}
+              onInsertAt={handleBoardInsertDrop}
+              onOpenInsertPicker={openReorderInsertPicker}
+              onRotate={rotateReorderBoardItem}
+              onRemove={removeReorderBoardItem}
+              onMoveByOffset={moveBoardItemByOffset}
+              onAnnounce={(message) => setToolkitMessage(message)}
+            />
           )}
         </div>
       </div>

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { publicEnv } from "@/lib/config";
 import { getTierConfig, pricingTierSchema } from "@/lib/payments/tiers";
+import { buildRazorpayCheckoutOptions, createRazorpayOrder } from "@/lib/payments/razorpay";
+import { calculateInclusiveGstBreakdown } from "@/lib/payments/gstInvoice";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { stripe } from "@/lib/stripe";
 
 const checkoutRequestSchema = z.object({
   tier: pricingTierSchema,
+  applicationId: z.string().uuid().optional(),
+  applicantName: z.string().trim().min(1).max(160).optional(),
 });
 
 export async function POST(request: Request) {
@@ -33,40 +36,60 @@ export async function POST(request: Request) {
       );
     }
 
-    const { tier } = parsedRequest.data;
+    const { tier, applicationId, applicantName } = parsedRequest.data;
     const tierConfig = getTierConfig(tier);
-    const successUrl = new URL("/dashboard", publicEnv.appUrl);
+    const successUrl = new URL("/dashboard", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
     successUrl.searchParams.set("checkout", "success");
     successUrl.searchParams.set("tier", tier);
-
-    const cancelUrl = new URL("/dashboard", publicEnv.appUrl);
-    cancelUrl.searchParams.set("checkout", "cancelled");
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      success_url: successUrl.toString(),
-      cancel_url: cancelUrl.toString(),
-      customer_email: user.email ?? undefined,
-      line_items: [
-        {
-          price: tierConfig.priceId,
-          quantity: 1,
-        },
-      ],
-      metadata: {
+    const receiptNumber = `vp-${tier}-${Date.now()}`;
+    const order = await createRazorpayOrder({
+      amountPaise: tierConfig.gstInclusiveAmountInr * 100,
+      receipt: receiptNumber,
+      notes: {
         userId: user.id,
         tier,
-        requested_credits: `${tierConfig.requestedCredits}`,
+        applicationId: applicationId ?? "",
       },
     });
 
-    if (!session.url) {
-      throw new Error("Stripe checkout session did not return a redirect URL.");
+    const tax = calculateInclusiveGstBreakdown(tierConfig.gstInclusiveAmountInr);
+    const admin = createSupabaseAdminClient();
+    const { error: insertError } = await admin.from("payments").insert({
+      user_id: user.id,
+      application_id: applicationId ?? null,
+      provider: "razorpay",
+      status: "created",
+      pricing_tier: tier,
+      requested_credits: tierConfig.requestedCredits,
+      gross_amount_inr: tierConfig.gstInclusiveAmountInr,
+      taxable_amount_inr: tax.taxableAmountInr,
+      gst_amount_inr: tax.gstAmountInr,
+      currency: "INR",
+      provider_order_id: order.id,
+      receipt_number: receiptNumber,
+      customer_name: applicantName ?? null,
+      customer_email: user.email ?? null,
+      notes: {
+        tierLabel: tierConfig.label,
+        requestedCredits: tierConfig.requestedCredits,
+      },
+    });
+
+    if (insertError) {
+      throw new Error(insertError.message);
     }
 
     return NextResponse.json({
-      checkoutUrl: session.url,
-      sessionId: session.id,
+      orderId: order.id,
+      checkoutOptions: buildRazorpayCheckoutOptions({
+        orderId: order.id,
+        amountPaise: tierConfig.gstInclusiveAmountInr * 100,
+        tier,
+        checkoutLabel: tierConfig.checkoutLabel,
+        customerName: applicantName ?? null,
+        customerEmail: user.email ?? null,
+      }),
+      successRedirectUrl: successUrl.toString(),
       tier: tierConfig.label,
     });
   } catch (error) {

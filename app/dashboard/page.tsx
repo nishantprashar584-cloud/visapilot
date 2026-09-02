@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ApplicationStatusBadge } from "@/components/dashboard/ApplicationStatusBadge";
 import { ConsularDeepLinks } from "@/components/dashboard/ConsularDeepLinks";
 import { DashboardAutoRefresh } from "@/components/dashboard/DashboardAutoRefresh";
+import { PaymentCheckoutCard } from "@/components/dashboard/PaymentCheckoutCard";
 import { PrivacyCountdownBadge } from "@/components/dashboard/PrivacyCountdownBadge";
 import { ProcessingTimeline } from "@/components/dashboard/ProcessingTimeline";
 import { RecoveryTriggerModal } from "@/components/dashboard/RecoveryTriggerModal";
@@ -14,7 +15,7 @@ import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/sessi
 import { previewApplications } from "@/lib/mock/applications";
 import { canReapplyForFree, getPrivacyCountdownDays, getProcessingProgress, runRiskAudit } from "@/lib/riskAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ApplicationRow, PricingTier, UserRow } from "@/types";
+import type { ApplicationRow, PaymentRow, PricingTier, UserRow } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -35,16 +36,18 @@ function getDisplayStatus(application: ApplicationRow): ApplicationRow["status"]
 async function getDashboardData(userId?: string): Promise<{
   user: UserRow | null;
   applications: ApplicationRow[];
+  payments: PaymentRow[];
 }> {
   if (!userId) {
     return {
       user: null,
       applications: [],
+      payments: [],
     };
   }
 
   const supabase = createSupabaseServerClient();
-  const [{ data: user }, { data: applications }] = await Promise.all([
+  const [{ data: user }, { data: applications }, { data: payments }] = await Promise.all([
     supabase
       .from("users")
       .select("id, email, credits, created_at, updated_at")
@@ -56,11 +59,18 @@ async function getDashboardData(userId?: string): Promise<{
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("payments")
+      .select("id, user_id, application_id, provider, status, pricing_tier, requested_credits, gross_amount_inr, taxable_amount_inr, gst_amount_inr, currency, provider_order_id, provider_payment_id, provider_signature, receipt_number, invoice_number, invoice_storage_path, invoice_issued_at, customer_name, customer_email, destination_country, notes, created_at, updated_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(3),
   ]);
 
   return {
     user: (user as UserRow | null) ?? null,
     applications: (applications as ApplicationRow[] | null) ?? [],
+    payments: (payments as PaymentRow[] | null) ?? [],
   };
 }
 
@@ -76,9 +86,9 @@ export default async function DashboardPage({
     redirect(buildAuthRedirectPath("/dashboard"));
   }
 
-  const { user, applications } = account
+  const { user, applications, payments } = account
     ? await getDashboardData(account.id)
-    : { user: null, applications: [] };
+    : { user: null, applications: [], payments: [] };
   const paymentSucceeded = searchParams?.checkout === "success";
   const visibleApplications = previewMode ? previewApplications : applications;
   const latestApplication = visibleApplications[0] ?? null;
@@ -118,7 +128,41 @@ export default async function DashboardPage({
 
       {paymentSucceeded ? (
         <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/12 px-5 py-4 text-sm font-medium text-emerald-100">
-          Access unlocked. Open your latest master bundle below.
+          Payment captured. Credits and GST invoice are now linked to your account.
+        </div>
+      ) : null}
+
+      {!previewMode ? <PaymentCheckoutCard /> : null}
+
+      {!previewMode && payments.length > 0 ? (
+        <div className="glass-panel p-6 sm:p-8">
+          <div>
+            <p className="eyebrow">Payments</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Recent payment captures</h2>
+            <p className="mt-2 text-sm text-slate-400">Invoice links are served from the protected document bucket after Razorpay capture.</p>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {payments.map((payment) => (
+              <div key={payment.id} className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-sm text-slate-100">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-white">{payment.provider === "razorpay" ? "Razorpay" : payment.provider} · {payment.pricing_tier}</p>
+                    <p className="mt-1 text-slate-300">₹{Number(payment.gross_amount_inr).toLocaleString("en-IN")} · {payment.status}</p>
+                  </div>
+                  {payment.invoice_storage_path ? (
+                    <span className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">
+                      Invoice ready in storage
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100">
+                      Awaiting capture
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

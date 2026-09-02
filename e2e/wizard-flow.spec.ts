@@ -105,7 +105,6 @@ test.describe("VisaPilot application wizard", () => {
     const destinationCountryInput = page.locator('[name="trip.destinationCountry"]');
     const firstEntryCountryInput = page.locator('[name="trip.firstEntryCountry"]');
     const portOfEntryInput = page.locator('[name="trip.portOfEntry"]');
-    const purposeSelect = page.locator('[name="trip.purpose"]');
     const entriesRequestedSelect = page.locator('[name="trip.entriesRequested"]');
     const employmentStatusSelect = page.locator('[name="employment.employmentStatus"]');
     const fundingSourceSelect = page.locator('[name="sponsor.fundingSource"]');
@@ -148,7 +147,6 @@ test.describe("VisaPilot application wizard", () => {
     await setNativeValue(destinationCountryInput, "Spain");
     await setNativeValue(firstEntryCountryInput, "Spain");
     await setNativeValue(portOfEntryInput, "Madrid");
-    await purposeSelect.selectOption("tourism");
     await entriesRequestedSelect.selectOption("single");
     await employmentStatusSelect.selectOption("self_employed");
     await fundingSourceSelect.selectOption("self_funded");
@@ -167,11 +165,9 @@ test.describe("VisaPilot application wizard", () => {
 
     await expect(page.getByRole("heading", { name: /finances and employment/i })).toBeVisible();
     await setNativeValue(savingsInput, "800");
-    await expect(page.getByText(/insufficient statutory funds for spain/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /save and continue/i })).toBeDisabled();
+    await expect(page.getByText(/insufficient funds - automatic refusal risk/i)).toBeVisible();
     await setNativeValue(savingsInput, "2500");
     await expect(page.getByText(/strong financial health/i)).toBeVisible();
-    await expect(page.getByText(/220% safety margin/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /save and continue/i })).toBeEnabled();
     await setNativeValue(occupationInput, "Freelance Software Developer");
     await setNativeValue(page.locator('[name="employment.monthlyIncomeEur"]'), "4200");

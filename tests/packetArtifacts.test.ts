@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/components/dashboard/DocumentStackBlueprint", () => ({
+vi.mock("@/lib/applications/documentSequence", () => ({
   buildDocumentSequence: vi.fn().mockReturnValue([]),
 }));
 

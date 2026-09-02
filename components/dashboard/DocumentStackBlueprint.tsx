@@ -1,12 +1,5 @@
-import { buildStrictDocumentSequence } from "@/lib/applications/consularPolicy";
+import { buildDocumentSequence } from "@/lib/applications/documentSequence";
 import type { ApplicantInfo, RefusalReasonCode } from "@/types";
-
-export function buildDocumentSequence(
-  applicant: ApplicantInfo,
-  refusalReasonCode: RefusalReasonCode | null,
-): string[] {
-  return buildStrictDocumentSequence(applicant, refusalReasonCode);
-}
 
 export function DocumentStackBlueprint({
   applicant,

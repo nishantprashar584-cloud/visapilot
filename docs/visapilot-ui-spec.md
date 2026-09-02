@@ -15,7 +15,7 @@ This document defines the current intended UI architecture for VisaPilot across 
 ## Non-Goals
 
 1. This spec does not redefine the wizard step fields or validation logic.
-2. This spec does not replace the existing audit engine, identity-locking logic, or Stripe flow.
+2. This spec does not replace the existing audit engine, identity-locking logic, or Razorpay payment flow.
 3. This spec does not specify a new design token system beyond what is needed for route-level consistency.
 
 ## Design Principles

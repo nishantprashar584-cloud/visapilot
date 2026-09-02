@@ -4,6 +4,10 @@ export type RecoveryStatus = "NOT_CLAIMED" | "CLAIMED";
 
 export type PricingTier = "solo" | "couple" | "family";
 
+export type PaymentGateway = "razorpay";
+
+export type PaymentStatus = "created" | "verified" | "captured" | "failed";
+
 export type RefusalReasonCode = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 export type AuditSeverity = "GREEN" | "YELLOW" | "RED";
@@ -530,4 +534,31 @@ export interface RiskAuditResult {
     accommodationEvidence: boolean;
     roundTripEvidence: boolean;
   };
+}
+
+export interface PaymentRow {
+  id: string;
+  user_id: string;
+  application_id: string | null;
+  provider: PaymentGateway;
+  status: PaymentStatus;
+  pricing_tier: PricingTier;
+  requested_credits: number;
+  gross_amount_inr: number;
+  taxable_amount_inr: number;
+  gst_amount_inr: number;
+  currency: string;
+  provider_order_id: string;
+  provider_payment_id: string | null;
+  provider_signature: string | null;
+  receipt_number: string;
+  invoice_number: string | null;
+  invoice_storage_path: string | null;
+  invoice_issued_at: string | null;
+  customer_name: string | null;
+  customer_email: string | null;
+  destination_country: string | null;
+  notes: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }

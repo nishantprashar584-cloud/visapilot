@@ -10,7 +10,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test e2e/wizard-flow.spec.ts",
+    "test:e2e": "playwright test",
     "scrape:consular-rules": "tsx scripts/scrape-consular-rules.ts",
     "test:pdf": "ts-node --project tsconfig.ts-node.json --transpile-only scripts/verify-pdf-items26-27.ts",
     "inspect:pdf": "tsx scripts/inspect-pdf.ts",
@@ -26,10 +26,11 @@
     "next": "14.2.33",
     "openai": "^7.5.0",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.86.0",
-    "stripe": "^22.5.0",
+    "server-only": "^0.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

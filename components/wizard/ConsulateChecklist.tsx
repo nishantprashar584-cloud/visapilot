@@ -78,6 +78,18 @@ export function ConsulateChecklist({
               </li>
             ))}
           </ol>
+
+          {checklist.stackingBlueprints.length > 1 ? (
+            <div className="mt-5 space-y-3">
+              {checklist.stackingBlueprints.map((blueprint) => (
+                <div key={`${blueprint.provider}-${blueprint.hub}`} className="rounded-[0.95rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">{blueprint.provider}</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{blueprint.hub}</p>
+                  <p className="mt-1 text-sm text-slate-300">{blueprint.appointmentDocumentLabel}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
