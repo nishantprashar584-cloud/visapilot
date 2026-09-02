@@ -335,6 +335,7 @@ Persistence behavior:
 
 - tool flows marked for persistence upload through `/api/supporting-documents` outside preview mode
 - reorder state is mirrored back through `syncSavedSupportingOrder(...)`
+- switching to a different PDF tool clears the in-memory workspace session so uploads, previews, and exports do not bleed across tools
 
 ## User Workflow Implemented Today
 

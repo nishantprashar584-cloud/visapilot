@@ -277,6 +277,10 @@ function isWordProcessingDocument(file: File): boolean {
   return wordMimeTypes.has(file.type) || /\.(doc|docx|odt|rtf)$/i.test(file.name);
 }
 
+function isPdfDocument(file: File): boolean {
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+}
+
 function buildUploadButtonLabel(toolDefinition: ToolDefinition): string {
   if (toolDefinition.multiple) {
     return "Upload Files";
@@ -471,10 +475,28 @@ function reorderItems<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   return nextItems;
 }
 
+function areReorderBoardItemsEqual(left: ReorderBoardItem[], right: ReorderBoardItem[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((item, index) => {
+    const nextItem = right[index];
+    return nextItem != null
+      && item.id === nextItem.id
+      && item.documentId === nextItem.documentId
+      && item.documentKind === nextItem.documentKind
+      && item.pageNumber === nextItem.pageNumber
+      && item.fileName === nextItem.fileName
+      && item.category === nextItem.category
+      && item.rotation === nextItem.rotation;
+  });
+}
+
 async function readDocumentMetadata(file: File): Promise<WorkspaceDocument> {
   const previewUrl = URL.createObjectURL(file);
 
-  if (file.type === "application/pdf") {
+  if (isPdfDocument(file)) {
     const { PDFDocument } = await import("pdf-lib");
     const pdf = await PDFDocument.load(await file.arrayBuffer());
 
@@ -663,6 +685,67 @@ export function PacketWorkspace({
     [selectedTool, selectedToolDefinition.label, visibleToolCards],
   );
 
+  function resetWorkspaceSession() {
+    if (splitProcessingTimeoutRef.current) {
+      window.clearTimeout(splitProcessingTimeoutRef.current);
+      splitProcessingTimeoutRef.current = null;
+    }
+
+    if (splitRecognitionRef.current) {
+      splitRecognitionRef.current.onend = null;
+      splitRecognitionRef.current.stop();
+      splitRecognitionRef.current = null;
+    }
+
+    documentsRef.current.forEach((document) => URL.revokeObjectURL(document.previewUrl));
+    outputsRef.current.forEach((output) => URL.revokeObjectURL(output.url));
+    pagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
+
+    documentsRef.current = [];
+    outputsRef.current = [];
+    pagePreviewsRef.current = [];
+
+    setDocuments([]);
+    setOutputs([]);
+    setPagePreviews([]);
+    setPreviewDocumentId("");
+    setActivePdfId("");
+    setPreviewOutputId("");
+    setDraggedDocumentId(null);
+    setDraggedBoardItemId(null);
+    setReorderInsertIndex(null);
+    setReorderBoardItems([]);
+    setRemovedReorderBoardItemIds([]);
+    setIsProcessingDocuments(false);
+    setIsPreparingPageBoard(false);
+    setProcessingLabel(null);
+    setToolkitMessage(null);
+    setActiveModal(null);
+    setSplitRange("1");
+    setSplitDictationPhase(null);
+    setSplitVoiceMessage(null);
+    setRotationPreset("90");
+
+    reorderInsertIndexRef.current = null;
+
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+
+    if (reorderInsertInputRef.current) {
+      reorderInsertInputRef.current.value = "";
+    }
+  }
+
+  function selectWorkspaceTool(nextToolId: ToolkitMode) {
+    if (nextToolId !== selectedTool) {
+      resetWorkspaceSession();
+    }
+
+    setSelectedTool(nextToolId);
+    setWorkspaceStage("upload");
+  }
+
   useEffect(() => {
     documentsRef.current = documents;
   }, [documents]);
@@ -807,9 +890,10 @@ export function PacketWorkspace({
   useEffect(() => {
     if (selectedTool !== "reorder") {
       reorderInsertIndexRef.current = null;
-      setReorderInsertIndex(null);
-      setReorderBoardItems([]);
-      setRemovedReorderBoardItemIds([]);
+
+      setReorderInsertIndex((currentIndex) => (currentIndex == null ? currentIndex : null));
+      setReorderBoardItems((currentItems) => (currentItems.length === 0 ? currentItems : []));
+      setRemovedReorderBoardItemIds((currentIds) => (currentIds.length === 0 ? currentIds : []));
       return;
     }
 
@@ -838,7 +922,7 @@ export function PacketWorkspace({
 
       if (insertedItems.length === 0) {
         reorderInsertIndexRef.current = null;
-        return retained;
+        return areReorderBoardItemsEqual(currentItems, retained) ? currentItems : retained;
       }
 
       const requestedInsertIndex = reorderInsertIndexRef.current;
@@ -847,11 +931,13 @@ export function PacketWorkspace({
         ? retained.length
         : Math.max(0, Math.min(requestedInsertIndex, retained.length));
 
-      return [
+      const nextItems = [
         ...retained.slice(0, boundedInsertIndex),
         ...insertedItems,
         ...retained.slice(boundedInsertIndex),
       ];
+
+      return areReorderBoardItemsEqual(currentItems, nextItems) ? currentItems : nextItems;
     });
   }, [documents, removedReorderBoardItemIds, selectedTool]);
 
@@ -934,7 +1020,7 @@ export function PacketWorkspace({
 
     const nextFiles = Array.from(files).slice(0, selectedToolDefinition.multiple ? undefined : 1);
 
-    if (selectedToolDefinition.sourceKind === "pdf" && nextFiles.some((file) => file.type !== "application/pdf")) {
+    if (selectedToolDefinition.sourceKind === "pdf" && nextFiles.some((file) => !isPdfDocument(file))) {
       setToolkitMessage(`${selectedToolDefinition.label} accepts PDF files only.`);
       if (inputRef.current) {
         inputRef.current.value = "";
@@ -1023,7 +1109,7 @@ export function PacketWorkspace({
       return;
     }
 
-    const nextFiles = Array.from(files).filter((file) => file.type === "application/pdf" || file.type.startsWith("image/"));
+    const nextFiles = Array.from(files).filter((file) => isPdfDocument(file) || file.type.startsWith("image/"));
 
     if (nextFiles.length === 0) {
       setToolkitMessage("Add PDF or image files to extend the packet sequence.");
@@ -2292,10 +2378,7 @@ export function PacketWorkspace({
               <button
                 key={tool.key}
                 type="button"
-                onClick={() => {
-                  setSelectedTool(tool.targetId);
-                  setWorkspaceStage("upload");
-                }}
+                onClick={() => selectWorkspaceTool(tool.targetId)}
                 className={selectedTool === tool.targetId
                   ? `rounded-[1.1rem] bg-[rgba(255,255,255,0.08)] p-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition ${tool.accentClass}`
                   : "rounded-[1.1rem] bg-[rgba(255,255,255,0.04)] p-4 text-left text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] transition hover:bg-[rgba(255,255,255,0.07)]"}
