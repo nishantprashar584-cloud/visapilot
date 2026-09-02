@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Download, Eye, FileStack, Layers3, LoaderCircle, MessageSquareText, Mic, Minus, PackageCheck, Plus, RotateCcw, Sparkles, Square } from "lucide-react";
+import { ClipboardList, Download, Eye, FileImage, FileStack, Layers3, LoaderCircle, MessageSquareText, Mic, Minus, PackageCheck, Plus, RotateCcw, Sparkles, Square } from "lucide-react";
 import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { TravelIntentStudio } from "@/components/wizard/TravelIntentStudio";
@@ -80,6 +80,14 @@ type PromptDictationSession = {
 
 type WorkspaceTab = "bundle" | "cover-letter" | "pdf-editor" | "checklist" | "prep";
 
+type BundlePreviewPage = {
+  id: string;
+  label: string;
+  sectionLabel: string;
+  accentNote: string;
+  render: () => JSX.Element;
+};
+
 function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
   if (typeof window === "undefined") {
     return null;
@@ -143,6 +151,7 @@ export function Step5Workspace({
   const promptDictationSessionRef = useRef<PromptDictationSession | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("bundle");
   const [previewScale, setPreviewScale] = useState(1);
+  const [activeBundlePreviewPage, setActiveBundlePreviewPage] = useState(0);
   const [promptDictationState, setPromptDictationState] = useState<PromptDictationState | null>(null);
   const [customVoiceMessage, setCustomVoiceMessage] = useState<string | null>(null);
   const [itinerarySyncSummary, setItinerarySyncSummary] = useState<{
@@ -499,10 +508,13 @@ export function Step5Workspace({
     recognition.start();
   }
 
-  const coverLetterPreviewLines = coverLetterDraft.trim()
-    ? coverLetterDraft.trim().split("\n").filter(Boolean).slice(0, 7)
+  const visibleCoverLetterDraft = stripItineraryMatrixSection(coverLetterDraft);
+  const previewPacketTitle = `${applicant.trip.destinationCountry || "Schengen"} tourist packet`;
+
+  const coverLetterPreviewLines = visibleCoverLetterDraft.trim()
+    ? visibleCoverLetterDraft.trim().split("\n").filter(Boolean).slice(0, 9)
     : [
-        `${applicant.trip.destinationCountry || "Schengen"} tourist packet`,
+        previewPacketTitle,
         "Cover letter and supporting documents will preview here before final export.",
       ];
 
@@ -522,7 +534,98 @@ export function Step5Workspace({
   const queuedTransferNotesCount = itinerarySyncSummary.transitLegRequirements.filter(
     (requirement) => !/flight arrival via|local stay in/i.test(requirement),
   ).length;
-  const visibleCoverLetterDraft = stripItineraryMatrixSection(coverLetterDraft);
+  const bundlePreviewPages: BundlePreviewPage[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      sectionLabel: "Page 1 of 4",
+      accentNote: "Packet cover and manifest",
+      render: () => (
+        <div className="space-y-4 text-[#1b2430]">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Applicant</p>
+            <p className="mt-1 text-sm font-semibold">{applicant.personal.firstName || "Applicant"} {applicant.personal.lastName || "Profile"}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Destination profile loaded</p>
+            <p className="mt-1 text-sm font-semibold">{applicant.trip.destinationCountry || "Schengen"} consular rules active</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bundle manifest</p>
+            <div className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
+              {bundlePreviewSections.map((section) => (
+                <p key={section}>{section}</p>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-[0.85rem] border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+            Use the page chips above to move through the main packet sections from this landing preview, or open the full interactive viewer for the full stitched PDF.
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "letter",
+      label: "Cover letter",
+      sectionLabel: "Page 2 of 4",
+      accentNote: "Embassy-facing narrative",
+      render: () => (
+        <div className="space-y-1 text-sm leading-6 text-slate-700">
+          {coverLetterPreviewLines.map((line, index) => (
+            <p key={`${line}-${index}`}>{line}</p>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "travel",
+      label: "Travel evidence",
+      sectionLabel: "Page 3 of 4",
+      accentNote: "Flight and stay anchors",
+      render: () => (
+        <div className="space-y-4 text-[#1b2430]">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Entry and stay</p>
+            <p className="mt-1 text-sm font-semibold">Arrival via {applicant.trip.portOfEntry || applicant.trip.firstEntryCountry || applicant.trip.destinationCountry || "Pending entry point"}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">Travel dates: {applicant.trip.arrivalDate || "Pending"} to {applicant.trip.departureDate || "Pending"}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Accommodation reference</p>
+            <p className="mt-1 text-sm font-semibold">{applicant.trip.hotelBookingReference || "Booking reference pending"}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">{applicant.trip.accommodations || "Hotel or host stay details will appear here once entered earlier in the wizard."}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Transfer notes queued</p>
+            <p className="mt-1 text-sm font-semibold">{queuedTransferNotesCount === 0 ? "No exceptional transfer notes currently required" : `${queuedTransferNotesCount} transfer note${queuedTransferNotesCount === 1 ? "" : "s"} linked to the narrative sync`}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "audit",
+      label: "Financial audit",
+      sectionLabel: "Page 4 of 4",
+      accentNote: "Liquidity and readiness summary",
+      render: () => (
+        <div className="space-y-4 text-[#1b2430]">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Accessible funds</p>
+            <p className="mt-1 text-sm font-semibold">EUR {applicant.employment.savingsBalanceEur.toFixed(0)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Monthly income profile</p>
+            <p className="mt-1 text-sm font-semibold">EUR {applicant.employment.monthlyIncomeEur.toFixed(0)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Supporting proof loaded</p>
+            <p className="mt-1 text-sm font-semibold">{supportingDocuments.length} uploaded file{supportingDocuments.length === 1 ? "" : "s"}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">Bank statements, employment proofs, and other packet evidence stay connected to the final bundle export from this workspace.</p>
+          </div>
+        </div>
+      ),
+    },
+  ];
+  const currentBundlePreviewPage = bundlePreviewPages[activeBundlePreviewPage] ?? bundlePreviewPages[0];
 
   const checklistVisualizerItems = [
     "Cover Letter",
@@ -540,6 +643,63 @@ export function Step5Workspace({
     "rotate",
     "sanitize",
     "wordToPdf",
+  ] as const;
+
+  const advancedPdfEditorCards = [
+    {
+      key: "merge-pdf",
+      targetId: "merge",
+      label: "Merge PDF",
+      description: "Upload multiple files, arrange them, then create one embassy-ready PDF.",
+    },
+    {
+      key: "jpg-to-pdf",
+      targetId: "merge",
+      label: "JPG to PDF",
+      description: "Convert JPG images to PDF in seconds. Easily adjust orientation and margins.",
+      icon: FileImage,
+      accentClass: "border-sky-300/20 bg-sky-500/10 text-sky-100",
+      iconClass: "bg-sky-100 text-sky-700",
+    },
+    {
+      key: "split-pdf",
+      targetId: "split",
+      label: "Split PDF",
+      description: "Upload one PDF, preview it, then extract the exact page range you need.",
+    },
+    {
+      key: "compress-pdf",
+      targetId: "compress",
+      label: "Compress PDF",
+      description: "Upload one PDF, preview it, then generate a lighter portal-friendly copy.",
+    },
+    {
+      key: "organize-pdf",
+      targetId: "reorder",
+      label: "Organize PDF",
+      description: "Sort, add and delete PDF pages. Drag and drop the page thumbnails and sort them in our PDF organizer.",
+      icon: Layers3,
+      accentClass: "border-violet-300/20 bg-violet-500/10 text-violet-100",
+      iconClass: "bg-violet-100 text-violet-600",
+    },
+    {
+      key: "rotate-pdf",
+      targetId: "rotate",
+      label: "Rotate PDF",
+      description: "Upload one PDF, choose the angle, then export a corrected orientation.",
+    },
+    {
+      key: "sanitize-pdf",
+      targetId: "sanitize",
+      label: "Sanitize PDF",
+      description: "Upload one PDF, review it, then strip metadata before submission.",
+    },
+    {
+      key: "word-to-pdf",
+      targetId: "wordToPdf",
+      label: "Word to PDF",
+      description: "Upload a DOC, DOCX, RTF, or ODT file and convert it on the server into a real PDF.",
+    },
   ] as const;
 
   const workspaceTabs: Array<{
@@ -563,6 +723,16 @@ export function Step5Workspace({
     setPreviewScale((currentScale) => {
       const nextScale = direction === "in" ? currentScale + 0.1 : currentScale - 0.1;
       return Number(Math.min(1.3, Math.max(0.8, nextScale)).toFixed(2));
+    });
+  }
+
+  function setBundlePreviewPage(direction: "previous" | "next") {
+    setActiveBundlePreviewPage((currentPage) => {
+      if (direction === "previous") {
+        return currentPage === 0 ? bundlePreviewPages.length - 1 : currentPage - 1;
+      }
+
+      return currentPage === bundlePreviewPages.length - 1 ? 0 : currentPage + 1;
     });
   }
 
@@ -989,9 +1159,23 @@ export function Step5Workspace({
                   <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Interactive A4 preview</p>
-                      <p className="mt-2 text-base font-semibold text-[#1b2430]">Lithuania tourist packet</p>
+                      <p className="mt-2 text-base font-semibold text-[#1b2430]">{previewPacketTitle}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBundlePreviewPage("previous")}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"
+                      >
+                        Prev page
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBundlePreviewPage("next")}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"
+                      >
+                        Next page
+                      </button>
                       <button
                         type="button"
                         onClick={() => adjustPreviewScale("out")}
@@ -1018,6 +1202,21 @@ export function Step5Workspace({
                     </div>
                   </div>
 
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {bundlePreviewPages.map((page, index) => (
+                      <button
+                        key={page.id}
+                        type="button"
+                        onClick={() => setActiveBundlePreviewPage(index)}
+                        className={index === activeBundlePreviewPage
+                          ? "rounded-full border border-slate-300 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
+                          : "rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"}
+                      >
+                        {page.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="mt-5 flex justify-center overflow-auto rounded-[1rem] bg-[#f4ead2] p-3 sm:p-5">
                     <div
                       className="aspect-[210/297] w-full max-w-[30rem] rounded-[1rem] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-transform duration-200"
@@ -1027,44 +1226,21 @@ export function Step5Workspace({
                         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
                           <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Preview pane</p>
-                            <p className="mt-2 text-base font-semibold text-[#1b2430]">Lithuania tourist packet</p>
+                            <p className="mt-2 text-base font-semibold text-[#1b2430]">{previewPacketTitle}</p>
                           </div>
-                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                            First page
-                          </span>
-                        </div>
-
-                        <div className="relative mt-5 flex-1 overflow-hidden rounded-[0.9rem] border border-dashed border-slate-200 bg-[linear-gradient(180deg,#fffdf8,#fff7ea)] px-5 py-6">
-                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                            <span className="rotate-[-26deg] text-[2.2rem] font-semibold tracking-[0.28em] text-slate-200/75 sm:text-[2.8rem]">
-                              LITHUANIA TOURIST PACKET
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                              {currentBundlePreviewPage.sectionLabel}
+                            </span>
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              {currentBundlePreviewPage.accentNote}
                             </span>
                           </div>
-                          <div className="relative z-10 space-y-4 text-[#1b2430]">
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Applicant</p>
-                              <p className="mt-1 text-sm font-semibold">{applicant.personal.firstName || "Applicant"} {applicant.personal.lastName || "Profile"}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Destination profile loaded</p>
-                              <p className="mt-1 text-sm font-semibold">{applicant.trip.destinationCountry || "Schengen"} consular rules active</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bundle manifest</p>
-                              <div className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
-                                {bundlePreviewSections.map((section) => (
-                                  <p key={section}>{section}</p>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Letter excerpt</p>
-                              <div className="mt-2 space-y-1 text-sm leading-6 text-slate-700">
-                                {coverLetterPreviewLines.map((line, index) => (
-                                  <p key={`${line}-${index}`}>{line}</p>
-                                ))}
-                              </div>
-                            </div>
+                        </div>
+
+                        <div className="mt-5 flex-1 overflow-hidden rounded-[0.9rem] border border-dashed border-slate-200 bg-[linear-gradient(180deg,#fffdf8,#fff7ea)] px-5 py-6">
+                          <div className="space-y-4">
+                            {currentBundlePreviewPage.render()}
                           </div>
                         </div>
                       </div>
@@ -1086,7 +1262,7 @@ export function Step5Workspace({
                     </div>
                     <h3 className="mt-3 text-lg font-semibold text-white">Advanced PDF Editor</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-200">
-                      Merge PDF, Split PDF, Compress PDF, Reorder Pages, Rotate PDF, Sanitize PDF, and Word-to-PDF stay isolated here until you explicitly need file surgery.
+                      Merge PDF, JPG to PDF, Split PDF, Compress PDF, Organize PDF, Rotate PDF, Sanitize PDF, and Word-to-PDF stay isolated here until you explicitly need file surgery.
                     </p>
                   </div>
                   <div className="rounded-[1.15rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
@@ -1106,6 +1282,7 @@ export function Step5Workspace({
                   supportingDocuments={supportingDocuments}
                   onSupportingDocumentsChange={onSupportingDocumentsChange}
                   allowedTools={[...advancedPdfEditorTools]}
+                  toolCards={[...advancedPdfEditorCards]}
                 />
               </div>
             ) : null}

@@ -117,6 +117,15 @@ type PacketWorkspaceProps = {
   supportingDocuments: SupportingDocument[];
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
   allowedTools?: ToolkitMode[];
+  toolCards?: Array<{
+    key: string;
+    targetId: ToolkitMode;
+    label: string;
+    description: string;
+    icon?: LucideIcon;
+    accentClass?: string;
+    iconClass?: string;
+  }>;
 };
 
 const wordMimeTypes = new Set([
@@ -500,6 +509,7 @@ export function PacketWorkspace({
   supportingDocuments,
   onSupportingDocumentsChange,
   allowedTools,
+  toolCards,
 }: PacketWorkspaceProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const generatedFilesRef = useRef<HTMLDivElement | null>(null);
@@ -535,6 +545,40 @@ export function PacketWorkspace({
 
     return toolDefinitions.filter((tool) => allowedTools.includes(tool.id));
   }, [allowedTools]);
+
+  const visibleToolCards = useMemo(() => {
+    if (!toolCards?.length) {
+      return visibleToolDefinitions.map((tool) => ({
+        key: tool.id,
+        targetId: tool.id,
+        label: tool.label,
+        description: tool.description,
+        icon: tool.icon,
+        accentClass: tool.accentClass,
+        iconClass: tool.iconClass,
+      }));
+    }
+
+    return toolCards
+      .map((card) => {
+        const baseTool = visibleToolDefinitions.find((tool) => tool.id === card.targetId);
+
+        if (!baseTool) {
+          return null;
+        }
+
+        return {
+          key: card.key,
+          targetId: card.targetId,
+          label: card.label,
+          description: card.description,
+          icon: card.icon ?? baseTool.icon,
+          accentClass: card.accentClass ?? baseTool.accentClass,
+          iconClass: card.iconClass ?? baseTool.iconClass,
+        };
+      })
+      .filter((card): card is NonNullable<typeof card> => Boolean(card));
+  }, [toolCards, visibleToolDefinitions]);
 
   useEffect(() => {
     if (!visibleToolDefinitions.some((tool) => tool.id === selectedTool)) {
@@ -1942,15 +1986,15 @@ export function PacketWorkspace({
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {visibleToolDefinitions.map((tool) => {
+            {visibleToolCards.map((tool) => {
               const Icon = tool.icon;
 
               return (
                 <button
-                  key={tool.id}
+                  key={tool.key}
                   type="button"
-                  onClick={() => setSelectedTool(tool.id)}
-                  className={selectedTool === tool.id
+                  onClick={() => setSelectedTool(tool.targetId)}
+                  className={selectedTool === tool.targetId
                     ? `rounded-[1.1rem] border p-4 text-left transition ${tool.accentClass}`
                     : "rounded-[1.1rem] border border-white/14 bg-white/10 p-4 text-left text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14"}
                 >
