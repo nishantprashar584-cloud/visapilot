@@ -23,21 +23,32 @@ export function A4TextPreview({
 
           <div className="relative aspect-[1/1.414] w-full overflow-hidden rounded-[1rem] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
             <div className="absolute inset-0 bg-[linear-gradient(180deg,#fffdf8,#fff7ea)]" />
-            <div className="absolute inset-0 bg-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-              {page.lines.map((line, lineIndex) => (
-                <p
-                  key={`${lineIndex}-${line.y}`}
-                  className="absolute m-0 whitespace-pre-wrap text-[11px] leading-[16px] text-[#1b2430]"
-                  style={{
-                    left: `${(line.x / layout.pageWidth) * 100}%`,
-                    top: `${((layout.pageHeight - line.y - line.fontSize) / layout.pageHeight) * 100}%`,
-                    width: `${((layout.pageWidth - line.x - layout.margin) / layout.pageWidth) * 100}%`,
-                  }}
-                >
-                  {line.text}
-                </p>
-              ))}
-            </div>
+            <svg
+              className="absolute inset-0 h-full w-full bg-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]"
+              viewBox={`0 0 ${layout.pageWidth} ${layout.pageHeight}`}
+              preserveAspectRatio="none"
+              aria-label={`${title} page ${index + 1}`}
+            >
+              {page.lines.map((line, lineIndex) => {
+                if (!line.text.trim()) {
+                  return null;
+                }
+
+                return (
+                  <text
+                    key={`${lineIndex}-${line.y}`}
+                    x={line.x}
+                    y={line.y}
+                    fontSize={line.fontSize}
+                    fontFamily="Helvetica, Arial, sans-serif"
+                    fill="#1b2430"
+                    xmlSpace="preserve"
+                  >
+                    {line.text}
+                  </text>
+                );
+              })}
+            </svg>
           </div>
         </div>
       ))}
