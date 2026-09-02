@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Download, Eye, FileImage, FileStack, Layers3, LoaderCircle, MessageSquareText, Mic, Minus, PackageCheck, Plus, RotateCcw, Sparkles, Square } from "lucide-react";
+import { ClipboardList, Download, Eye, FileImage, Layers3, LoaderCircle, MessageSquareText, Mic, Minus, PackageCheck, Plus, RotateCcw, Sparkles, Square } from "lucide-react";
 import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
 import { TravelIntentStudio } from "@/components/wizard/TravelIntentStudio";
@@ -107,6 +107,120 @@ function sanitizeSpeechTranscript(value: string): string {
 
 function buildDictatedText(baselineText: string, transcript: string): string {
   return baselineText.trim() ? `${baselineText.trim()} ${transcript}` : transcript;
+}
+
+type CoverLetterPreviewSheet = {
+  paragraphs: string[];
+  density: "comfortable" | "compact";
+};
+
+function estimatePreviewUnits(paragraph: string) {
+  const normalized = paragraph.replace(/\s+/g, " ").trim();
+
+  if (!normalized) {
+    return 0;
+  }
+
+  return Math.max(1, Math.ceil(normalized.length / 82)) + (normalized.length < 72 ? 1 : 0);
+}
+
+function splitParagraphForPreview(paragraph: string, maxLength: number) {
+  const normalized = paragraph.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return [normalized];
+  }
+
+  const sentenceParts = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
+
+  if (sentenceParts.length === 1) {
+    const words = normalized.split(" ");
+    const chunks: string[] = [];
+    let currentChunk = "";
+
+    words.forEach((word) => {
+      const nextChunk = currentChunk ? `${currentChunk} ${word}` : word;
+
+      if (nextChunk.length > maxLength && currentChunk) {
+        chunks.push(currentChunk);
+        currentChunk = word;
+        return;
+      }
+
+      currentChunk = nextChunk;
+    });
+
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks;
+  }
+
+  const chunks: string[] = [];
+  let currentChunk = "";
+
+  sentenceParts.forEach((sentence) => {
+    const nextChunk = currentChunk ? `${currentChunk} ${sentence}` : sentence;
+
+    if (nextChunk.length > maxLength && currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = sentence;
+      return;
+    }
+
+    currentChunk = nextChunk;
+  });
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks;
+}
+
+function paginateCoverLetterPreview(value: string, fallbackTitle: string): CoverLetterPreviewSheet[] {
+  const baseParagraphs = value.trim()
+    ? value.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+    : [
+        fallbackTitle,
+        "Cover letter and supporting documents will preview here before final export.",
+      ];
+
+  const totalLength = baseParagraphs.reduce((sum, paragraph) => sum + paragraph.length, 0);
+  const density = totalLength > 2200 ? "compact" : "comfortable";
+  const maxParagraphLength = density === "compact" ? 360 : 460;
+  const maxUnitsPerSheet = density === "compact" ? 30 : 24;
+  const normalizedParagraphs = baseParagraphs.flatMap((paragraph) => splitParagraphForPreview(paragraph, maxParagraphLength));
+  const sheets: CoverLetterPreviewSheet[] = [];
+  let currentParagraphs: string[] = [];
+  let currentUnits = 0;
+
+  normalizedParagraphs.forEach((paragraph) => {
+    const paragraphUnits = estimatePreviewUnits(paragraph);
+
+    if (currentParagraphs.length > 0 && currentUnits + paragraphUnits > maxUnitsPerSheet) {
+      sheets.push({
+        paragraphs: currentParagraphs,
+        density,
+      });
+      currentParagraphs = [paragraph];
+      currentUnits = paragraphUnits;
+      return;
+    }
+
+    currentParagraphs.push(paragraph);
+    currentUnits += paragraphUnits;
+  });
+
+  if (currentParagraphs.length > 0) {
+    sheets.push({
+      paragraphs: currentParagraphs,
+      density,
+    });
+  }
+
+  return sheets.length > 0 ? sheets : [{ paragraphs: baseParagraphs, density: "comfortable" }];
 }
 
 export function Step5Workspace({
@@ -510,13 +624,49 @@ export function Step5Workspace({
 
   const visibleCoverLetterDraft = stripItineraryMatrixSection(coverLetterDraft);
   const previewPacketTitle = `${applicant.trip.destinationCountry || "Schengen"} tourist packet`;
+  const coverLetterPreviewSheets = paginateCoverLetterPreview(visibleCoverLetterDraft, previewPacketTitle);
 
-  const coverLetterPreviewLines = visibleCoverLetterDraft.trim()
-    ? visibleCoverLetterDraft.trim().split("\n").filter(Boolean).slice(0, 9)
-    : [
-        previewPacketTitle,
-        "Cover letter and supporting documents will preview here before final export.",
-      ];
+  function renderBundlePreviewSheet({
+    sheetKey,
+    counterLabel,
+    accentNote,
+    density,
+    children,
+  }: {
+    sheetKey?: string;
+    counterLabel: string;
+    accentNote: string;
+    density: "comfortable" | "compact";
+    children: JSX.Element;
+  }) {
+    return (
+      <div key={sheetKey} className="aspect-[1/1.414] w-full rounded-[1rem] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+        <div className="flex h-full flex-col">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Preview pane</p>
+              <p className="mt-2 text-base font-semibold text-[#1b2430]">{previewPacketTitle}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                {counterLabel}
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                {accentNote}
+              </span>
+            </div>
+          </div>
+
+          <div className={density === "compact"
+            ? "mt-5 flex-1 overflow-hidden rounded-[0.9rem] bg-[linear-gradient(180deg,#fffdf8,#fff7ea)] px-5 py-5 text-[0.82rem] leading-tight shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]"
+            : "mt-5 flex-1 overflow-hidden rounded-[0.9rem] bg-[linear-gradient(180deg,#fffdf8,#fff7ea)] px-6 py-7 text-[0.92rem] leading-normal shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]"}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const bundlePreviewSections = [
     "Application form or worksheet",
@@ -541,27 +691,35 @@ export function Step5Workspace({
       sectionLabel: "Page 1 of 4",
       accentNote: "Packet cover and manifest",
       render: () => (
-        <div className="space-y-4 text-[#1b2430]">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Applicant</p>
-            <p className="mt-1 text-sm font-semibold">{applicant.personal.firstName || "Applicant"} {applicant.personal.lastName || "Profile"}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Destination profile loaded</p>
-            <p className="mt-1 text-sm font-semibold">{applicant.trip.destinationCountry || "Schengen"} consular rules active</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bundle manifest</p>
-            <div className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
-              {bundlePreviewSections.map((section) => (
-                <p key={section}>{section}</p>
-              ))}
+        renderBundlePreviewSheet({
+          sheetKey: "overview",
+          counterLabel: "Page 1 of 4",
+          accentNote: "Packet cover and manifest",
+          density: "comfortable",
+          children: (
+            <div className="space-y-4 text-[#1b2430]">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Applicant</p>
+                <p className="mt-1 text-sm font-semibold">{applicant.personal.firstName || "Applicant"} {applicant.personal.lastName || "Profile"}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Destination profile loaded</p>
+                <p className="mt-1 text-sm font-semibold">{applicant.trip.destinationCountry || "Schengen"} consular rules active</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bundle manifest</p>
+                <div className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
+                  {bundlePreviewSections.map((section) => (
+                    <p key={section}>{section}</p>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-[0.85rem] border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+                Use the page chips above to move through the main packet sections from this landing preview, or open the full interactive viewer for the full stitched PDF.
+              </div>
             </div>
-          </div>
-          <div className="rounded-[0.85rem] border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-            Use the page chips above to move through the main packet sections from this landing preview, or open the full interactive viewer for the full stitched PDF.
-          </div>
-        </div>
+          ),
+        })
       ),
     },
     {
@@ -570,10 +728,20 @@ export function Step5Workspace({
       sectionLabel: "Page 2 of 4",
       accentNote: "Embassy-facing narrative",
       render: () => (
-        <div className="space-y-1 text-sm leading-6 text-slate-700">
-          {coverLetterPreviewLines.map((line, index) => (
-            <p key={`${line}-${index}`}>{line}</p>
-          ))}
+        <div className="space-y-4">
+          {coverLetterPreviewSheets.map((sheet, index) => renderBundlePreviewSheet({
+            sheetKey: `cover-letter-${index + 1}`,
+            counterLabel: `Page ${index + 1} of ${coverLetterPreviewSheets.length}`,
+            accentNote: index === 0 ? "Embassy-facing narrative" : "Cover letter continued",
+            density: sheet.density,
+            children: (
+              <div className="space-y-3 text-slate-700">
+                {sheet.paragraphs.map((paragraph, paragraphIndex) => (
+                  <p key={`${paragraph}-${paragraphIndex}`}>{paragraph}</p>
+                ))}
+              </div>
+            ),
+          }))}
         </div>
       ),
     },
@@ -583,22 +751,30 @@ export function Step5Workspace({
       sectionLabel: "Page 3 of 4",
       accentNote: "Flight and stay anchors",
       render: () => (
-        <div className="space-y-4 text-[#1b2430]">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Entry and stay</p>
-            <p className="mt-1 text-sm font-semibold">Arrival via {applicant.trip.portOfEntry || applicant.trip.firstEntryCountry || applicant.trip.destinationCountry || "Pending entry point"}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">Travel dates: {applicant.trip.arrivalDate || "Pending"} to {applicant.trip.departureDate || "Pending"}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Accommodation reference</p>
-            <p className="mt-1 text-sm font-semibold">{applicant.trip.hotelBookingReference || "Booking reference pending"}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">{applicant.trip.accommodations || "Hotel or host stay details will appear here once entered earlier in the wizard."}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Transfer notes queued</p>
-            <p className="mt-1 text-sm font-semibold">{queuedTransferNotesCount === 0 ? "No exceptional transfer notes currently required" : `${queuedTransferNotesCount} transfer note${queuedTransferNotesCount === 1 ? "" : "s"} linked to the narrative sync`}</p>
-          </div>
-        </div>
+        renderBundlePreviewSheet({
+          sheetKey: "travel",
+          counterLabel: "Page 3 of 4",
+          accentNote: "Flight and stay anchors",
+          density: "comfortable",
+          children: (
+            <div className="space-y-4 text-[#1b2430]">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Entry and stay</p>
+                <p className="mt-1 text-sm font-semibold">Arrival via {applicant.trip.portOfEntry || applicant.trip.firstEntryCountry || applicant.trip.destinationCountry || "Pending entry point"}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Travel dates: {applicant.trip.arrivalDate || "Pending"} to {applicant.trip.departureDate || "Pending"}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Accommodation reference</p>
+                <p className="mt-1 text-sm font-semibold">{applicant.trip.hotelBookingReference || "Booking reference pending"}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{applicant.trip.accommodations || "Hotel or host stay details will appear here once entered earlier in the wizard."}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Transfer notes queued</p>
+                <p className="mt-1 text-sm font-semibold">{queuedTransferNotesCount === 0 ? "No exceptional transfer notes currently required" : `${queuedTransferNotesCount} transfer note${queuedTransferNotesCount === 1 ? "" : "s"} linked to the narrative sync`}</p>
+              </div>
+            </div>
+          ),
+        })
       ),
     },
     {
@@ -607,21 +783,29 @@ export function Step5Workspace({
       sectionLabel: "Page 4 of 4",
       accentNote: "Liquidity and readiness summary",
       render: () => (
-        <div className="space-y-4 text-[#1b2430]">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Accessible funds</p>
-            <p className="mt-1 text-sm font-semibold">EUR {applicant.employment.savingsBalanceEur.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Monthly income profile</p>
-            <p className="mt-1 text-sm font-semibold">EUR {applicant.employment.monthlyIncomeEur.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Supporting proof loaded</p>
-            <p className="mt-1 text-sm font-semibold">{supportingDocuments.length} uploaded file{supportingDocuments.length === 1 ? "" : "s"}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">Bank statements, employment proofs, and other packet evidence stay connected to the final bundle export from this workspace.</p>
-          </div>
-        </div>
+        renderBundlePreviewSheet({
+          sheetKey: "audit",
+          counterLabel: "Page 4 of 4",
+          accentNote: "Liquidity and readiness summary",
+          density: "comfortable",
+          children: (
+            <div className="space-y-4 text-[#1b2430]">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Accessible funds</p>
+                <p className="mt-1 text-sm font-semibold">EUR {applicant.employment.savingsBalanceEur.toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Monthly income profile</p>
+                <p className="mt-1 text-sm font-semibold">EUR {applicant.employment.monthlyIncomeEur.toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Supporting proof loaded</p>
+                <p className="mt-1 text-sm font-semibold">{supportingDocuments.length} uploaded file{supportingDocuments.length === 1 ? "" : "s"}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Bank statements, employment proofs, and other packet evidence stay connected to the final bundle export from this workspace.</p>
+              </div>
+            </div>
+          ),
+        })
       ),
     },
   ];
@@ -656,7 +840,7 @@ export function Step5Workspace({
       key: "jpg-to-pdf",
       targetId: "merge",
       label: "JPG to PDF",
-      description: "Convert JPG images to PDF in seconds. Easily adjust orientation and margins.",
+      description: "Instantly compile scattered passport scans, physical receipts, and stamp photos into a unified, high-resolution document ready for embassy submission.",
       icon: FileImage,
       accentClass: "border-sky-300/20 bg-sky-500/10 text-sky-100",
       iconClass: "bg-sky-100 text-sky-700",
@@ -677,7 +861,7 @@ export function Step5Workspace({
       key: "organize-pdf",
       targetId: "reorder",
       label: "Organize PDF",
-      description: "Sort, add and delete PDF pages. Drag and drop the page thumbnails and sort them in our PDF organizer.",
+      description: "Visually inspect your master packet, extract irrelevant sheets, and drag supporting evidence into the exact physical order required by VFS Global.",
       icon: Layers3,
       accentClass: "border-violet-300/20 bg-violet-500/10 text-violet-100",
       iconClass: "bg-violet-100 text-violet-600",
@@ -1084,9 +1268,9 @@ export function Step5Workspace({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-[1.6rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-4 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
-        <div className="rounded-[1.4rem] border border-white/14 bg-[linear-gradient(160deg,rgba(27,42,74,0.92),rgba(12,19,36,0.98))] p-4 shadow-[0_24px_64px_rgba(5,10,24,0.28)] sm:p-6">
-          <div className="flex flex-wrap gap-2 rounded-[1.2rem] border border-white/12 bg-[rgba(9,16,31,0.72)] p-2 backdrop-blur-sm">
+      <div className="rounded-[1.6rem] bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-4 shadow-[0_20px_48px_rgba(5,10,24,0.24)] sm:p-6">
+        <div className="rounded-[1.4rem] bg-[linear-gradient(160deg,rgba(27,42,74,0.92),rgba(12,19,36,0.98))] p-4 shadow-[0_24px_64px_rgba(5,10,24,0.28)] sm:p-6">
+          <div className="hide-scrollbar flex gap-6 overflow-x-auto whitespace-nowrap border-b border-white/10 pb-1">
             {workspaceTabs.map((tab) => {
               const isActive = activeTab === tab.id;
 
@@ -1096,10 +1280,12 @@ export function Step5Workspace({
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={isActive
-                    ? "inline-flex flex-1 min-w-[12rem] flex-col rounded-full border border-indigo-300/35 bg-indigo-500 px-4 py-3 text-left text-white shadow-[0_12px_30px_rgba(99,102,241,0.28)]"
-                    : "inline-flex flex-1 min-w-[12rem] flex-col rounded-full border border-white/10 bg-white/6 px-4 py-3 text-left text-slate-100 transition hover:border-cyan-300/25 hover:bg-white/10"}
+                    ? "inline-flex shrink-0 flex-col border-b-2 border-indigo-500 pb-3 text-left text-indigo-300"
+                    : "inline-flex shrink-0 flex-col border-b-2 border-transparent pb-3 text-left text-slate-400 transition hover:text-slate-100"}
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-300">{tab.eyebrow}</span>
+                  <span className={isActive
+                    ? "text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-200/80"
+                    : "text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500"}>{tab.eyebrow}</span>
                   <span className="mt-1 text-sm font-semibold">{tab.label}</span>
                 </button>
               );
@@ -1155,8 +1341,8 @@ export function Step5Workspace({
                   ))}
                 </div>
 
-                <div className="rounded-[1.2rem] border border-amber-200/70 bg-[#fffaf0] p-4 shadow-[0_16px_40px_rgba(15,23,42,0.16)] sm:p-5">
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div className="rounded-[1.2rem] bg-[#fffaf0] p-4 shadow-[0_16px_40px_rgba(15,23,42,0.16)] sm:p-5">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Interactive A4 preview</p>
                       <p className="mt-2 text-base font-semibold text-[#1b2430]">{previewPacketTitle}</p>
@@ -1202,47 +1388,28 @@ export function Step5Workspace({
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2 overflow-x-auto pb-1">
                     {bundlePreviewPages.map((page, index) => (
                       <button
                         key={page.id}
                         type="button"
                         onClick={() => setActiveBundlePreviewPage(index)}
                         className={index === activeBundlePreviewPage
-                          ? "rounded-full border border-slate-300 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
-                          : "rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-50"}
+                          ? "rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.12)]"
+                          : "rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"}
                       >
                         {page.label}
                       </button>
                     ))}
                   </div>
 
-                  <div className="mt-5 flex justify-center overflow-auto rounded-[1rem] bg-[#f4ead2] p-3 sm:p-5">
+                  <div className="mt-5 max-h-[80vh] overflow-y-auto rounded-[1rem] bg-[#f4ead2] p-3 sm:p-5">
                     <div
-                      className="aspect-[210/297] w-full max-w-[30rem] rounded-[1rem] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-transform duration-200"
+                      className="mx-auto w-full max-w-[30rem] transition-transform duration-200"
                       style={{ transform: `scale(${previewScale})`, transformOrigin: "top center" }}
                     >
-                      <div className="flex h-full flex-col">
-                        <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Preview pane</p>
-                            <p className="mt-2 text-base font-semibold text-[#1b2430]">{previewPacketTitle}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                              {currentBundlePreviewPage.sectionLabel}
-                            </span>
-                            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                              {currentBundlePreviewPage.accentNote}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 flex-1 overflow-hidden rounded-[0.9rem] border border-dashed border-slate-200 bg-[linear-gradient(180deg,#fffdf8,#fff7ea)] px-5 py-6">
-                          <div className="space-y-4">
-                            {currentBundlePreviewPage.render()}
-                          </div>
-                        </div>
+                      <div className="space-y-4">
+                        {currentBundlePreviewPage.render()}
                       </div>
                     </div>
                   </div>
@@ -1254,30 +1421,7 @@ export function Step5Workspace({
 
             {activeTab === "pdf-editor" ? (
               <div className="space-y-4">
-                <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-                  <div className="rounded-[1.15rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
-                      <FileStack className="h-3.5 w-3.5" />
-                      Operational toolkit
-                    </div>
-                    <h3 className="mt-3 text-lg font-semibold text-white">Advanced PDF Editor</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-200">
-                      Merge PDF, JPG to PDF, Split PDF, Compress PDF, Organize PDF, Rotate PDF, Sanitize PDF, and Word-to-PDF stay isolated here until you explicitly need file surgery.
-                    </p>
-                  </div>
-                  <div className="rounded-[1.15rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
-                      <Layers3 className="h-3.5 w-3.5" />
-                      File inspector
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-200">
-                      Use the dropzone below to load auxiliary local documents, inspect page counts, and sequence files before exporting a corrected packet.
-                    </p>
-                  </div>
-                </div>
-
                 <PacketWorkspace
-                  applicant={applicant}
                   previewMode={previewMode}
                   supportingDocuments={supportingDocuments}
                   onSupportingDocumentsChange={onSupportingDocumentsChange}

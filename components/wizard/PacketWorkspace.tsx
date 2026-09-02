@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownUp,
   CheckCircle2,
@@ -13,19 +13,20 @@ import {
   LoaderCircle,
   Mic,
   Minimize,
+  Plus,
+  RotateCcw,
   RotateCw,
   Scissors,
   Shield,
   Square,
-  Tags,
+  Trash2,
   Upload,
   X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
-import { formatEmploymentStatusLabel, formatFundingSourceLabel, generateRequiredDocuments } from "@/lib/consultantIntelligence";
-import type { ApplicantInfo, SupportingDocument } from "@/types";
+import type { SupportingDocument } from "@/types";
 
 type WorkspaceDocument = {
   id: string;
@@ -47,14 +48,26 @@ type WorkspaceOutput = {
 };
 
 type WorkspacePagePreview = {
+  id: string;
+  documentId: string;
   pageNumber: number;
   url: string;
+};
+
+type ReorderBoardItem = {
+  id: string;
+  documentId: string;
+  documentKind: "pdf" | "image";
+  pageNumber: number;
+  fileName: string;
+  category: WorkspaceDocument["category"];
+  rotation: 0 | 90 | 180 | 270;
 };
 
 type RotationPreset = "90" | "180" | "270";
 type ToolkitMode = "merge" | "split" | "compress" | "reorder" | "rotate" | "sanitize" | "wordToPdf" | "pdfToWord";
 type ToolSourceKind = "mixed" | "pdf" | "word";
-type WorkspaceModal = "preview" | "reorder" | null;
+type WorkspaceModal = "preview" | null;
 
 type BrowserSpeechRecognition = {
   lang: string;
@@ -112,7 +125,6 @@ type ToolDefinition = {
 };
 
 type PacketWorkspaceProps = {
-  applicant: ApplicantInfo;
   previewMode: boolean;
   supportingDocuments: SupportingDocument[];
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
@@ -127,6 +139,8 @@ type PacketWorkspaceProps = {
     iconClass?: string;
   }>;
 };
+
+type WorkspaceStage = "select" | "upload" | "workspace";
 
 const wordMimeTypes = new Set([
   "application/msword",
@@ -426,8 +440,29 @@ function parsePageRange(rangeInput: string, pageCount: number): number[] {
   return Array.from(pages).sort((left, right) => left - right);
 }
 
-function buildPageSequence(pageCount: number): number[] {
-  return Array.from({ length: pageCount }, (_, index) => index + 1);
+function buildReorderBoardItemId(documentId: string, pageNumber: number) {
+  return `${documentId}:${pageNumber}`;
+}
+
+function buildReorderBoardBaseItems(documents: WorkspaceDocument[]): ReorderBoardItem[] {
+  return documents.flatMap((document) => {
+    if (document.kind === "word") {
+      return [];
+    }
+
+    const pageCount = document.kind === "pdf" ? document.pageCount : 1;
+    const documentKind: ReorderBoardItem["documentKind"] = document.kind;
+
+    return Array.from({ length: pageCount }, (_, index) => ({
+      id: buildReorderBoardItemId(document.id, index + 1),
+      documentId: document.id,
+      documentKind,
+      pageNumber: index + 1,
+      fileName: document.file.name,
+      category: document.category,
+      rotation: 0,
+    }));
+  });
 }
 
 function reorderItems<T>(items: T[], fromIndex: number, toIndex: number): T[] {
@@ -504,7 +539,6 @@ async function appendFileToPdf(targetBytesOwner: PdfDocument, document: Workspac
 }
 
 export function PacketWorkspace({
-  applicant,
   previewMode,
   supportingDocuments,
   onSupportingDocumentsChange,
@@ -512,7 +546,8 @@ export function PacketWorkspace({
   toolCards,
 }: PacketWorkspaceProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const generatedFilesRef = useRef<HTMLDivElement | null>(null);
+  const reorderInsertInputRef = useRef<HTMLInputElement | null>(null);
+  const reorderInsertIndexRef = useRef<number | null>(null);
   const splitRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const splitProcessingTimeoutRef = useRef<number | null>(null);
   const documentsRef = useRef<WorkspaceDocument[]>([]);
@@ -527,16 +562,18 @@ export function PacketWorkspace({
   const [splitRange, setSplitRange] = useState("1");
   const [splitDictationPhase, setSplitDictationPhase] = useState<SplitDictationPhase | null>(null);
   const [splitVoiceMessage, setSplitVoiceMessage] = useState<string | null>(null);
-  const [pageSequence, setPageSequence] = useState<number[]>([]);
   const [rotationPreset, setRotationPreset] = useState<RotationPreset>("90");
   const [outputs, setOutputs] = useState<WorkspaceOutput[]>([]);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [previewOutputId, setPreviewOutputId] = useState<string>("");
   const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
-  const [draggedPageNumber, setDraggedPageNumber] = useState<number | null>(null);
+  const [draggedBoardItemId, setDraggedBoardItemId] = useState<string | null>(null);
+  const [reorderInsertIndex, setReorderInsertIndex] = useState<number | null>(null);
   const [pagePreviews, setPagePreviews] = useState<WorkspacePagePreview[]>([]);
+  const [reorderBoardItems, setReorderBoardItems] = useState<ReorderBoardItem[]>([]);
   const [isPreparingPageBoard, setIsPreparingPageBoard] = useState(false);
   const [activeModal, setActiveModal] = useState<WorkspaceModal>(null);
+  const [workspaceStage, setWorkspaceStage] = useState<WorkspaceStage>("select");
 
   const visibleToolDefinitions = useMemo(() => {
     if (!allowedTools?.length) {
@@ -621,9 +658,9 @@ export function PacketWorkspace({
     [documents, previewDocumentId, wordDocuments],
   );
 
-  const requiredDocuments = useMemo(
-    () => generateRequiredDocuments(applicant.employment.employmentStatus, applicant.sponsor.fundingSource),
-    [applicant.employment.employmentStatus, applicant.sponsor.fundingSource],
+  const activeToolDisplayLabel = useMemo(
+    () => visibleToolCards.find((card) => card.targetId === selectedTool)?.label ?? selectedToolDefinition.label,
+    [selectedTool, selectedToolDefinition.label, visibleToolCards],
   );
 
   useEffect(() => {
@@ -659,6 +696,9 @@ export function PacketWorkspace({
     if (documents.length === 0) {
       setPreviewDocumentId("");
       setActivePdfId("");
+      if (workspaceStage === "workspace") {
+        setWorkspaceStage("upload");
+      }
       return;
     }
 
@@ -669,16 +709,7 @@ export function PacketWorkspace({
     if (!pdfDocuments.some((document) => document.id === activePdfId)) {
       setActivePdfId(pdfDocuments[0]?.id ?? "");
     }
-  }, [activePdfId, documents, pdfDocuments, previewDocumentId]);
-
-  useEffect(() => {
-    if (!activePdf) {
-      setPageSequence([]);
-      return;
-    }
-
-    setPageSequence(buildPageSequence(activePdf.pageCount));
-  }, [activePdf]);
+  }, [activePdfId, documents, pdfDocuments, previewDocumentId, workspaceStage]);
 
   useEffect(() => {
     if (selectedTool !== "merge" && activePdf) {
@@ -719,7 +750,9 @@ export function PacketWorkspace({
     let isCancelled = false;
 
     async function buildPagePreviews() {
-      if (selectedTool !== "reorder" || !activePdf) {
+      const reorderDocuments = documents.filter((document) => document.kind === "pdf");
+
+      if (selectedTool !== "reorder" || reorderDocuments.length === 0) {
         pagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
         pagePreviewsRef.current = [];
         setPagePreviews([]);
@@ -731,16 +764,24 @@ export function PacketWorkspace({
 
       try {
         const { PDFDocument } = await import("pdf-lib");
-        const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
         const nextPreviews: WorkspacePagePreview[] = [];
 
-        for (let index = 0; index < source.getPageCount(); index += 1) {
-          const singlePagePdf = await PDFDocument.create();
-          const [page] = await singlePagePdf.copyPages(source, [index]);
-          singlePagePdf.addPage(page);
-          const bytes = await singlePagePdf.save({ useObjectStreams: true, addDefaultPage: false });
-          const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }));
-          nextPreviews.push({ pageNumber: index + 1, url });
+        for (const document of reorderDocuments) {
+          const source = await PDFDocument.load(await document.file.arrayBuffer());
+
+          for (let index = 0; index < source.getPageCount(); index += 1) {
+            const singlePagePdf = await PDFDocument.create();
+            const [page] = await singlePagePdf.copyPages(source, [index]);
+            singlePagePdf.addPage(page);
+            const bytes = await singlePagePdf.save({ useObjectStreams: true, addDefaultPage: false });
+            const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }));
+            nextPreviews.push({
+              id: buildReorderBoardItemId(document.id, index + 1),
+              documentId: document.id,
+              pageNumber: index + 1,
+              url,
+            });
+          }
         }
 
         if (isCancelled) {
@@ -767,7 +808,56 @@ export function PacketWorkspace({
     return () => {
       isCancelled = true;
     };
-  }, [activePdf, selectedTool]);
+  }, [documents, selectedTool]);
+
+  useEffect(() => {
+    if (selectedTool !== "reorder") {
+      reorderInsertIndexRef.current = null;
+      setReorderInsertIndex(null);
+      setReorderBoardItems([]);
+      return;
+    }
+
+    const baseItems = buildReorderBoardBaseItems(documents);
+
+    setReorderBoardItems((currentItems) => {
+      const baseItemsById = new Map(baseItems.map((item) => [item.id, item]));
+      const currentItemsById = new Map(currentItems.map((item) => [item.id, item]));
+      const activeIds = new Set(baseItems.map((item) => item.id));
+
+      const retained = currentItems
+        .filter((item) => activeIds.has(item.id))
+        .map((item) => ({
+          ...baseItemsById.get(item.id)!,
+          rotation: currentItemsById.get(item.id)?.rotation ?? 0,
+        }));
+
+      const retainedIds = new Set(retained.map((item) => item.id));
+      const insertedItems = baseItems
+        .filter((item) => !retainedIds.has(item.id))
+        .map((item) => ({
+          ...item,
+          rotation: currentItemsById.get(item.id)?.rotation ?? 0,
+        }));
+
+      if (insertedItems.length === 0) {
+        reorderInsertIndexRef.current = null;
+        return retained;
+      }
+
+      const requestedInsertIndex = reorderInsertIndexRef.current;
+      reorderInsertIndexRef.current = null;
+      const boundedInsertIndex = requestedInsertIndex == null
+        ? retained.length
+        : Math.max(0, Math.min(requestedInsertIndex, retained.length));
+
+      return [
+        ...retained.slice(0, boundedInsertIndex),
+        ...insertedItems,
+        ...retained.slice(boundedInsertIndex),
+      ];
+    });
+  }, [documents, selectedTool]);
 
   function syncSavedSupportingOrder(nextDocuments: WorkspaceDocument[]) {
     if (previewMode || supportingDocuments.length === 0) {
@@ -802,6 +892,8 @@ export function PacketWorkspace({
   }
 
   function upsertOutput(nextOutput: WorkspaceOutput) {
+    const preservedScrollY = typeof window === "undefined" ? 0 : window.scrollY;
+
     setOutputs((currentOutputs) => {
       currentOutputs.forEach((output) => {
         if (output.fileName === nextOutput.fileName) {
@@ -818,33 +910,16 @@ export function PacketWorkspace({
     setPreviewDocumentId("");
 
     window.requestAnimationFrame(() => {
-      generatedFilesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.scrollTo({ top: preservedScrollY });
+
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: preservedScrollY });
+      });
     });
-  }
-
-  function removeOutput(outputId: string) {
-    setOutputs((currentOutputs) => {
-      const target = currentOutputs.find((output) => output.id === outputId);
-
-      if (target) {
-        URL.revokeObjectURL(target.url);
-      }
-
-      return currentOutputs.filter((output) => output.id !== outputId);
-    });
-
-    setPreviewOutputId((currentId) => (currentId === outputId ? "" : currentId));
-    setToolkitMessage("Generated file removed from the workspace outputs.");
   }
 
   function openDocumentPreview(documentId: string) {
     syncDocumentSelection(documentId);
-    setActiveModal("preview");
-  }
-
-  function openOutputPreview(outputId: string) {
-    setPreviewDocumentId("");
-    setPreviewOutputId(outputId);
     setActiveModal("preview");
   }
 
@@ -924,7 +999,6 @@ export function PacketWorkspace({
 
       if (newestPdf) {
         setActivePdfId(newestPdf.id);
-        setPageSequence(buildPageSequence(newestPdf.pageCount));
       }
 
       setToolkitMessage(
@@ -942,6 +1016,101 @@ export function PacketWorkspace({
 
       if (inputRef.current) {
         inputRef.current.value = "";
+      }
+    }
+  }
+
+  async function handleReorderInsert(files: FileList | null) {
+    if (!files || files.length === 0) {
+      reorderInsertIndexRef.current = null;
+      setReorderInsertIndex(null);
+      return;
+    }
+
+    const nextFiles = Array.from(files).filter((file) => file.type === "application/pdf" || file.type.startsWith("image/"));
+
+    if (nextFiles.length === 0) {
+      setToolkitMessage("Add PDF or image files to extend the packet sequence.");
+      reorderInsertIndexRef.current = null;
+      setReorderInsertIndex(null);
+      if (reorderInsertInputRef.current) {
+        reorderInsertInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setIsProcessingDocuments(true);
+    setProcessingLabel("Adding packet files");
+    setToolkitMessage(null);
+
+    try {
+      const requestedInsertIndex = reorderInsertIndexRef.current;
+      const uploadedWorkspaceDocuments = await Promise.all(nextFiles.map(readDocumentMetadata));
+      const insertedBoardItems = buildReorderBoardBaseItems(uploadedWorkspaceDocuments);
+
+      if (!previewMode && selectedToolDefinition.persistUploads) {
+        const uploadedDocuments: SupportingDocument[] = [];
+
+        for (const document of uploadedWorkspaceDocuments) {
+          const formData = new FormData();
+          formData.append("documentId", document.id);
+          formData.append("file", document.file);
+          formData.append("pageCount", String(document.pageCount));
+
+          const response = await fetch("/api/supporting-documents", {
+            method: "POST",
+            body: formData,
+          });
+
+          const payload = (await response.json()) as { document?: SupportingDocument; error?: string };
+
+          if (!response.ok || !payload.document) {
+            throw new Error(payload.error ?? `Unable to save ${document.file.name}.`);
+          }
+
+          uploadedDocuments.push(payload.document);
+        }
+
+        onSupportingDocumentsChange([...supportingDocuments, ...uploadedDocuments]);
+      }
+
+      const nextAllDocuments = [...documentsRef.current, ...uploadedWorkspaceDocuments];
+      commitDocuments(nextAllDocuments);
+
+      if (insertedBoardItems.length > 0) {
+        setReorderBoardItems((currentItems) => {
+          const insertedIds = new Set(insertedBoardItems.map((item) => item.id));
+          const preservedItems = currentItems.filter((item) => !insertedIds.has(item.id));
+          const boundedInsertIndex = requestedInsertIndex == null
+            ? preservedItems.length
+            : Math.max(0, Math.min(requestedInsertIndex, preservedItems.length));
+
+          return [
+            ...preservedItems.slice(0, boundedInsertIndex),
+            ...insertedBoardItems,
+            ...preservedItems.slice(boundedInsertIndex),
+          ];
+        });
+      }
+
+      reorderInsertIndexRef.current = null;
+
+      const nextPreviewDocument = uploadedWorkspaceDocuments.find((document) => document.kind === "pdf" || document.kind === "image") ?? uploadedWorkspaceDocuments[0] ?? null;
+
+      if (nextPreviewDocument) {
+        setPreviewDocumentId(nextPreviewDocument.id);
+      }
+
+      setToolkitMessage(`${uploadedWorkspaceDocuments.length} file${uploadedWorkspaceDocuments.length === 1 ? "" : "s"} inserted into the page stream.`);
+    } catch (error) {
+      setToolkitMessage(error instanceof Error ? error.message : "Unable to insert files into the current packet.");
+    } finally {
+      setIsProcessingDocuments(false);
+      setProcessingLabel(null);
+      setReorderInsertIndex(null);
+
+      if (reorderInsertInputRef.current) {
+        reorderInsertInputRef.current.value = "";
       }
     }
   }
@@ -1051,7 +1220,6 @@ export function PacketWorkspace({
     if (activePdfId === documentId) {
       const nextPdf = nextDocuments.find((document) => document.kind === "pdf") ?? null;
       setActivePdfId(nextPdf?.id ?? "");
-      setPageSequence(nextPdf ? buildPageSequence(nextPdf.pageCount) : []);
     }
 
     setToolkitMessage(`${documentToRemove?.file.name ?? storedDocument?.fileName ?? "Document"} removed from the workspace.`);
@@ -1232,13 +1400,8 @@ export function PacketWorkspace({
   }
 
   async function handleReorderDocument() {
-    if (!activePdf) {
-      setToolkitMessage("Choose a PDF document before reordering its pages.");
-      return;
-    }
-
-    if (pageSequence.length !== activePdf.pageCount) {
-      setToolkitMessage(`Provide every page exactly once to reorder this ${activePdf.pageCount}-page PDF.`);
+    if (reorderBoardItems.length === 0) {
+      setToolkitMessage("Add at least one page tile before exporting the reordered packet.");
       return;
     }
 
@@ -1247,19 +1410,49 @@ export function PacketWorkspace({
     setToolkitMessage(null);
 
     try {
-      const { PDFDocument } = await import("pdf-lib");
-      const source = await PDFDocument.load(await activePdf.file.arrayBuffer());
+      const { PDFDocument, degrees } = await import("pdf-lib");
       const reorderedPdf = await PDFDocument.create();
-      const copiedPages = await reorderedPdf.copyPages(source, pageSequence.map((pageNumber) => pageNumber - 1));
-      copiedPages.forEach((page) => reorderedPdf.addPage(page));
+
+      for (const item of reorderBoardItems) {
+        const sourceDocument = documentsRef.current.find((document) => document.id === item.documentId);
+
+        if (!sourceDocument) {
+          continue;
+        }
+
+        if (sourceDocument.kind === "pdf") {
+          const source = await PDFDocument.load(await sourceDocument.file.arrayBuffer());
+          const [page] = await reorderedPdf.copyPages(source, [item.pageNumber - 1]);
+          const existingRotation = page.getRotation().angle;
+          page.setRotation(degrees((existingRotation + item.rotation) % 360));
+          reorderedPdf.addPage(page);
+          continue;
+        }
+
+        if (sourceDocument.kind === "image") {
+          const bytes = await sourceDocument.file.arrayBuffer();
+          const image = sourceDocument.file.type.includes("png")
+            ? await reorderedPdf.embedPng(bytes)
+            : await reorderedPdf.embedJpg(bytes);
+          const page = reorderedPdf.addPage([image.width, image.height]);
+          page.drawImage(image, {
+            x: 0,
+            y: 0,
+            width: image.width,
+            height: image.height,
+          });
+          page.setRotation(degrees(item.rotation));
+        }
+      }
 
       const reorderedBytes = await reorderedPdf.save({ useObjectStreams: true, addDefaultPage: false });
       const url = URL.createObjectURL(new Blob([Uint8Array.from(reorderedBytes)], { type: "application/pdf" }));
-      const fileName = `${activePdf.file.name.replace(/\.pdf$/i, "")}-reordered.pdf`;
+      const primaryDocument = documentsRef.current.find((document) => document.id === reorderBoardItems[0]?.documentId);
+      const fileName = `${(primaryDocument?.file.name ?? "visapilot-packet").replace(/\.(pdf|png|jpg|jpeg|webp)$/i, "")}-reordered.pdf`;
 
       upsertOutput({
         id: crypto.randomUUID(),
-        label: `Reordered pages for ${activePdf.file.name}`,
+        label: `Reordered pages for ${primaryDocument?.file.name ?? "packet"}`,
         url,
         fileName,
         createdAtLabel: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -1267,7 +1460,7 @@ export function PacketWorkspace({
         mimeType: "application/pdf",
       });
 
-      setToolkitMessage(`Page order for ${activePdf.file.name} has been rebuilt as ${pageSequence.join(", ")}.`);
+      setToolkitMessage(`Rebuilt the packet using ${reorderBoardItems.length} arranged page tile${reorderBoardItems.length === 1 ? "" : "s"}.`);
     } catch (error) {
       setToolkitMessage(error instanceof Error ? error.message : "Unable to reorder the selected PDF.");
     } finally {
@@ -1344,21 +1537,108 @@ export function PacketWorkspace({
     setToolkitMessage("Document order updated for the merge export.");
   }
 
-  function handlePageDropReorder(targetPageNumber: number) {
-    if (!draggedPageNumber || draggedPageNumber === targetPageNumber) {
+  function handlePageDropReorder(targetItemId: string) {
+    if (!draggedBoardItemId || draggedBoardItemId === targetItemId) {
       return;
     }
 
-    setPageSequence((currentSequence) => {
-      const fromIndex = currentSequence.findIndex((pageNumber) => pageNumber === draggedPageNumber);
-      const targetIndex = currentSequence.findIndex((pageNumber) => pageNumber === targetPageNumber);
+    setReorderBoardItems((currentItems) => {
+      const fromIndex = currentItems.findIndex((item) => item.id === draggedBoardItemId);
+      const targetIndex = currentItems.findIndex((item) => item.id === targetItemId);
 
       if (fromIndex < 0 || targetIndex < 0) {
-        return currentSequence;
+        return currentItems;
       }
 
-      return reorderItems(currentSequence, fromIndex, targetIndex);
+      return reorderItems(currentItems, fromIndex, targetIndex);
     });
+  }
+
+  function handleBoardInsertDrop(targetIndex: number) {
+    if (!draggedBoardItemId) {
+      return;
+    }
+
+    setReorderBoardItems((currentItems) => {
+      const fromIndex = currentItems.findIndex((item) => item.id === draggedBoardItemId);
+
+      if (fromIndex < 0) {
+        return currentItems;
+      }
+
+      const nextItems = [...currentItems];
+      const [movedItem] = nextItems.splice(fromIndex, 1);
+      const boundedTargetIndex = Math.max(0, Math.min(targetIndex, nextItems.length));
+      const insertionIndex = fromIndex < boundedTargetIndex ? boundedTargetIndex - 1 : boundedTargetIndex;
+      nextItems.splice(insertionIndex, 0, movedItem);
+      return nextItems;
+    });
+
+    setDraggedBoardItemId(null);
+  }
+
+  function resetReorderBoard() {
+    setReorderBoardItems(buildReorderBoardBaseItems(documentsRef.current));
+    setToolkitMessage("Packet page order reset to the source upload order.");
+  }
+
+  function rotateReorderBoardItem(itemId: string, direction: "left" | "right") {
+    setReorderBoardItems((currentItems) => currentItems.map((item) => {
+      if (item.id !== itemId) {
+        return item;
+      }
+
+      const currentRotation = item.rotation;
+      const nextRotation = direction === "right"
+        ? ((currentRotation + 90) % 360)
+        : ((currentRotation + 270) % 360);
+
+      return {
+        ...item,
+        rotation: nextRotation as ReorderBoardItem["rotation"],
+      };
+    }));
+  }
+
+  function removeReorderBoardItem(itemId: string) {
+    setReorderBoardItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
+  }
+
+  function getReorderBoardPreviewUrl(item: ReorderBoardItem) {
+    if (item.documentKind === "image") {
+      return documents.find((document) => document.id === item.documentId)?.previewUrl ?? "";
+    }
+
+    return pagePreviews.find((preview) => preview.id === item.id)?.url ?? "";
+  }
+
+  function openReorderInsertPicker(index: number) {
+    reorderInsertIndexRef.current = index;
+    setReorderInsertIndex(index);
+    reorderInsertInputRef.current?.click();
+  }
+
+  function renderReorderInsertSlot(index: number, isTail = false) {
+    const isHighlighted = reorderInsertIndex === index;
+
+    return (
+      <button
+        type="button"
+        onClick={() => openReorderInsertPicker(index)}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={() => handleBoardInsertDrop(index)}
+        className={isHighlighted
+          ? "flex aspect-[1/1.414] flex-col items-center justify-center rounded-[1rem] border border-cyan-300/40 bg-cyan-500/16 px-4 text-center text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.18)]"
+          : "flex aspect-[1/1.414] flex-col items-center justify-center rounded-[1rem] border border-dashed border-cyan-300/28 bg-cyan-500/10 px-4 text-center text-cyan-50 transition hover:bg-cyan-500/14"}
+        aria-label={`Insert files at position ${index + 1}`}
+      >
+        <Plus className="h-5 w-5" />
+        <span className="mt-3 text-sm font-semibold">{isTail ? "Add More Files" : "Insert Here"}</span>
+        <span className="mt-2 text-xs leading-5 text-cyan-100/90">
+          {isTail ? "Append extra PDFs or image scans to the end of the packet." : "Place new pages at this exact point in the packet order."}
+        </span>
+      </button>
+    );
   }
 
   function renderMergeWorkbench() {
@@ -1698,34 +1978,42 @@ export function PacketWorkspace({
   function renderReorderWorkbench() {
     return (
       <div className="space-y-4">
-        {renderSinglePdfSelector()}
-        <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
+        <input
+          ref={reorderInsertInputRef}
+          type="file"
+          accept="application/pdf,image/png,image/jpeg,image/webp"
+          multiple
+          className="hidden"
+          onChange={(event) => void handleReorderInsert(event.target.files)}
+        />
+
+        <div className="rounded-[1rem] bg-white/10 p-4 backdrop-blur-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h4 className="flex items-center gap-2 text-base font-semibold text-white">
                 <ArrowDownUp className="h-4 w-4 text-violet-400" />
-                Drag pages into final order
+                Direct packet sequencing
               </h4>
               <p className="mt-2 text-sm leading-6 text-slate-200">
-                Keep the workspace compact, then open the full drag-and-drop board only when you are ready to finalize the packet order.
+                Drag thumbnails into the exact embassy order, rotate pages inline, drop irrelevant pages, and insert extra scans before exporting the final packet.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
-                disabled={!activePdf}
+                onClick={resetReorderBoard}
+                disabled={documents.length === 0}
                 className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14 disabled:opacity-50"
               >
                 Reset order
               </button>
               <button
                 type="button"
-                onClick={() => setActiveModal("reorder")}
-                disabled={!activePdf || isPreparingPageBoard}
+                onClick={() => void handleReorderDocument()}
+                disabled={isProcessingDocuments || reorderBoardItems.length === 0}
                 className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Open reorder board
+                Export reordered PDF
               </button>
             </div>
           </div>
@@ -1735,17 +2023,104 @@ export function PacketWorkspace({
               <LoaderCircle className="h-4 w-4 animate-spin" />
               Preparing page previews...
             </div>
-          ) : !activePdf ? (
+          ) : reorderBoardItems.length === 0 ? (
             <div className="mt-4 rounded-[0.9rem] border border-dashed border-white/14 bg-white/8 px-4 py-5 text-sm text-slate-300">
-              Upload and choose a PDF to build the reorder board.
+              The packet board is empty. Add a PDF or scan to begin arranging the final sequence.
             </div>
           ) : (
-            <div className="mt-4 rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-4 text-sm text-slate-200">
-              <p className="font-semibold text-white">Current page order</p>
-              <p className="mt-2 leading-6 text-slate-300">{pageSequence.join(", ")}</p>
-              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">
-                {activePdf.pageCount} page{activePdf.pageCount === 1 ? "" : "s"} ready for drag-and-drop reordering in the modal board.
-              </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+              {renderReorderInsertSlot(0)}
+              {reorderBoardItems.map((item, index) => {
+                const previewUrl = getReorderBoardPreviewUrl(item);
+
+                return (
+                  <Fragment key={item.id}>
+                    <div
+                      draggable
+                      onDragStart={() => setDraggedBoardItemId(item.id)}
+                      onDragEnd={() => setDraggedBoardItemId(null)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => handlePageDropReorder(item.id)}
+                      className="group rounded-[1rem] bg-[rgba(10,18,34,0.64)] p-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                        <span>{index + 1}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/8 px-2 py-1 text-[10px] text-slate-100">
+                          <GripVertical className="h-3 w-3" />
+                          Drag
+                        </span>
+                      </div>
+
+                      <div className="relative overflow-hidden rounded-[0.8rem] bg-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
+                        <div className="absolute inset-x-2 top-2 z-10 flex items-center justify-between gap-1 opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => removeReorderBoardItem(item.id)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/82 text-rose-100 transition hover:bg-rose-500/90"
+                            aria-label={`Delete ${item.fileName} page ${item.pageNumber}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => rotateReorderBoardItem(item.id, "left")}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/82 text-white transition hover:bg-slate-900"
+                              aria-label={`Rotate ${item.fileName} page ${item.pageNumber} left`}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => rotateReorderBoardItem(item.id, "right")}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/82 text-white transition hover:bg-slate-900"
+                              aria-label={`Rotate ${item.fileName} page ${item.pageNumber} right`}
+                            >
+                              <RotateCw className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div
+                          className="aspect-[1/1.414] overflow-hidden bg-white"
+                          style={{ transform: `rotate(${item.rotation}deg)` }}
+                        >
+                          {previewUrl ? (
+                            item.documentKind === "image" ? (
+                              <Image
+                                src={previewUrl}
+                                alt={`${item.fileName} page ${item.pageNumber}`}
+                                width={320}
+                                height={452}
+                                unoptimized
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <iframe
+                                src={previewUrl}
+                                title={`${item.fileName} page ${item.pageNumber}`}
+                                className="h-full w-full bg-white"
+                              />
+                            )
+                          ) : (
+                            <div className="flex h-full items-center justify-center px-3 text-center text-xs text-slate-400">
+                              Preview unavailable
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1">
+                        <p className="truncate text-xs font-semibold text-white">{item.fileName}</p>
+                        <p className="text-[11px] text-slate-300">
+                          Page {item.pageNumber}{item.rotation !== 0 ? ` · ${item.rotation}°` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    {renderReorderInsertSlot(index + 1, index === reorderBoardItems.length - 1)}
+                  </Fragment>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1963,317 +2338,242 @@ export function PacketWorkspace({
     }
   }
 
-  return (
-    <>
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-4">
-        <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
-                <Upload className="h-3.5 w-3.5" />
-                PDF Editor
-              </div>
-              <h4 className="mt-3 text-lg font-semibold text-white">Operation-first PDF workspace</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-200">
-                Start by choosing what you want to do. VisaPilot then narrows the upload, preview, and export flow around that single job.
-              </p>
+  function renderStageSelector() {
+    return (
+      <div className="rounded-[1.35rem] bg-[rgba(16,23,42,0.58)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_44px_rgba(5,10,24,0.22)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-sky-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">
+              <Upload className="h-3.5 w-3.5" />
+              Step 1 · Choose Tool
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-100">
-              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-              Choose tool, upload, configure, export
-            </div>
+            <h4 className="mt-3 text-lg font-semibold text-white">Operation-first PDF workspace</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Start with the exact consular file action you need. The workspace stays quiet until you select a job.
+            </p>
           </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {visibleToolCards.map((tool) => {
-              const Icon = tool.icon;
-
-              return (
-                <button
-                  key={tool.key}
-                  type="button"
-                  onClick={() => setSelectedTool(tool.targetId)}
-                  className={selectedTool === tool.targetId
-                    ? `rounded-[1.1rem] border p-4 text-left transition ${tool.accentClass}`
-                    : "rounded-[1.1rem] border border-white/14 bg-white/10 p-4 text-left text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14"}
-                >
-                  <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${tool.iconClass}`}>
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <p className="mt-4 text-sm font-semibold text-white">{tool.label}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-200">{tool.description}</p>
-                </button>
-              );
-            })}
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/6 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">
+            <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+            Choose tool first
           </div>
         </div>
 
-        <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
-                <Zap className="h-3.5 w-3.5" />
-                Workspace
-              </div>
-              <h4 className="mt-2 text-lg font-semibold text-white">{selectedToolDefinition.uploadTitle}</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-200">{selectedToolDefinition.uploadDescription}</p>
-            </div>
-            <div className="flex flex-col items-start gap-3 lg:items-end">
-              <input
-                ref={inputRef}
-                type="file"
-                multiple={selectedToolDefinition.multiple}
-                accept={selectedToolDefinition.accept}
-                className="hidden"
-                onChange={(event) => void handleDocumentUpload(event.target.files)}
-              />
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {visibleToolCards.map((tool) => {
+            const Icon = tool.icon;
+
+            return (
               <button
+                key={tool.key}
                 type="button"
-                onClick={openFilePicker}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  void handleDroppedFiles(event.dataTransfer.files);
+                onClick={() => {
+                  setSelectedTool(tool.targetId);
+                  setWorkspaceStage("upload");
                 }}
-                disabled={isProcessingDocuments}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className={selectedTool === tool.targetId
+                  ? `rounded-[1.1rem] bg-[rgba(255,255,255,0.08)] p-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition ${tool.accentClass}`
+                  : "rounded-[1.1rem] bg-[rgba(255,255,255,0.04)] p-4 text-left text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] transition hover:bg-[rgba(255,255,255,0.07)]"}
               >
-                <Upload className="h-4 w-4" />
-                {buildUploadButtonLabel(selectedToolDefinition)}
+                <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${tool.iconClass}`}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                <p className="mt-4 text-sm font-semibold text-white">{tool.label}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">{tool.description}</p>
               </button>
-              <p className="text-xs leading-5 text-slate-300 lg:max-w-[18rem] lg:text-right">
-                {selectedToolDefinition.sourceKind === "word"
-                  ? "Word source files stay local to this workspace and convert through the server when you export."
-                  : selectedToolDefinition.multiple
-                    ? "Add multiple PDFs or images for merge mode."
-                    : "Upload one source file, then configure and export from this workspace."}
-              </p>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderUploadStage() {
+    return (
+      <div className="rounded-[1.35rem] bg-[rgba(16,23,42,0.58)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_44px_rgba(5,10,24,0.22)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <Zap className="h-3.5 w-3.5" />
+              Step 2 · Upload Source
             </div>
+            <h4 className="mt-2 text-lg font-semibold text-white">{selectedToolDefinition.uploadTitle}</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-300">{selectedToolDefinition.uploadDescription}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => setWorkspaceStage("select")}
+            className="inline-flex items-center justify-center rounded-full bg-white/6 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200 transition hover:bg-white/10"
+          >
+            Back to tools
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-[1.15rem] bg-slate-950/65 p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
+          <input
+            ref={inputRef}
+            type="file"
+            multiple={selectedToolDefinition.multiple}
+            accept={selectedToolDefinition.accept}
+            className="hidden"
+            onChange={(event) => void handleDocumentUpload(event.target.files)}
+          />
+
+          <button
+            type="button"
+            onClick={openFilePicker}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              void handleDroppedFiles(event.dataTransfer.files);
+            }}
+            disabled={isProcessingDocuments}
+            className="flex min-h-[18rem] w-full flex-col items-center justify-center rounded-[1rem] bg-slate-800/30 px-6 py-8 text-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] transition hover:bg-slate-800/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-emerald-950">
+              <Upload className="h-5 w-5" />
+            </span>
+            <span className="mt-4 text-base font-semibold text-white">{buildUploadButtonLabel(selectedToolDefinition)}</span>
+            <span className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
+              {selectedToolDefinition.sourceKind === "word"
+                ? "Upload a source document first. The canvas will appear only after a compatible Word file is loaded."
+                : selectedToolDefinition.multiple
+                  ? "Drop PDFs or images to begin assembling the consular packet. The interactive canvas unlocks after upload."
+                  : "Upload the source file first. The interactive canvas unlocks only after the file is ready for review."}
+            </span>
+          </button>
 
           {processingLabel ? (
-            <div className="mt-4 flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
+            <div className="mt-4 flex items-center gap-2 rounded-[1rem] bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100 shadow-[inset_0_0_0_1px_rgba(165,180,252,0.18)]">
               <LoaderCircle className="h-4 w-4 animate-spin" />
               {processingLabel}...
             </div>
           ) : null}
 
           {toolkitMessage ? (
-            <div className="mt-4 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-100 backdrop-blur-sm">
+            <div className="mt-4 rounded-[1rem] bg-white/6 px-4 py-3 text-sm text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
               {toolkitMessage}
             </div>
           ) : null}
 
+          {documents.length > 0 ? (
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-[1rem] bg-slate-800/30 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
+              <div>
+                <p className="text-sm font-semibold text-white">{documents.length} file{documents.length === 1 ? "" : "s"} loaded</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">The interactive canvas is ready for {selectedToolDefinition.shortLabel.toLowerCase()}.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWorkspaceStage("workspace")}
+                className="inline-flex items-center justify-center rounded-full bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300"
+              >
+                Continue to canvas
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function renderWorkspaceStage() {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-[1.35rem] bg-[rgba(16,23,42,0.58)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_44px_rgba(5,10,24,0.22)]">
+          <div className="flex flex-col gap-4 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
+              <button
+                type="button"
+                onClick={() => setWorkspaceStage("select")}
+                className="font-semibold text-slate-100 transition hover:text-white"
+              >
+                ← All PDF Tools
+              </button>
+              <span className="text-slate-500">|</span>
+              <span className="font-semibold text-indigo-200">Operational Tool: {activeToolDisplayLabel}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setWorkspaceStage("upload")}
+                className="inline-flex items-center justify-center rounded-full bg-white/6 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200 transition hover:bg-white/10"
+              >
+                Change files
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveModal("preview")}
+                disabled={!previewDocument && !previewOutput}
+                className="inline-flex items-center justify-center rounded-full bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Open preview
+              </button>
+            </div>
+          </div>
+
           <div className="mt-4">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <Zap className="h-3.5 w-3.5" />
+              Step 3 · Interactive Canvas
+            </div>
+            <h4 className="mt-2 text-lg font-semibold text-white">{selectedToolDefinition.uploadTitle}</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-300">{selectedToolDefinition.uploadDescription}</p>
+          </div>
+
+          {processingLabel ? (
+            <div className="mt-4 flex items-center gap-2 rounded-[1rem] bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100 shadow-[inset_0_0_0_1px_rgba(165,180,252,0.18)]">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              {processingLabel}...
+            </div>
+          ) : null}
+
+          {toolkitMessage ? (
+            <div className="mt-4 rounded-[1rem] bg-white/6 px-4 py-3 text-sm text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+              {toolkitMessage}
+            </div>
+          ) : null}
+
+          <div className="mt-4 rounded-[1.15rem] bg-slate-950/65 p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
             {renderActiveToolWorkbench()}
           </div>
-        </div>
 
-        {!previewMode && supportingDocuments.length > 0 ? (
-          <div className="rounded-[1rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">
-              <Tags className="h-3.5 w-3.5" />
-              Saved to packet vault
-            </div>
-            <div className="mt-3 space-y-2">
-              {supportingDocuments.map((document) => (
-                <div key={document.id} className="flex flex-col gap-3 rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-white">{document.fileName}</p>
-                    <p className="text-xs text-slate-300">{document.pageCount} {document.pageCount === 1 ? "page" : "pages"} saved for dashboard access</p>
-                  </div>
-                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
-                    Saved
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="space-y-4">
-        <div className="rounded-[1.2rem] border border-cyan-300/20 bg-cyan-500/10 p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/24 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-50">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Consultant checklist
-              </div>
-              <h4 className="mt-3 text-lg font-semibold text-white">Dynamic document requirements</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-200">
-                Profile: {formatEmploymentStatusLabel(applicant.employment.employmentStatus)}. Funding: {formatFundingSourceLabel(applicant.sponsor.fundingSource)}.
-              </p>
-            </div>
-            <div className="rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
-              {requiredDocuments.length} required items
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {requiredDocuments.map((document) => (
-              <span key={document} className="rounded-full border border-white/14 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
-                {document}
-              </span>
-            ))}
-          </div>
-
-          <p className="mt-4 text-sm leading-6 text-cyan-50/90">
-            The toolkit adapts to the applicant profile so freelancers, students, and sponsored travelers see the extra evidence a consultant would request before submission.
-          </p>
-        </div>
-
-        {outputs.length > 0 ? (
-          <div ref={generatedFilesRef} className="rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          {previewOutput ? (
+            <div className="mt-4 flex flex-col gap-3 rounded-[1rem] bg-white/6 px-4 py-4 text-sm text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Generated Files</div>
-                <p className="mt-2 text-sm leading-6 text-emerald-100/90">
-                  Every export lands here with preview and download actions. The newest result is selected automatically.
-                </p>
+                <p className="font-semibold text-white">{previewOutput.fileName}</p>
+                <p className="mt-1 text-slate-300">{previewOutput.sizeLabel} · Generated {previewOutput.createdAtLabel}</p>
               </div>
-              <span className="inline-flex rounded-full border border-emerald-300/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                {outputs.length} Export{outputs.length === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {outputs.map((output) => (
-                <div key={output.id} className={`flex flex-col gap-3 rounded-[1rem] border p-4 sm:flex-row sm:items-center sm:justify-between ${previewOutputId === output.id ? "border-cyan-300/35 bg-white/14" : "border-white/14 bg-white/10"}`}>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{output.label}</p>
-                    <p className="mt-1 text-sm text-emerald-50/85">{output.fileName}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-emerald-100/75">{output.sizeLabel} · generated {output.createdAtLabel}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openOutputPreview(output.id)}
-                      className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
-                    >
-                      Open preview
-                    </button>
-                    <a href={output.url} download={output.fileName} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100">
-                      <Download className="h-4 w-4" />
-                      Download
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => removeOutput(output.id)}
-                      className="inline-flex items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div ref={generatedFilesRef} className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-100">
-              <Download className="h-3.5 w-3.5" />
-              Generated Files
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-200">
-              Your processed PDFs will appear here after each operation, with the newest result opened automatically in preview.
-            </p>
-          </div>
-        )}
-
-        <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
-                <Eye className="h-3.5 w-3.5" />
-                Focus preview
+              <div className="flex flex-wrap gap-2">
+                {previewOutput.mimeType === "application/pdf" ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal("preview")}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Review export
+                  </button>
+                ) : null}
+                <a
+                  href={previewOutput.url}
+                  download={previewOutput.fileName}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                >
+                  <Download className="h-4 w-4" />
+                  Download file
+                </a>
               </div>
-              <select
-                value={previewOutputId ? "" : previewDocumentId}
-                onChange={(event) => syncDocumentSelection(event.target.value)}
-                className="vp-select min-w-[220px] rounded-full py-2"
-              >
-                <option value="">Choose uploaded file</option>
-                {documents.map((document) => (
-                  <option key={document.id} value={document.id}>{document.file.name}</option>
-                ))}
-              </select>
             </div>
-
-            <div className="rounded-[1rem] border border-white/14 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur-sm">
-              {previewOutput
-                ? `Previewing generated file: ${previewOutput.fileName}.`
-                : previewDocument
-                  ? `Previewing uploaded file: ${previewDocument.file.name}.`
-                  : selectedTool === "merge"
-                    ? "Choose Merge PDF first, upload at least two files, and open the focused preview only when you need it."
-                    : `Choose ${selectedToolDefinition.label}, upload one source file, then open the focused preview when you need it.`}
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-4 text-sm text-slate-200">
-            <div>
-              <p className="font-semibold text-white">
-                {previewOutput?.fileName ?? previewDocument?.file.name ?? "No file selected"}
-              </p>
-              <p className="mt-1 text-slate-400">
-                {previewOutput
-                  ? (previewOutput.mimeType === "application/pdf" ? "Generated PDF is ready to inspect in a focused modal." : "Generated DOCX is ready to download.")
-                  : previewDocument?.kind === "pdf"
-                    ? "Uploaded PDF ready for focused preview."
-                    : previewDocument?.kind === "image"
-                      ? "Uploaded image ready for focused preview."
-                      : previewDocument?.kind === "word"
-                        ? "Word source loaded. Convert it to PDF to inspect the rendered output here."
-                        : "Select a file to unlock preview actions."}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveModal("preview")}
-              disabled={!previewOutput && !previewDocument}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Eye className="h-4 w-4" />
-              Open preview
-            </button>
-          </div>
+          ) : null}
         </div>
-
-        {selectedTool !== "merge" && activePdf ? (
-          <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-              <FileText className="h-3.5 w-3.5" />
-              Active PDF snapshot
-            </div>
-            <div className="mt-3 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 text-sm text-slate-200 backdrop-blur-sm">
-              <p><span className="font-semibold text-white">File:</span> {activePdf.file.name}</p>
-              <p className="mt-2"><span className="font-semibold text-white">Pages:</span> {activePdf.pageCount}</p>
-              <p className="mt-2"><span className="font-semibold text-white">Size:</span> {formatBytes(activePdf.file.size)}</p>
-              {selectedTool === "rotate" ? <p className="mt-2"><span className="font-semibold text-white">Angle:</span> {rotationPreset}°</p> : null}
-              {selectedTool === "split" ? <p className="mt-2"><span className="font-semibold text-white">Range:</span> {splitRange}</p> : null}
-              {selectedTool === "reorder" ? <p className="mt-2"><span className="font-semibold text-white">Current order:</span> {pageSequence.join(", ")}</p> : null}
-            </div>
-          </div>
-        ) : null}
-
-        {selectedTool === "wordToPdf" && activeWordDocument ? (
-          <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(24,34,58,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_18px_44px_rgba(5,10,24,0.22)]">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-              <FileText className="h-3.5 w-3.5" />
-              Active document snapshot
-            </div>
-            <div className="mt-3 rounded-[1rem] border border-white/14 bg-white/10 px-4 py-4 text-sm text-slate-200 backdrop-blur-sm">
-              <p><span className="font-semibold text-white">File:</span> {activeWordDocument.file.name}</p>
-              <p className="mt-2"><span className="font-semibold text-white">Size:</span> {formatBytes(activeWordDocument.file.size)}</p>
-              <p className="mt-2"><span className="font-semibold text-white">Pipeline:</span> LibreOffice server conversion</p>
-            </div>
-          </div>
-        ) : null}
       </div>
+    );
+  }
 
-      </div>
+  return (
+    <>
+      {workspaceStage === "select" ? renderStageSelector() : null}
+      {workspaceStage === "upload" ? renderUploadStage() : null}
+      {workspaceStage === "workspace" ? renderWorkspaceStage() : null}
 
       {activeModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6 backdrop-blur-sm">
@@ -2281,12 +2581,10 @@ export function PacketWorkspace({
             <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
-                  {activeModal === "preview" ? "Focused preview" : "Reorder board"}
+                  Focused preview
                 </p>
                 <p className="mt-1 text-lg font-semibold text-white">
-                  {activeModal === "preview"
-                    ? (previewOutput?.fileName ?? previewDocument?.file.name ?? "Preview")
-                    : (activePdf?.file.name ?? "Reorder pages")}
+                  {previewOutput?.fileName ?? previewDocument?.file.name ?? "Preview"}
                 </p>
               </div>
               <button
@@ -2299,86 +2597,7 @@ export function PacketWorkspace({
               </button>
             </div>
 
-            {activeModal === "preview" ? (
-              <div className="overflow-auto">{renderPreviewContent()}</div>
-            ) : (
-              <div className="flex max-h-[calc(92vh-5.5rem)] flex-col overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 text-sm text-slate-200">
-                  <p>Drag page cards into the final embassy order, then export the rebuilt PDF.</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => activePdf ? setPageSequence(buildPageSequence(activePdf.pageCount)) : undefined}
-                      disabled={!activePdf}
-                      className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14 disabled:opacity-50"
-                    >
-                      Reset order
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleReorderDocument()}
-                      disabled={isProcessingDocuments || !activePdf || pageSequence.length === 0}
-                      className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Create reordered PDF
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-auto px-5 py-5">
-                  {isPreparingPageBoard ? (
-                    <div className="flex items-center gap-2 rounded-[1rem] border border-indigo-300/15 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Preparing page previews...
-                    </div>
-                  ) : !activePdf ? (
-                    <div className="rounded-[0.9rem] border border-dashed border-white/14 bg-white/8 px-4 py-5 text-sm text-slate-300">
-                      Upload and choose a PDF to build the reorder board.
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {pageSequence.map((pageNumber, index) => {
-                        const previewUrl = pagePreviews.find((preview) => preview.pageNumber === pageNumber)?.url;
-
-                        return (
-                          <div
-                            key={`${pageNumber}-${index}`}
-                            draggable
-                            onDragStart={() => setDraggedPageNumber(pageNumber)}
-                            onDragEnd={() => setDraggedPageNumber(null)}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDrop={() => handlePageDropReorder(pageNumber)}
-                            className="rounded-[1rem] border border-white/14 bg-[rgba(10,18,34,0.56)] p-3"
-                          >
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Position {index + 1}</p>
-                                <p className="text-sm font-semibold text-white">Page {pageNumber}</p>
-                              </div>
-                              <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-100">
-                                <GripVertical className="h-3.5 w-3.5" />
-                                Drag
-                              </div>
-                            </div>
-                            <div className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white">
-                              {previewUrl ? (
-                                <iframe
-                                  src={previewUrl}
-                                  title={`Page ${pageNumber}`}
-                                  className="h-[240px] w-full bg-white"
-                                />
-                              ) : (
-                                <div className="flex h-[240px] items-center justify-center text-sm text-slate-400">Page preview unavailable</div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            <div className="overflow-auto">{renderPreviewContent()}</div>
           </div>
         </div>
       ) : null}
