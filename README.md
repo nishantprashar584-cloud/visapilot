@@ -11,7 +11,7 @@ VisaPilot is a Next.js application for preparing Schengen tourist visa packets w
 - Consulate-ready packet generation with a rendered cover sheet, manifest, checklist, and normalized supporting documents.
 - Advanced PDF tools in Step 5: merge, JPG to PDF, split, compress, organize, rotate, sanitize, and Word to PDF.
 - Organize PDF thumbnail board with drag, touch, keyboard, insertion slots, rotation, delete, and export flows.
-- Supabase-backed application persistence, auth, storage, and RLS.
+- Supabase-backed application persistence, Google OAuth plus email OTP auth, storage, and RLS.
 - Razorpay checkout with GST-inclusive INR pricing and server-side invoice generation/storage.
 
 ## Tech Stack
@@ -83,6 +83,13 @@ npm run dev
 
 Use `/apply?preview=1` to exercise the full wizard without authentication.
 
+## Authentication
+
+- `/auth` now offers both Google OAuth and email OTP.
+- Google OAuth uses Supabase as the identity broker and returns through `/auth/callback`.
+- Email OTP remains available as the fallback sign-in path.
+- No additional app-side environment variables are required for Google beyond the existing Supabase project configuration.
+
 ## Payment Model
 
 - Phase 1 pricing is INR only.
@@ -120,6 +127,7 @@ Notes:
 - The main storage bucket used in the current code is `visapilot-supporting-documents`.
 - Preview mode bypasses auth gates on key routes and uses seeded applications from `lib/mock/applications.ts`.
 - The health endpoint is available at `/api/health` and reports environment, database, and document-conversion health.
+- To enable Google sign-in, configure the Google provider inside the target Supabase project and set the OAuth redirect URL to `/auth/callback` on this app origin.
 
 ## Current Gaps
 

@@ -183,16 +183,17 @@ test.describe("VisaPilot application wizard", () => {
     await page.getByRole("button", { name: /continue to document studio/i }).click();
 
     await expect(page.getByRole("heading", { name: /^document studio$/i }).first()).toBeVisible();
+    await page.getByRole("tab", { name: /vfs checklist & stacking order/i }).click();
     await expect(page.getByText(/spain appointment-ready packet guide/i)).toBeVisible();
     await expect(page.getByText(/provider:\s*bls international/i)).toBeVisible();
-    await page.getByRole("button", { name: /ai cover letter/i }).click();
+    await page.getByRole("tab", { name: /ai cover letter/i }).click();
     await page.getByRole("button", { name: /^generate$/i }).click();
     await expect(page.getByText(/cover letter draft generated/i)).toBeVisible();
     await expect(page.getByRole("textbox", { name: /generate or edit the final/i })).toHaveValue(/freelance software developer/i);
     await page.getByRole("button", { name: /open sample package/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/preview-spain-repair\?preview=1/);
-    await expect(page.getByRole("heading", { name: /sara khan/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /sara kapoor/i })).toBeVisible();
 
     const packageLink = page.getByRole("link", { name: /download full package \(.zip\)/i });
     await expect(packageLink).toBeVisible();

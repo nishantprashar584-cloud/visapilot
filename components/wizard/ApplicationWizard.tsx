@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, Square, UserSquare2, Wallet, X } from "lucide-react";
+import { ArrowLeft, Calendar, Camera, CheckCircle2, ChevronDown, FileStack, Fingerprint, Handshake, HelpCircle, Home, LoaderCircle, Mic, Plane, Repeat2, ShieldCheck, Square, UserSquare2, Wallet, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -20,20 +20,23 @@ import {
   defaultApplicantInfo,
   mergeApplicantDraft,
 } from "@/lib/applications/schema";
+import { applicationDraftStorageKey, customLettersDraftStorageKey, readinessDraftStorageKey } from "@/lib/applications/draftStorage";
 import { stripItineraryMatrixSection } from "@/lib/applications/coverLetter";
+import { buildApplicantDraftFromReadiness, isReadinessDraft } from "@/lib/case-intelligence/readiness";
+import { serviceTrackLabel } from "@/lib/payments/tiers";
 import { normalizeTravelPurpose } from "@/lib/applications/travelPurpose";
 import { normalizeDestinationSelection, readStoredDestination } from "@/lib/destinationSelection";
 import { getPreviewApplicationForDestination, previewWizardApplicant } from "@/lib/mock/applications";
 import { VoiceIntakeCard } from "@/components/VoiceIntakeCard";
+import { CaseChangePanel } from "@/components/intelligence/CaseChangePanel";
+import { CountryFlag } from "@/components/ui/CountryFlag";
 import { FinancialSafetyGauge } from "@/components/wizard/FinancialSafetyGauge";
 import { Step5Workspace, type CustomLetterDraft } from "@/components/wizard/Step5Workspace";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
-import type { ApplicantInfo, ParsedVoiceContextResult, PassportDocumentParseResult, SupportingDocument } from "@/types";
+import type { ApplicantInfo, ParsedVoiceContextResult, PassportDocumentParseResult, PricingTier, ServiceTrack, SupportingDocument } from "@/types";
 import { consultantDailyMinimumEur, employmentStatusOptions, fundingSourceOptions, visaKnowledgeBaseSections } from "@/config/schengen-rules";
+import { getApplicationHealth, getCaseChangeImpact, getNextBestAction } from "@/lib/applications/uxState";
 import { runRiskAudit } from "@/lib/riskAudit";
-
-const draftStorageKey = "visapilot.applicationDraft";
-const customLettersStorageKey = "visapilot.customLettersDraft";
 
 const defaultCustomLetters: CustomLetterDraft[] = [
   {
@@ -66,6 +69,13 @@ const stepAccentMap = [
   "from-brand-coral to-orange-300",
   "from-brand-lime to-emerald-300",
   "from-sky-400 to-indigo-400",
+] as const;
+
+const packetGenerationChecklist = [
+  "Cross-checking travel dates...",
+  "Verifying passport numbers...",
+  "Checking names against your bookings...",
+  "Formatting to VFS standards...",
 ] as const;
 
 const stepMicrocopy = [
@@ -858,21 +868,31 @@ function buildPreviousVisaSummary(
 export function ApplicationWizard({
   previewMode = false,
   initialDestinationCountry,
+  initialStep = 0,
+  initialStep5Tab = "bundle",
+  initialTrack = "APPLY_MYSELF",
+  initialTier = "solo",
 }: {
   previewMode?: boolean;
   initialDestinationCountry?: string;
+  initialStep?: number;
+  initialStep5Tab?: "bundle" | "cover-letter" | "pdf-editor" | "checklist" | "prep";
+  initialTrack?: ServiceTrack;
+  initialTier?: PricingTier;
 }) {
   const router = useRouter();
   const wizardStepTopRef = useRef<HTMLDivElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const initialApplicantSnapshotRef = useRef<ApplicantInfo | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const voiceProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCaptureSessionRef = useRef<VoiceCaptureSession | null>(null);
   const pendingStepScrollRef = useRef(false);
   const initialDestinationAppliedRef = useRef(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(Math.min(Math.max(initialStep, 0), stepLabels.length - 1));
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [importedReadinessMessage, setImportedReadinessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [isParsingPassport, setIsParsingPassport] = useState(false);
@@ -887,11 +907,15 @@ export function ApplicationWizard({
   const [activeCustomLetterId, setActiveCustomLetterId] = useState<string | null>(null);
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isMicrophoneHelpDismissed, setIsMicrophoneHelpDismissed] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [microphonePermission, setMicrophonePermission] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">("idle");
   const [isKnowledgeDrawerOpen, setIsKnowledgeDrawerOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [selectedTrack] = useState<ServiceTrack>(initialTrack);
+  const [selectedTier] = useState<PricingTier>(initialTier);
+  const [generationChecklistIndex, setGenerationChecklistIndex] = useState(0);
   const bankStatementInputRef = useRef<HTMLInputElement | null>(null);
   const autoGeneratedCoverLetterKeyRef = useRef<string | null>(null);
 
@@ -928,6 +952,14 @@ export function ApplicationWizard({
   const watchedPreviousSchengenVisas = useWatch({ control: form.control, name: "trip.previousSchengenVisas" });
   const visFingerprintStatus = useWatch({ control: form.control, name: "application.visFingerprintStatus" });
   const previousSchengenVisas = useMemo(() => watchedPreviousSchengenVisas ?? [], [watchedPreviousSchengenVisas]);
+  const currentApplicant = watchedValues as ApplicantInfo;
+  const wizardHealth = useMemo(() => getApplicationHealth({ status: currentStep === 4 ? "bundle_ready" : "draft", applicant: currentApplicant, track: selectedTrack }), [currentApplicant, currentStep, selectedTrack]);
+  const wizardNextAction = useMemo(() => getNextBestAction({ status: currentStep === 4 ? "bundle_ready" : "draft", applicant: currentApplicant, track: selectedTrack }), [currentApplicant, currentStep, selectedTrack]);
+  const wizardChangeImpact = useMemo(() => {
+    const baseline = initialApplicantSnapshotRef.current;
+
+    return baseline ? getCaseChangeImpact(baseline, currentApplicant) : [];
+  }, [currentApplicant]);
 
   const completionPercent = Math.round(((currentStep + 1) / stepLabels.length) * 100);
   const displayName = [firstName, lastName].filter(Boolean).join(" ").trim() || "Applicant profile";
@@ -967,6 +999,19 @@ export function ApplicationWizard({
   }, []);
 
   useEffect(() => {
+    if (!isSubmitting) {
+      setGenerationChecklistIndex(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setGenerationChecklistIndex((currentIndex) => (currentIndex + 1) % packetGenerationChecklist.length);
+    }, 1400);
+
+    return () => window.clearInterval(interval);
+  }, [isSubmitting]);
+
+  useEffect(() => {
     if (previewMode) {
       form.reset(initialPreviewApplicant);
       setCustomLetters(defaultCustomLetters);
@@ -974,7 +1019,7 @@ export function ApplicationWizard({
       return;
     }
 
-    const savedDraft = window.localStorage.getItem(draftStorageKey);
+    const savedDraft = window.localStorage.getItem(applicationDraftStorageKey);
 
     if (savedDraft) {
       const parsedDraft = applicantDraftSchema.safeParse(JSON.parse(savedDraft));
@@ -982,9 +1027,25 @@ export function ApplicationWizard({
       if (parsedDraft.success) {
         form.reset(mergeApplicantDraft(parsedDraft.data));
       }
+    } else {
+      const storedReadinessDraft = window.localStorage.getItem(readinessDraftStorageKey);
+
+      if (storedReadinessDraft) {
+        try {
+          const parsedReadinessDraft = JSON.parse(storedReadinessDraft) as unknown;
+
+          if (isReadinessDraft(parsedReadinessDraft)) {
+            const readinessBackfilledDraft = buildApplicantDraftFromReadiness(parsedReadinessDraft);
+            form.reset(mergeApplicantDraft(readinessBackfilledDraft));
+            setImportedReadinessMessage("We already captured your basic profile from the free readiness check. Complete only the missing details here.");
+          }
+        } catch {
+          setImportedReadinessMessage(null);
+        }
+      }
     }
 
-    const savedCustomLetters = window.localStorage.getItem(customLettersStorageKey);
+    const savedCustomLetters = window.localStorage.getItem(customLettersDraftStorageKey);
 
     if (savedCustomLetters) {
       try {
@@ -1029,6 +1090,14 @@ export function ApplicationWizard({
 
     initialDestinationAppliedRef.current = true;
   }, [form, hasHydrated, normalizedInitialDestinationCountry]);
+
+  useEffect(() => {
+    if (!hasHydrated || initialApplicantSnapshotRef.current) {
+      return;
+    }
+
+    initialApplicantSnapshotRef.current = form.getValues();
+  }, [form, hasHydrated, watchedValues]);
 
   useEffect(() => {
     const stayDurationDays = calculateStayDurationDays(arrivalDate, departureDate);
@@ -1120,7 +1189,7 @@ export function ApplicationWizard({
 
     setDraftState("saving");
     const timeoutId = window.setTimeout(() => {
-      window.localStorage.setItem(draftStorageKey, JSON.stringify(watchedValues));
+      window.localStorage.setItem(applicationDraftStorageKey, JSON.stringify(watchedValues));
       setDraftState("saved");
     }, 400);
 
@@ -1134,7 +1203,7 @@ export function ApplicationWizard({
       return;
     }
 
-    window.localStorage.setItem(customLettersStorageKey, JSON.stringify(customLetters));
+    window.localStorage.setItem(customLettersDraftStorageKey, JSON.stringify(customLetters));
   }, [customLetters, hasHydrated, previewMode]);
 
   useEffect(() => {
@@ -1300,6 +1369,7 @@ export function ApplicationWizard({
   }
 
   async function requestMicrophoneAccess() {
+    setIsVoiceAssistantOpen(true);
     setIsMicrophoneHelpDismissed(false);
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -1327,6 +1397,7 @@ export function ApplicationWizard({
   }
 
   async function handleVoiceCapture(name: FieldPath<ApplicantInfo>) {
+    setIsVoiceAssistantOpen(true);
     const SpeechRecognition = getSpeechRecognitionConstructor();
 
     if (!SpeechRecognition) {
@@ -1520,14 +1591,15 @@ export function ApplicationWizard({
 
     if (previewMode) {
       const previewApplication = getPreviewApplicationForDestination(values.trip.destinationCountry) ?? { id: "preview-france-tourism" };
-      router.push(`/dashboard/${previewApplication.id}?preview=1`);
+      await new Promise((resolve) => window.setTimeout(resolve, 1800));
+      router.push(`/dashboard/${previewApplication.id}/vault?preview=1`);
       return;
     }
 
     try {
       const requestPayload = coverLetterDraft.trim().length > 0
-        ? { applicant: values, coverLetterMarkdown: coverLetterDraft.trim() }
-        : values;
+        ? { applicant: values, coverLetterMarkdown: coverLetterDraft.trim(), track: selectedTrack, tier: selectedTier }
+        : { applicant: values, track: selectedTrack, tier: selectedTier };
       const response = await fetch("/api/application-package", {
         method: "POST",
         headers: {
@@ -1545,8 +1617,9 @@ export function ApplicationWizard({
         throw new Error(responsePayload.error ?? "Application package generation failed.");
       }
 
-      window.localStorage.removeItem(draftStorageKey);
-      router.push(`/dashboard/${responsePayload.applicationId}`);
+      window.localStorage.removeItem(applicationDraftStorageKey);
+      window.localStorage.removeItem(readinessDraftStorageKey);
+      router.push(`/dashboard/${responsePayload.applicationId}/vault`);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to submit application.");
     } finally {
@@ -1839,19 +1912,40 @@ export function ApplicationWizard({
     <FormProvider {...form}>
       <div className="w-full space-y-6">
         <div ref={wizardStepTopRef} tabIndex={-1} className="h-0 w-0 overflow-hidden outline-none" />
+        <div className="rounded-[1.1rem] border border-cyan-300/18 bg-cyan-300/10 px-4 py-4 text-sm text-cyan-50">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100/85">Selected package</p>
+          <p className="mt-2 font-semibold">{serviceTrackLabel[selectedTrack]} · {selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}</p>
+          <p className="mt-1 text-cyan-50/85">This selection will be attached to the generated vault and checkout flow.</p>
+        </div>
         <div className="glass-panel p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="eyebrow">Step {currentStep + 1} of {stepLabels.length}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="vp-badge vp-badge-neutral">Visa application</span>
+                {form.getValues("trip.destinationCountry") ? (
+                  <span className="vp-badge vp-badge-travel">
+                    <CountryFlag country={form.getValues("trip.destinationCountry")} />
+                    {form.getValues("trip.destinationCountry")}
+                  </span>
+                ) : null}
+              </div>
+              <p className="eyebrow mt-3">Step {currentStep + 1} of {stepLabels.length}</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">{stepLabels[currentStep]}</h2>
               <p className="mt-2 text-sm text-slate-200">{stepMicrocopy[currentStep]}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className={`vp-badge ${wizardHealth.toneClassName}`}>Application Health: {wizardHealth.label}</span>
+                <span className="vp-badge vp-badge-neutral">Next: {wizardNextAction.title}</span>
+              </div>
             </div>
-            <div className="text-sm text-slate-200">
-              {draftState === "saving"
-                ? "Saving draft..."
-                : draftState === "saved"
-                  ? "Draft saved on this device"
-                  : "Draft will auto-save as you go"}
+            <div className="space-y-2 text-sm text-slate-200">
+              <div className="vp-badge vp-badge-neutral">
+                {draftState === "saving"
+                  ? "Saving draft"
+                  : draftState === "saved"
+                    ? "Draft saved on this device"
+                    : "Draft auto-save active"}
+              </div>
+              {financialStepBlocked ? <div className="vp-badge vp-badge-attention">Financial review needs attention</div> : null}
             </div>
           </div>
 
@@ -1871,20 +1965,14 @@ export function ApplicationWizard({
               return (
                 <div
                   key={label}
-                  className={`min-h-[88px] rounded-[1rem] border px-4 py-4 ${
-                    isActive
-                      ? "border-white/20 bg-white/10"
-                      : isComplete
-                        ? "border-emerald-400/20 bg-emerald-400/10"
-                        : "border-white/14 bg-white/8"
-                  }`}
+                  className={`min-h-[88px] rounded-[1rem] border px-4 py-4 ${isActive ? "border-blue-300/24 bg-blue-400/12" : isComplete ? "border-emerald-400/20 bg-emerald-400/10" : index === 2 && !isComplete && liveAudit.hasExactCountryRule && !liveAudit.statutoryFundsSatisfied ? "border-amber-300/24 bg-amber-400/10" : "border-white/14 bg-white/8"}`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isActive ? "bg-cyan-300 text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : "bg-white/10 text-slate-200"}`}>
+                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isActive ? "bg-blue-300 text-slate-950" : isComplete ? "bg-emerald-400/20 text-emerald-100" : index === 2 && !isComplete && liveAudit.hasExactCountryRule && !liveAudit.statutoryFundsSatisfied ? "bg-amber-400/18 text-amber-100" : "bg-white/10 text-slate-200"}`}>
                       {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Step {index + 1}</p>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">{isComplete ? "Complete" : isActive ? "Current" : index === 2 && liveAudit.hasExactCountryRule && !liveAudit.statutoryFundsSatisfied ? "Review" : `Step ${index + 1}`}</p>
                       <p className="text-sm font-semibold text-white sm:text-[15px]">{label}</p>
                     </div>
                   </div>
@@ -1902,108 +1990,187 @@ export function ApplicationWizard({
             ))}
           </div>
 
+          {wizardChangeImpact.length > 0 ? (
+            <div className="mt-4">
+              <CaseChangePanel changes={wizardChangeImpact.slice(0, 4)} title="What changed?" />
+            </div>
+          ) : null}
+
           {isSubmitting ? (
             <div className="mt-4">
-              <ActivityBanner
-                eyebrow="Package Generation"
-                title="Building your application package"
-                description="VisaPilot is assembling the filled form, supporting documents, and dashboard record for this applicant."
-                tone="emerald"
-              />
+              <div className="rounded-[1.1rem] border border-emerald-300/26 bg-emerald-500/16 px-4 py-4 text-emerald-50 shadow-[0_0_26px_rgba(16,185,129,0.16)]">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-80">Package Generation</p>
+                    <p className="mt-1 text-sm font-semibold text-white">Building your Print-Ready Visa Packet</p>
+                    <p className="mt-1 text-sm leading-6 opacity-90">VisaPilot is assembling the filled form, supporting documents, and dashboard record for this applicant.</p>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {packetGenerationChecklist.map((item, index) => {
+                        const isActive = index === generationChecklistIndex;
+
+                        return (
+                          <div
+                            key={item}
+                            className={isActive
+                              ? "rounded-[0.9rem] border border-emerald-200/30 bg-white/12 px-3 py-2 text-sm font-semibold text-white"
+                              : "rounded-[0.9rem] border border-white/10 bg-black/10 px-3 py-2 text-sm text-emerald-50/75"}
+                          >
+                            {item}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : null}
         </div>
 
         <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
+          {importedReadinessMessage ? (
+            <div className="rounded-[1.2rem] border border-cyan-300/24 bg-cyan-400/12 px-4 py-4 text-sm text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,0.12)]">
+              <p className="font-semibold text-white">{importedReadinessMessage}</p>
+              <div className="mt-3 grid gap-2 text-sm text-cyan-50/90 sm:grid-cols-2">
+                <div className="rounded-[0.95rem] border border-white/12 bg-white/8 px-3 py-2">Travel group</div>
+                <div className="rounded-[0.95rem] border border-white/12 bg-white/8 px-3 py-2">Destination</div>
+                <div className="rounded-[0.95rem] border border-white/12 bg-white/8 px-3 py-2">Dates</div>
+                <div className="rounded-[0.95rem] border border-white/12 bg-white/8 px-3 py-2">Funding</div>
+                <div className="rounded-[0.95rem] border border-white/12 bg-white/8 px-3 py-2">Basic applicant information</div>
+                <div className="rounded-[0.95rem] border border-white/12 bg-white/8 px-3 py-2">Initial readiness context</div>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-cyan-50/90">Now complete the remaining application details needed to prepare the final packet.</p>
+            </div>
+          ) : null}
+
           {speechSupported && currentStep !== 4 ? (
-            <div className="rounded-[1.2rem] border border-white/14 bg-[linear-gradient(180deg,rgba(25,37,64,0.84),rgba(14,22,42,0.9))] p-4 shadow-[0_18px_44px_rgba(5,10,24,0.22)] sm:p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Voice Autofill</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Hands-free form filling</h3>
+            <div className="rounded-[1.2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(19,29,49,0.86),rgba(10,17,34,0.92))] p-4 shadow-[0_18px_44px_rgba(5,10,24,0.2)] sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Optional voice shortcut</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Tell VisaPilot about your trip</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-200">
-                    Start a recording from any supported field, watch the live transcript update as you speak, then stop it manually when the phrasing looks right.
+                    Use voice when you want to move faster. You can dictate into supported fields, or skip it entirely and finish the form manually.
                   </p>
-                  {voiceMessage ? (
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{voiceMessage}</p>
-                  ) : null}
                 </div>
 
-                <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:max-w-[28rem] xl:justify-end">
-                  <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
-                    microphonePermission === "granted"
-                      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                      : microphonePermission === "requesting"
-                        ? "border-indigo-400/20 bg-indigo-400/10 text-indigo-100"
-                        : microphonePermission === "denied"
-                          ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
-                          : "border-white/10 bg-white/5 text-slate-300"
-                  }`}>
-                    {microphonePermission === "granted"
-                      ? "Microphone ready"
-                      : microphonePermission === "requesting"
-                        ? "Requesting access"
-                        : microphonePermission === "denied"
-                          ? "Permission blocked"
-                          : "Awaiting access"}
-                  </span>
+                <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                  {microphonePermission !== "idle" ? (
+                    <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
+                      microphonePermission === "granted"
+                        ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                        : microphonePermission === "requesting"
+                          ? "border-indigo-400/20 bg-indigo-400/10 text-indigo-100"
+                          : microphonePermission === "denied"
+                            ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
+                            : "border-white/10 bg-white/5 text-slate-300"
+                    }`}>
+                      {microphonePermission === "granted"
+                        ? "Microphone ready"
+                        : microphonePermission === "requesting"
+                          ? "Requesting access"
+                          : microphonePermission === "denied"
+                            ? "Permission blocked"
+                            : "Unavailable"}
+                    </span>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => void requestMicrophoneAccess()}
-                    disabled={microphonePermission === "requesting"}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/12 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => setIsVoiceAssistantOpen((current) => !current)}
+                    aria-expanded={isVoiceAssistantOpen}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/14"
                   >
-                    {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-                    {microphonePermission === "granted"
-                      ? voiceCaptureState
-                        ? "Microphone Active"
-                        : "Microphone Enabled"
-                      : microphonePermission === "denied"
-                        ? "Retry Microphone Access"
-                        : "Enable Microphone Access"}
+                    <Mic className="h-4 w-4" />
+                    {isVoiceAssistantOpen ? "Hide voice tools" : "Tell VisaPilot about your trip"}
+                    <ChevronDown className={`h-4 w-4 transition ${isVoiceAssistantOpen ? "rotate-180" : "rotate-0"}`} />
                   </button>
                 </div>
               </div>
 
-              {microphonePermission === "denied" && !isMicrophoneHelpDismissed ? (
-                <div className="mt-4 rounded-[1rem] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-semibold text-white">How to enable microphone access</p>
+              {isVoiceAssistantOpen ? (
+                <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                    <div className="rounded-[1rem] bg-white/5 px-4 py-4">
+                      <p className="text-sm font-semibold text-white">
+                        {voiceCaptureState?.phase === "listening"
+                          ? "Listening..."
+                          : voiceCaptureState?.phase === "processing"
+                            ? "VisaPilot is reviewing what it heard"
+                            : "Start with microphone access, then tap any mic button beside a field."}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {voiceMessage ?? "VisaPilot will keep your transcript local to this session while it fills the active field."}
+                      </p>
+                      {voiceCaptureState?.heardText ? (
+                        <div className="mt-3 rounded-[0.95rem] border border-cyan-400/18 bg-cyan-400/10 px-3 py-3 text-sm text-cyan-50">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/85">Transcript</p>
+                          <p className="mt-2 leading-6">{voiceCaptureState.heardText}</p>
+                          {voiceCaptureState.typedText ? <p className="mt-2 text-cyan-50/80">Using: {voiceCaptureState.typedText}</p> : null}
+                        </div>
+                      ) : null}
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => setIsMicrophoneHelpDismissed(true)}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/14 bg-white/10 text-rose-50/90 transition hover:border-white/25 hover:text-white"
-                      aria-label="Dismiss microphone help"
+                      onClick={() => void requestMicrophoneAccess()}
+                      disabled={microphonePermission === "requesting"}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/16 bg-white/12 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/35 hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <X className="h-4 w-4" />
+                      {microphonePermission === "requesting" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                      {microphonePermission === "granted"
+                        ? voiceCaptureState
+                          ? "Microphone Active"
+                          : "Microphone Enabled"
+                        : microphonePermission === "denied"
+                          ? "Retry Microphone Access"
+                          : "Enable Microphone Access"}
                     </button>
                   </div>
-                  <p className="mt-2 leading-6">1. On Windows, open Settings &gt; Privacy &amp; security &gt; Microphone and make sure both device microphone access and app microphone access are enabled.</p>
-                  <p className="leading-6">2. In your browser, click the lock or site-settings icon in the address bar and set Microphone to Allow for this site.</p>
-                  <p className="leading-6">3. If you are on a Mac, open Apple menu &gt; System Settings &gt; Privacy &amp; Security &gt; Microphone and allow your browser.</p>
-                  <p className="leading-6">4. If you are on iPhone or iPad, open Settings &gt; Privacy &amp; Security &gt; Microphone and allow the browser app you are using.</p>
-                  <p className="leading-6">5. Choose the correct input device in your browser or system audio settings, refresh this page, then use Retry Microphone Access.</p>
-                  <div className="mt-3 grid gap-2 text-xs text-rose-100/80 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
-                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Windows 11</p>
-                      <p className="mt-1">Settings &gt; Privacy &amp; security &gt; Microphone</p>
+
+                  {microphonePermission === "denied" && !isMicrophoneHelpDismissed ? (
+                    <div className="rounded-[1rem] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-semibold text-white">How to enable microphone access</p>
+                        <button
+                          type="button"
+                          onClick={() => setIsMicrophoneHelpDismissed(true)}
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/14 bg-white/10 text-rose-50/90 transition hover:border-white/25 hover:text-white"
+                          aria-label="Dismiss microphone help"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="mt-2 leading-6">1. On Windows, open Settings &gt; Privacy &amp; security &gt; Microphone and make sure both device microphone access and app microphone access are enabled.</p>
+                      <p className="leading-6">2. In your browser, click the lock or site-settings icon in the address bar and set Microphone to Allow for this site.</p>
+                      <p className="leading-6">3. If you are on a Mac, open Apple menu &gt; System Settings &gt; Privacy &amp; Security &gt; Microphone and allow your browser.</p>
+                      <p className="leading-6">4. If you are on iPhone or iPad, open Settings &gt; Privacy &amp; Security &gt; Microphone and allow the browser app you are using.</p>
+                      <p className="leading-6">5. Choose the correct input device in your browser or system audio settings, refresh this page, then use Retry Microphone Access.</p>
+                      <div className="mt-3 grid gap-2 text-xs text-rose-100/80 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
+                          <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Windows 11</p>
+                          <p className="mt-1">Settings &gt; Privacy &amp; security &gt; Microphone</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
+                          <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Chrome</p>
+                          <p className="mt-1 break-all">chrome://settings/content/microphone</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
+                          <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Edge</p>
+                          <p className="mt-1 break-all">edge://settings/content/microphone</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
+                          <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Mac / iPhone</p>
+                          <p className="mt-1">Privacy &amp; Security &gt; Microphone</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs leading-5 text-rose-100/80">
+                        Browser and device privacy rules block websites from directly opening all of these settings pages, so VisaPilot can guide you to the right place but cannot switch them on automatically.
+                      </p>
                     </div>
-                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
-                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Chrome</p>
-                      <p className="mt-1 break-all">chrome://settings/content/microphone</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
-                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Edge</p>
-                      <p className="mt-1 break-all">edge://settings/content/microphone</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/14 bg-white/10 px-3 py-2">
-                      <p className="font-semibold uppercase tracking-[0.18em] text-white/90">Mac / iPhone</p>
-                      <p className="mt-1">Privacy &amp; Security &gt; Microphone</p>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs leading-5 text-rose-100/80">
-                    Browser and device privacy rules block websites from directly opening all of these settings pages, so VisaPilot can guide you to the right place but cannot switch them on automatically.
-                  </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2013,7 +2180,7 @@ export function ApplicationWizard({
             <StepPanel
               eyebrow="Identity"
               title="Step 1: Passport & personal details"
-              description="Upload a passport bio page for zero-retention OCR or enter the identity manually. Full name and passport number become the application identity anchor."
+              description="Upload a passport bio page for zero-retention scanning or enter the identity manually. Full name and passport number become the application identity anchor."
               icon={UserSquare2}
               tone="blue"
             >
@@ -2022,6 +2189,10 @@ export function ApplicationWizard({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100">Option A</p>
                   <h3 className="mt-2 text-lg font-semibold text-white">Instant auto-fill</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-200">Drop a passport image or PDF. It is parsed strictly in RAM with `gpt-4o-mini` vision and the raw file buffer is scrubbed immediately after extraction.</p>
+                  <div className="mt-4 inline-flex items-start gap-2 rounded-full border border-slate-400/20 bg-slate-500/10 px-3 py-2 text-xs text-slate-200">
+                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                    <span>DPDP Compliant: Bank-grade encryption. Files automatically delete 30 days after your appointment.</span>
+                  </div>
                   <input
                     ref={uploadInputRef}
                     type="file"
@@ -2062,7 +2233,7 @@ export function ApplicationWizard({
 
               {isParsingPassport ? (
                 <ActivityBanner
-                  eyebrow="Passport OCR"
+                  eyebrow="Passport scan"
                   title="Scanning travel document"
                   description="Reading the passport image in secure volatile memory and mapping key identity fields into the form."
                   tone="cyan"
@@ -2349,9 +2520,13 @@ export function ApplicationWizard({
             >
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-[1.1rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Optional bank statement OCR</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">Optional bank statement scan</p>
                   <h3 className="mt-2 text-lg font-semibold text-white">Auto-extract closing balance</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-200">Drop a bank statement to extract closing balance and currency in ephemeral RAM, then discard the raw document immediately.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">Drop a bank statement to extract closing balance and currency, and automatically check for the mandatory bank seal before VFS sees it.</p>
+                  <div className="mt-4 inline-flex items-start gap-2 rounded-full border border-slate-400/20 bg-slate-500/10 px-3 py-2 text-xs text-slate-200">
+                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                    <span>DPDP Compliant: Bank-grade encryption. Files automatically delete 30 days after your appointment.</span>
+                  </div>
                   <input
                     ref={bankStatementInputRef}
                     type="file"
@@ -2376,7 +2551,7 @@ export function ApplicationWizard({
                         <LoaderCircle className="h-4 w-4 animate-spin" />
                         Reading statement...
                       </span>
-                    ) : "Upload bank statement"}
+                    ) : "Upload Bank Statement (We’ll automatically check for the mandatory bank seal so VFS doesn’t reject it)"}
                   </button>
                 </div>
                 <div className="rounded-[1.1rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.84),rgba(14,22,42,0.92))] p-5 shadow-[0_16px_40px_rgba(5,10,24,0.18)]">
@@ -2423,7 +2598,7 @@ export function ApplicationWizard({
 
               {isParsingBankStatement ? (
                 <ActivityBanner
-                  eyebrow="Financial OCR"
+                  eyebrow="Financial scan"
                   title="Analyzing bank statement"
                   description="Extracting the closing balance and currency in secure volatile memory to update the live compliance audit."
                   tone="amber"
@@ -2546,9 +2721,13 @@ export function ApplicationWizard({
                 coverLetterMessage={coverLetterMessage}
                 onGenerateCoverLetter={(applicant) => void handleGenerateCoverLetter(applicant)}
                 onGenerateCustomLetter={(letterId, applicant) => void handleGenerateCustomLetter(letterId, applicant)}
+                initialTab={initialStep5Tab}
                 speechSupported={speechSupported}
                 microphonePermission={microphonePermission}
                 onRequestMicrophoneAccess={requestMicrophoneAccess}
+                onFinalizeAndGoToVault={() => {
+                  void form.handleSubmit(handleSubmit)();
+                }}
               />
             </StepPanel>
           ) : null}
@@ -2559,12 +2738,12 @@ export function ApplicationWizard({
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+          <div className="sticky bottom-3 z-20 flex flex-col gap-3 rounded-[1rem] border border-white/10 bg-[rgba(8,17,31,0.92)] px-3 py-3 shadow-[0_18px_34px_rgba(4,10,24,0.28)] backdrop-blur-xl sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none">
             <button
               type="button"
               onClick={handlePreviousStep}
               disabled={currentStep === 0 || isSubmitting}
-              className="inline-flex min-w-[15rem] items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-50"
+              className="vp-btn vp-btn-secondary min-w-[15rem] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to previous step
@@ -2575,7 +2754,7 @@ export function ApplicationWizard({
                 type="button"
                 onClick={handleNextStep}
                 disabled={isSubmitting || financialStepBlocked}
-                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
+                className="vp-btn vp-btn-primary px-6 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {currentStep === 3 ? "Continue to Document Studio" : "Save and continue"}
               </button>

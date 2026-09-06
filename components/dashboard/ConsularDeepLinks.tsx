@@ -15,7 +15,7 @@ export function ConsularDeepLinks({
   destinationCountry: string;
   referenceNumber: string | null;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "error">("idle");
   const provider = trackingProviders[destinationCountry] ?? {
     label: "VFS Global",
     url: "https://visa.vfsglobal.com",
@@ -29,11 +29,13 @@ export function ConsularDeepLinks({
 
     try {
       await navigator.clipboard.writeText(referenceNumber);
-      setCopied(true);
+      setState("copied");
       window.open(provider.url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => setCopied(false), 2500);
+      window.setTimeout(() => setState("idle"), 2500);
     } catch {
+      setState("error");
       window.open(provider.url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => setState("idle"), 2500);
     }
   }
 
@@ -42,10 +44,13 @@ export function ConsularDeepLinks({
       type="button"
       onClick={handleOpen}
       disabled={!hasReferenceNumber}
-      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-cyan hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex w-fit items-center justify-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-cyan hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-50"
+      aria-live="polite"
     >
-      {copied
-        ? "Reference copied"
+        {state === "copied"
+          ? "Copied ✓ Opening portal"
+          : state === "error"
+            ? "Couldn't copy. Opening portal"
         : hasReferenceNumber
           ? `Open ${provider.label}`
           : "Save tracking reference first"}

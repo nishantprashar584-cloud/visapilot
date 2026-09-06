@@ -1,22 +1,47 @@
 import type { ApplicationStatus } from "@/types";
 
 const statusClasses: Record<ApplicationStatus, string> = {
-  draft: "border-slate-400/20 bg-slate-400/10 text-slate-200",
-  paid: "border-cyan-400/25 bg-cyan-400/12 text-cyan-100",
-  completed: "border-emerald-400/25 bg-emerald-400/12 text-emerald-100",
-  expired: "border-amber-400/25 bg-amber-400/12 text-amber-100",
-  rejected: "border-rose-400/25 bg-rose-400/12 text-rose-100",
-  reapplied: "border-violet-400/25 bg-violet-400/12 text-violet-100",
+  draft: "vp-badge-neutral",
+  auditing: "vp-badge-travel",
+  action_required: "vp-badge-attention",
+  bundle_ready: "vp-badge-success",
+  portal_filing_in_progress: "vp-badge-ai",
+  otp_pending: "vp-badge-attention",
+  portal_submitted: "vp-badge-brand",
+  appointment_pending: "vp-badge-attention",
+  appointment_booked: "vp-badge-brand",
+  paid: "vp-badge-brand",
+  completed: "vp-badge-success",
+  expired: "vp-badge-neutral",
+  rejected: "vp-badge-danger",
+  reapplied: "vp-badge-ai",
+};
+
+const statusLabels: Record<ApplicationStatus, string> = {
+  draft: "Draft",
+  auditing: "Auditing",
+  action_required: "Action Required",
+  bundle_ready: "Bundle Ready",
+  portal_filing_in_progress: "Portal Filing",
+  otp_pending: "OTP Pending",
+  portal_submitted: "Portal Submitted",
+  appointment_pending: "Appointment Pending",
+  appointment_booked: "Appointment Booked",
+  paid: "Paid",
+  completed: "Completed",
+  expired: "Expired",
+  rejected: "Rejected",
+  reapplied: "Reapplied",
 };
 
 export function ApplicationStatusBadge({ status }: { status: ApplicationStatus }) {
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusClasses[status]}`}>
+    <span className={`vp-badge ${statusClasses[status]}`}>
       <span className="relative flex h-2.5 w-2.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-55" />
+        <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-35" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-current" />
       </span>
-      {status}
+      {statusLabels[status]}
     </span>
   );
 }

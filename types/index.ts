@@ -1,8 +1,32 @@
-export type ApplicationStatus = "draft" | "paid" | "completed" | "expired" | "rejected" | "reapplied";
+export type ApplicationStatus =
+  | "draft"
+  | "auditing"
+  | "action_required"
+  | "bundle_ready"
+  | "portal_filing_in_progress"
+  | "otp_pending"
+  | "portal_submitted"
+  | "appointment_pending"
+  | "appointment_booked"
+  | "completed"
+  | "paid"
+  | "expired"
+  | "rejected"
+  | "reapplied";
 
 export type RecoveryStatus = "NOT_CLAIMED" | "CLAIMED";
 
 export type PricingTier = "solo" | "couple" | "family";
+
+export type ServiceTrack = "APPLY_MYSELF" | "VIP_CONCIERGE";
+
+export type CountrySubmissionType = "PORTAL_ONLINE" | "PAPER_PDF";
+
+export type TravelerRole = "PRIMARY" | "SPOUSE" | "ADULT_DEPENDENT" | "MINOR";
+
+export type VipActionRequestType = "OTP_REQUIRED" | "DOCUMENT_REUPLOAD" | "MOCK_CALL_SCHEDULE";
+
+export type VipActionRequestStatus = "PENDING" | "RESOLVED" | "EXPIRED";
 
 export type PaymentGateway = "razorpay";
 
@@ -43,6 +67,58 @@ export type SponsorType = "self" | "host" | "inviting_company" | "other";
 
 export type FundingSource = "self_funded" | "family_sponsored" | "company_sponsored";
 
+export type TravelGroup = "solo" | "couple" | "family";
+
+export type ReadinessAgeGroup = "minor" | "18_24" | "25_39" | "40_59" | "60_plus";
+
+export type ReadinessAccommodationStatus = "confirmed" | "partial" | "pending";
+
+export type ReadinessItineraryStatus = "clear" | "partial" | "unclear";
+
+export type ReadinessFundingArrangement =
+  | "self_funded"
+  | "primary_sponsors_group"
+  | "partner_sponsors_group"
+  | "shared_between_adults"
+  | "parent_sponsored"
+  | "other_sponsor";
+
+export type HomeTieStrength = "clear" | "partial" | "unclear";
+
+export type CaseFindingSeverity = "INFO" | "ATTENTION" | "WARNING" | "BLOCKING";
+
+export type CaseFindingCategory =
+  | "IDENTITY"
+  | "TRAVEL"
+  | "ITINERARY"
+  | "ACCOMMODATION"
+  | "FINANCIAL"
+  | "EMPLOYMENT"
+  | "SPONSORSHIP"
+  | "HOME_TIES"
+  | "TRAVEL_HISTORY"
+  | "VISA_HISTORY"
+  | "DOCUMENTS"
+  | "FAMILY"
+  | "MINOR"
+  | "CONSISTENCY"
+  | "DESTINATION_POLICY"
+  | "APPLICATION_CHANNEL";
+
+export type DataProvenance =
+  | "USER_ENTERED"
+  | "USER_CONFIRMED"
+  | "DOCUMENT_EXTRACTED"
+  | "AI_INFERRED"
+  | "OFFICIAL_POLICY"
+  | "SYSTEM_CALCULATED";
+
+export type CaseFindingStatus = "OPEN" | "RESOLVED" | "IGNORED_WITH_REASON";
+
+export type ReadinessAssumptionStatus = "CONFIRMED" | "INCOMPLETE" | "ASSUMED";
+
+export type CaseTravelerRole = "PRIMARY" | "PARTNER" | "ADULT" | "MINOR";
+
 export type VoiceIntakeTripPurpose = "tourism" | "business" | "family_visit" | "conference";
 
 export type EmploymentStatus =
@@ -51,6 +127,7 @@ export type EmploymentStatus =
   | "student"
   | "retired"
   | "unemployed"
+  | "homemaker"
   | "contractor"
   | "other";
 
@@ -66,6 +143,31 @@ export interface PreviousSchengenVisaEntry {
 
 export type SupportingDocumentKind = "pdf" | "image";
 
+export type SupportingDocumentCategory = "travel" | "financial" | "employment" | "insurance" | "identity" | "general";
+
+export type SupportingDocumentEvidenceType =
+  | "passport"
+  | "bank_statement"
+  | "hotel_booking"
+  | "flight_itinerary"
+  | "employment_letter"
+  | "travel_insurance"
+  | "sponsor_letter"
+  | "relationship_proof"
+  | "minor_consent"
+  | "general_support";
+
+export type SupportingDocumentSubjectRole = CaseTravelerRole | "GROUP" | "UNKNOWN";
+
+export interface SupportingDocumentEvidence {
+  category: SupportingDocumentCategory;
+  evidenceType: SupportingDocumentEvidenceType;
+  subjectRole: SupportingDocumentSubjectRole;
+  subjectTravelerId?: string;
+  subjectLabel?: string;
+  inferredFrom: "file_name";
+}
+
 export type ApplicantProfileRoute =
   | "salaried"
   | "freelancer_self_employed"
@@ -79,6 +181,136 @@ export interface FinancialEvidence {
   recentDepositsEur?: number[];
   sourceOfFundsNote?: string;
   incomeProofSources?: string[];
+}
+
+export interface ReadinessTravelerProfile {
+  id: string;
+  role: CaseTravelerRole;
+  displayName: string;
+  relationshipLabel?: string;
+  nationality: string;
+  residenceCountry: string;
+  ageGroup: ReadinessAgeGroup;
+  employmentStatus: EmploymentStatus;
+  passportAvailable: boolean;
+  previousSchengenVisa: boolean;
+  previousRefusal: boolean;
+}
+
+export interface ReadinessSharedContext {
+  travelingTogether: boolean;
+  sameDestination: boolean;
+  sameDates: boolean;
+  sameAccommodation: boolean;
+  sameItinerary: boolean;
+  fundingArrangement: ReadinessFundingArrangement;
+  accommodationStatus: ReadinessAccommodationStatus;
+  itineraryStatus: ReadinessItineraryStatus;
+  homeTieStrength: HomeTieStrength;
+  hasFinancialEvidence: boolean;
+  hasAccommodationEvidence: boolean;
+  hasSponsorRelationshipEvidence: boolean;
+  minorConsentStatus: "not_applicable" | "available" | "needs_review" | "missing";
+  notes?: string;
+}
+
+export interface ReadinessDraft {
+  travelGroup: TravelGroup;
+  trip: {
+    destinationCountry: string;
+    purpose: TravelPurpose;
+    arrivalDate: string;
+    departureDate: string;
+  };
+  travelers: ReadinessTravelerProfile[];
+  sharedContext: ReadinessSharedContext;
+}
+
+export interface CaseFindingSource {
+  provenance: DataProvenance;
+  label: string;
+  sourceTitle?: string;
+  sourceUrl?: string;
+  lastVerifiedDate?: string;
+  policyVersion?: string;
+  authoritative?: boolean;
+}
+
+export interface CaseFinding {
+  id: string;
+  severity: CaseFindingSeverity;
+  category: CaseFindingCategory;
+  title: string;
+  explanation: string;
+  whatWeKnow: string[];
+  whatWeNeed: string[];
+  affectedTravelers: string[];
+  affectedFields: string[];
+  recommendedAction: string;
+  evidenceNeeded: string[];
+  source: CaseFindingSource;
+  confidence: "low" | "medium" | "high";
+  blocking: boolean;
+  status: CaseFindingStatus;
+}
+
+export interface ReadinessDimensionScore {
+  id: string;
+  label: string;
+  score: number;
+  summary: string;
+}
+
+export interface CaseSnapshot {
+  destinationLabel: string;
+  travelDateLabel: string;
+  travelerLabel: string;
+  fundingLabel: string;
+  accommodationLabel: string;
+  purposeLabel: string;
+  narrative: string;
+}
+
+export interface CaseAssumption {
+  id: string;
+  label: string;
+  value: string;
+  status: ReadinessAssumptionStatus;
+}
+
+export interface CaseReadinessAssessment {
+  score: number;
+  label: "Strong" | "Fair" | "Needs Review";
+  summary: string;
+  assessmentVersion: string;
+  dimensions: ReadinessDimensionScore[];
+  snapshot: CaseSnapshot;
+  assumptions: CaseAssumption[];
+  readyItems: string[];
+  reviewCount: number;
+  actionRequiredCount: number;
+  strongAreas: string[];
+  areasToReview: string[];
+  missingInformation: string[];
+  recommendedActions: string[];
+  nextBestAction: string;
+  findings: CaseFinding[];
+  disclaimer: string;
+  assessmentDate: string;
+  policyVersion: string;
+}
+
+export interface CaseContext {
+  travelGroup: TravelGroup;
+  travelers: ReadinessTravelerProfile[];
+  sharedContext: ReadinessSharedContext;
+  initialReadinessDraft?: ReadinessDraft;
+  readinessAssessment?: CaseReadinessAssessment;
+  assessmentVersion?: string;
+  policyVersion?: string;
+  assessmentDate?: string;
+  handoffKey?: string;
+  readinessSource?: "FREE_READINESS";
 }
 
 export interface UnitEconomicGuardrail {
@@ -145,6 +377,7 @@ export interface SupportingDocument {
   sizeBytes: number;
   storagePath: string;
   uploadedAt: string;
+  evidence?: SupportingDocumentEvidence;
 }
 
 export interface ApplicantInfo {
@@ -234,6 +467,7 @@ export interface ApplicantInfo {
     finalDestinationPermitNumber?: string;
     finalDestinationPermitValidUntil?: string;
   };
+  caseContext?: CaseContext;
   financialEvidence?: FinancialEvidence;
   supportingDocuments?: SupportingDocument[];
 }
@@ -439,7 +673,12 @@ export interface ApplicationRow {
   status: ApplicationStatus;
   user_id: string;
   applicant_id: string;
+  submission_type?: CountrySubmissionType | null;
+  track?: ServiceTrack | null;
+  tier?: Uppercase<PricingTier> | null;
   vfs_reference_number: string | null;
+  vfs_center_location?: string | null;
+  appointment_date?: string | null;
   applicant_name: string;
   applicant_email: string;
   destination_country: string;
@@ -453,6 +692,42 @@ export interface ApplicationRow {
   privacy_purge_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TravelerRow {
+  id: string;
+  application_id: string;
+  role: TravelerRole;
+  first_name: string;
+  last_name: string;
+  passport_number: string;
+  passport_expiry_date: string;
+  is_sponsored: boolean;
+  sponsor_traveler_id: string | null;
+  employment_type: string | null;
+  created_at: string;
+}
+
+export interface ApplicationDocumentRow {
+  id: string;
+  application_id: string;
+  traveler_id: string | null;
+  document_type: string;
+  file_path: string;
+  is_verified: boolean;
+  rejection_reason: string | null;
+  expires_at: string;
+  uploaded_at: string;
+}
+
+export interface VipActionRequestRow {
+  id: string;
+  application_id: string;
+  action_type: VipActionRequestType;
+  prompt_message: string;
+  status: VipActionRequestStatus;
+  expires_at: string | null;
+  created_at: string;
 }
 
 export interface UserRow {

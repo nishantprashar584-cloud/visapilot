@@ -25,7 +25,7 @@ import {
 import type { PDFDocument as PdfDocument, PDFPage } from "pdf-lib";
 import { ReorderBoard } from "@/components/wizard/pdf/ReorderBoard";
 import { renderPdfPageThumbnails } from "@/lib/pdf/renderPdfPageThumbnails";
-import type { SupportingDocument } from "@/types";
+import type { SupportingDocument, SupportingDocumentEvidenceType, SupportingDocumentSubjectRole } from "@/types";
 
 type WorkspaceDocument = {
   id: string;
@@ -127,6 +127,11 @@ type PacketWorkspaceProps = {
   previewMode: boolean;
   supportingDocuments: SupportingDocument[];
   onSupportingDocumentsChange: (documents: SupportingDocument[]) => void;
+  travelerTargets?: Array<{
+    id: string;
+    label: string;
+    role: Exclude<SupportingDocumentSubjectRole, "GROUP" | "UNKNOWN">;
+  }>;
   allowedTools?: ToolkitMode[];
   toolCards?: Array<{
     key: string;
@@ -271,6 +276,19 @@ const toolDefinitions: ToolDefinition[] = [
     accentClass: "border-fuchsia-300/20 bg-fuchsia-500/10 text-fuchsia-100",
     iconClass: "bg-fuchsia-100 text-fuchsia-700",
   },
+];
+
+const evidenceTypeOptions: Array<{ value: SupportingDocumentEvidenceType; label: string; helper: string }> = [
+  { value: "passport", label: "Passport / ID", helper: "Bio page, passport scans, identity page" },
+  { value: "bank_statement", label: "Bank statement", helper: "Funding proof and recent balance evidence" },
+  { value: "hotel_booking", label: "Hotel booking", helper: "Accommodation confirmations and reservations" },
+  { value: "flight_itinerary", label: "Flight itinerary", helper: "PNR, tickets, route proofs" },
+  { value: "employment_letter", label: "Employment proof", helper: "Employment letters, leave letters, contracts" },
+  { value: "travel_insurance", label: "Travel insurance", helper: "Policy and coverage documents" },
+  { value: "sponsor_letter", label: "Sponsor letter", helper: "Sponsor declarations, affidavits, invitations" },
+  { value: "relationship_proof", label: "Relationship proof", helper: "Marriage, birth, or family proof" },
+  { value: "minor_consent", label: "Minor consent", helper: "Consent letters and NOCs for minors" },
+  { value: "general_support", label: "General support", helper: "Any other supporting document" },
 ];
 
 function isWordProcessingDocument(file: File): boolean {
@@ -563,6 +581,7 @@ export function PacketWorkspace({
   previewMode,
   supportingDocuments,
   onSupportingDocumentsChange,
+  travelerTargets = [],
   allowedTools,
   toolCards,
 }: PacketWorkspaceProps) {
@@ -596,6 +615,8 @@ export function PacketWorkspace({
   const [isPreparingPageBoard, setIsPreparingPageBoard] = useState(false);
   const [activeModal, setActiveModal] = useState<WorkspaceModal>(null);
   const [workspaceStage, setWorkspaceStage] = useState<WorkspaceStage>("select");
+  const [selectedEvidenceType, setSelectedEvidenceType] = useState<SupportingDocumentEvidenceType>("general_support");
+  const [selectedTravelerTargetKey, setSelectedTravelerTargetKey] = useState<string>(travelerTargets[0]?.id ?? "GROUP");
 
   const visibleToolDefinitions = useMemo(() => {
     if (!allowedTools?.length) {
@@ -685,6 +706,26 @@ export function PacketWorkspace({
     [selectedTool, selectedToolDefinition.label, visibleToolCards],
   );
 
+  const ownerOptions = useMemo(() => {
+    const travelerOptions = travelerTargets.map((traveler) => ({
+      key: traveler.id,
+      label: traveler.label,
+      role: traveler.role,
+      travelerId: traveler.id,
+    }));
+
+    return [
+      { key: "GROUP", label: "Whole travel group", role: "GROUP" as const, travelerId: undefined },
+      ...travelerOptions,
+      { key: "UNKNOWN", label: "Not assigned yet", role: "UNKNOWN" as const, travelerId: undefined },
+    ];
+  }, [travelerTargets]);
+
+  const selectedEvidenceOption = useMemo(
+    () => evidenceTypeOptions.find((option) => option.value === selectedEvidenceType) ?? evidenceTypeOptions[evidenceTypeOptions.length - 1],
+    [selectedEvidenceType],
+  );
+
   function resetWorkspaceSession() {
     if (splitProcessingTimeoutRef.current) {
       window.clearTimeout(splitProcessingTimeoutRef.current);
@@ -757,6 +798,27 @@ export function PacketWorkspace({
   useEffect(() => {
     pagePreviewsRef.current = pagePreviews;
   }, [pagePreviews]);
+
+  useEffect(() => {
+    if (!ownerOptions.some((option) => option.key === selectedTravelerTargetKey)) {
+      setSelectedTravelerTargetKey(ownerOptions[0]?.key ?? "GROUP");
+    }
+  }, [ownerOptions, selectedTravelerTargetKey]);
+
+  function appendUploadEvidenceFields(formData: FormData) {
+    const selectedOwner = ownerOptions.find((option) => option.key === selectedTravelerTargetKey) ?? ownerOptions[0];
+
+    formData.append("evidenceType", selectedEvidenceType);
+    formData.append("subjectRole", selectedOwner?.role ?? "UNKNOWN");
+
+    if (selectedOwner?.travelerId) {
+      formData.append("subjectTravelerId", selectedOwner.travelerId);
+    }
+
+    if (selectedOwner?.label) {
+      formData.append("subjectLabel", selectedOwner.label);
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -1051,6 +1113,7 @@ export function PacketWorkspace({
           formData.append("documentId", document.id);
           formData.append("file", document.file);
           formData.append("pageCount", String(document.pageCount));
+          appendUploadEvidenceFields(formData);
 
           const response = await fetch("/api/supporting-documents", {
             method: "POST",
@@ -1138,6 +1201,7 @@ export function PacketWorkspace({
           formData.append("documentId", document.id);
           formData.append("file", document.file);
           formData.append("pageCount", String(document.pageCount));
+          appendUploadEvidenceFields(formData);
 
           const response = await fetch("/api/supporting-documents", {
             method: "POST",
@@ -2418,6 +2482,45 @@ export function PacketWorkspace({
         </div>
 
         <div className="mt-5 rounded-[1.15rem] bg-slate-950/65 p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
+          {selectedToolDefinition.persistUploads ? (
+            <div className="mb-5 grid gap-4 rounded-[1rem] border border-white/10 bg-white/5 p-4 lg:grid-cols-2">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Document label</label>
+                <select
+                  value={selectedEvidenceType}
+                  onChange={(event) => setSelectedEvidenceType(event.target.value as SupportingDocumentEvidenceType)}
+                  className="mt-2 block w-full rounded-xl border border-white/12 bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/40"
+                >
+                  {evidenceTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs leading-5 text-slate-400">{selectedEvidenceOption.helper}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Belongs to</label>
+                <select
+                  value={selectedTravelerTargetKey}
+                  onChange={(event) => setSelectedTravelerTargetKey(event.target.value)}
+                  className="mt-2 block w-full rounded-xl border border-white/12 bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/40"
+                >
+                  {ownerOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  {previewMode
+                    ? "Preview mode shows how these tags will be stored on real uploads."
+                    : "These tags are saved with the file and used by readiness and dashboard review."}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <input
             ref={inputRef}
             type="file"

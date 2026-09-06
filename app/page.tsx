@@ -1,14 +1,19 @@
 import Link from "next/link";
 import {
-  Check,
+  ArrowRight,
+  BadgeCheck,
+  CircleAlert,
   FileArchive,
   FileText,
+  MapPinned,
+  Plane,
+  Route,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 import { MarqueePills } from "@/components/MarqueePills";
+import { PricingPlans } from "@/components/pricing/PricingPlans";
 import { TintedIconBadge } from "@/components/ui/TintedIconBadge";
 
 const heroBadgeCopy = "Zero-Retention Architecture • 256-Bit Encrypted";
@@ -17,7 +22,7 @@ const steps = [
   {
     number: "01",
     title: "Scan Passport",
-    body: "Ephemeral RAM OCR extracts identity without retaining files.",
+    body: "Our AI document scanner reads your identity details without retaining files.",
     icon: FileText,
     tone: "red",
   },
@@ -37,99 +42,96 @@ const steps = [
   },
 ] as const;
 
-const pricingTiers = [
-  {
-    name: "Solo",
-    price: "₹1,999",
-    href: "/apply?tier=solo",
-    summary: "For one traveler preparing one complete Schengen tourist packet.",
-    features: [
-      "1 application credit",
-      "Tourist visa OCR, audit, and cover-letter generation",
-      "Official consulate-ready packet export",
-      "Includes 18% GST invoice",
-    ],
-    featured: false,
-  },
-  {
-    name: "Couple",
-    price: "₹3,299",
-    href: "/apply?tier=couple",
-    summary: "For two adults on the same tourist trip with shared itinerary coordination.",
-    features: [
-      "2 application credits",
-      "Cross-referenced co-traveler narratives",
-      "Joint sponsorship and shared itinerary flow",
-      "Includes 18% GST invoice",
-    ],
-    featured: true,
-  },
-  {
-    name: "Family",
-    price: "₹5,599",
-    href: "/apply?tier=family",
-    summary: "For up to four family members traveling together on one tourist plan.",
-    features: [
-      "Up to 4 application credits",
-      "Minor annexures and parental NOC generation",
-      "Shared family itinerary and packet bundle",
-      "Includes 18% GST invoice",
-    ],
-    featured: false,
-  },
-] as const;
-
 export default function Home() {
   return (
     <div className="pb-16 pt-1 sm:pb-20 sm:pt-2">
       <section className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-white/14 bg-[linear-gradient(145deg,rgba(24,34,58,0.96),rgba(17,24,39,0.9)_45%,rgba(30,41,82,0.92))] px-5 py-8 shadow-[0_26px_90px_rgba(4,8,24,0.34)] sm:px-8 sm:py-10 lg:px-10">
-          <div className="mx-auto max-w-6xl text-center">
-            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-              <TintedIconBadge icon={ShieldCheck} tone="emerald" label={heroBadgeCopy} />
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/16 px-4 py-1.5 text-sm font-medium text-emerald-50 shadow-[0_0_30px_rgba(16,185,129,0.18)]">
-                <TrendingUp className="h-4 w-4 text-emerald-200" />
-                98% of applications got accepted using VisaPilot
-              </span>
-            </div>
-            <h1 className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-[3.35rem] lg:whitespace-nowrap">
-              The Automated Schengen Tourist Visa Engine
-            </h1>
-            <p className="mx-auto mt-3 max-w-4xl text-sm leading-7 text-slate-200 sm:text-lg xl:whitespace-nowrap">
-              Generate a 96% VFS-compliant tourist visa packet with form prep, financial audits, and multi-city itinerary sync in minutes.
-            </p>
-
-            <div className="mt-6">
-              <MarqueePills />
-            </div>
-
-            <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/apply"
-                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
-              >
-                Start Application
-              </Link>
-              <Link
-                href="#pricing"
-                className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/10 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/35 hover:bg-white/14"
-              >
-                View Pricing
-              </Link>
-            </div>
-
-            <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
-              <div className="rounded-[1.25rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
-                <TintedIconBadge icon={FileText} tone="red" label="Official PDF actions" />
-                <p className="mt-3 text-sm leading-6 text-slate-200">Form preparation stays aligned to your tourist itinerary, identity record, and appointment packet.</p>
+        <div className="rounded-[2rem] border border-white/12 bg-[linear-gradient(145deg,rgba(20,31,53,0.96),rgba(12,19,36,0.98)_45%,rgba(30,41,82,0.92))] px-5 py-8 shadow-[0_26px_90px_rgba(4,8,24,0.34)] sm:px-8 sm:py-10 lg:px-10">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <TintedIconBadge icon={ShieldCheck} tone="emerald" label={heroBadgeCopy} />
+                <span className="vp-badge vp-badge-travel">
+                  <Plane className="h-3.5 w-3.5" />
+                  India-first Schengen tourist preparation
+                </span>
               </div>
-              <div className="rounded-[1.25rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
-                <TintedIconBadge icon={Sparkles} tone="indigo" label="AI letter engine" />
-                <p className="mt-3 text-sm leading-6 text-slate-200">Cover letters and financial checks stay aligned to leisure travel, route logic, and return ties.</p>
+              <p className="mt-6 text-sm font-semibold uppercase tracking-[0.28em] text-cyan-100">Schengen visa preparation, simplified</p>
+              <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-[3.45rem] lg:leading-[1.02]">
+                Prepare your visa application with confidence.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 sm:text-lg">
+                VisaPilot turns a complex tourist visa packet into a guided workflow with readiness checks, document tools, financial review, and a dashboard that tells you what to do next.
+              </p>
+
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <Link href="/readiness" className="vp-btn vp-btn-primary px-6">
+                  Check My Visa Readiness - Free
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link href="/apply" className="vp-btn vp-btn-secondary px-6">
+                  Start Application
+                </Link>
               </div>
-              <div className="rounded-[1.25rem] border border-white/14 bg-white/10 p-4 backdrop-blur-sm">
-                <TintedIconBadge icon={Wallet} tone="emerald" label="Security and purge" />
-                <p className="mt-3 text-sm leading-6 text-slate-200">Identity locking and the 90-day purge window stay visible without crowding the flow.</p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <span className="vp-chip"><BadgeCheck className="h-4 w-4 text-emerald-300" /> Passport-first identity flow</span>
+                <span className="vp-chip"><Sparkles className="h-4 w-4 text-indigo-300" /> AI explanation, not guesswork</span>
+                <span className="vp-chip"><Wallet className="h-4 w-4 text-sky-300" /> Deterministic funding checks</span>
+              </div>
+
+              <div className="mt-7">
+                <MarqueePills />
+              </div>
+            </div>
+
+            <div className="glass-panel p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="eyebrow">Application Preview</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">A real working visa workspace</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">Structured around readiness, documents, and next actions instead of generic marketing copy.</p>
+                </div>
+                <span className="vp-badge vp-badge-brand">Live hierarchy</span>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="vp-surface-quiet p-4">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"><FileText className="h-3.5 w-3.5 text-emerald-300" /> Identity</p>
+                  <p className="mt-2 text-base font-semibold text-white">Passport extracted and ready to review</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">The workflow distinguishes extracted data from verified data and keeps identity lock visible.</p>
+                </div>
+                <div className="vp-surface-quiet p-4">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"><Route className="h-3.5 w-3.5 text-cyan-300" /> Travel</p>
+                  <p className="mt-2 text-base font-semibold text-white">Trip timeline and accommodation stay connected</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">Dates, destination, and supporting proof stay aligned across readiness, wizard, and packet export.</p>
+                </div>
+                <div className="vp-surface-quiet p-4">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"><Wallet className="h-3.5 w-3.5 text-sky-300" /> Financials</p>
+                  <p className="mt-2 text-base font-semibold text-white">Funding posture is explained clearly</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">Warnings stay calm and specific, with the next corrective action attached to the case.</p>
+                </div>
+                <div className="vp-surface-quiet p-4">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"><MapPinned className="h-3.5 w-3.5 text-amber-300" /> Next best action</p>
+                  <p className="mt-2 text-base font-semibold text-white">One dominant instruction at a time</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">The dashboard elevates the most important step while secondary tools stay nearby.</p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="vp-badge vp-badge-success">Passport reviewed</span>
+                  <span className="vp-badge vp-badge-travel">Trip checked</span>
+                  <span className="vp-badge vp-badge-attention">Funding needs review</span>
+                </div>
+                <div className="mt-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Next best action</p>
+                    <p className="mt-2 text-base font-semibold text-white">Upload the latest bank statement</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">The financial review remains the only blocker before the packet looks submission-ready.</p>
+                  </div>
+                  <CircleAlert className="mt-1 h-5 w-5 text-amber-300" />
+                </div>
               </div>
             </div>
           </div>
@@ -140,8 +142,9 @@ export default function Home() {
         <div className="text-center">
           <p className="eyebrow">How It Works</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-50 sm:text-4xl">
-            Three clean phases around a five-step application flow.
+            Start with a free readiness view, then move into the five-step application flow.
           </h2>
+          <p className="mx-auto mt-4 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">Blue marks the main action, indigo marks AI assistance, green marks verified progress, and amber marks review.</p>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3">
@@ -149,7 +152,7 @@ export default function Home() {
             const Icon = step.icon;
 
             return (
-              <article key={step.number} className="rounded-[1.6rem] border border-white/14 bg-[linear-gradient(180deg,rgba(27,39,67,0.9),rgba(14,22,42,0.94))] p-6 shadow-[0_20px_50px_rgba(6,10,24,0.26)] sm:p-7">
+              <article key={step.number} className="glass-card p-6 sm:p-7">
                 <div className="flex items-center justify-between gap-3">
                   <TintedIconBadge icon={Icon} tone={step.tone} />
                   <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">Step {step.number}</span>
@@ -166,55 +169,15 @@ export default function Home() {
         <div className="text-center">
           <p className="eyebrow">Pricing</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-50 sm:text-4xl">
-            Pick the pass that matches the trip structure.
+            Choose your visa plan.
           </h2>
+          <p className="mx-auto mt-4 max-w-3xl text-sm leading-6 text-slate-200 sm:text-base">
+            Compare the Self-Guided and Done-For-You options, see the full GST-inclusive price, and pick the plan that fits your trip.
+          </p>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {pricingTiers.map((tier) => (
-            <article
-              key={tier.name}
-              className={tier.featured
-                ? "rounded-[1.7rem] border border-indigo-300/30 bg-[linear-gradient(180deg,#eef2ff,#ffffff)] px-6 py-7 text-slate-950 shadow-[0_24px_60px_rgba(99,102,241,0.18)] sm:px-7"
-                : "rounded-[1.7rem] border border-white/14 bg-[linear-gradient(180deg,rgba(26,38,66,0.92),rgba(14,22,42,0.96))] px-6 py-7 text-white shadow-[0_20px_50px_rgba(6,10,24,0.26)] sm:px-7"}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className={tier.featured ? "text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-indigo-700" : "eyebrow"}>
-                    {tier.name}
-                  </p>
-                  <p className="mt-4 text-4xl font-semibold tracking-[-0.05em]">{tier.price}</p>
-                </div>
-                {tier.featured ? (
-                  <span className="rounded-full bg-indigo-600 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                    Highlighted
-                  </span>
-                ) : null}
-              </div>
-
-              <p className={tier.featured ? "mt-4 text-sm leading-7 text-slate-700" : "mt-4 text-sm leading-7 text-slate-200"}>
-                {tier.summary}
-              </p>
-
-              <ul className={tier.featured ? "mt-6 space-y-3 text-sm text-slate-800" : "mt-6 space-y-3 text-sm text-slate-100"}>
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Check className={tier.featured ? "mt-0.5 h-4 w-4 text-indigo-700" : "mt-0.5 h-4 w-4 text-emerald-300"} />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-                <Link
-                href={tier.href}
-                className={tier.featured
-                  ? "mt-8 inline-flex w-full items-center justify-center rounded-full bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-500"
-                  : "mt-8 inline-flex w-full items-center justify-center rounded-full bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-400/20 transition hover:bg-cyan-200"}
-              >
-                Select Pass
-              </Link>
-            </article>
-          ))}
+        <div className="mt-8">
+          <PricingPlans />
         </div>
       </section>
     </div>

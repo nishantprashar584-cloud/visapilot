@@ -10,7 +10,7 @@ This document describes the checked-in implementation state of VisaPilot after t
 - The active workflow is tourism-only and the generation helpers normalize legacy purpose variants back to tourism.
 - The user journey is a five-step application wizard followed by a dashboard and a per-application vault.
 - Preview mode is implemented across the product and uses seeded applications from `lib/mock/applications.ts`.
-- Phase 1 pricing is INR-only with three implemented tiers: Solo `₹1,999`, Couple `₹3,299`, Family `₹5,599`.
+- Phase 1 pricing is INR-only and now supports two tracks, `Self-Guided` and `Done-For-You`, across three tiers: Solo `₹1,999` or `₹5,999`, Couple `₹3,299` or `₹9,999`, Family `₹5,599` or `₹14,999`.
 - The codebase still contains non-India preview examples, but the live payment and commercial flow now target an India-first launch.
 
 ## Implemented Tech Stack
@@ -27,7 +27,7 @@ This document describes the checked-in implementation state of VisaPilot after t
 ### Backend and Persistence
 
 - Next.js route handlers under `app/api` and download routes under `app/dashboard/*/route.ts`
-- Supabase for email OTP auth, Postgres persistence, RLS, and protected file storage
+- Supabase for Google OAuth plus email OTP auth, Postgres persistence, RLS, and protected file storage
 - Direct Supabase queries without an ORM
 
 ### AI and Document Processing
@@ -52,9 +52,10 @@ This document describes the checked-in implementation state of VisaPilot after t
 
 - `app/page.tsx`: landing page
 - `app/apply/page.tsx`: five-step wizard entry
-- `app/auth/page.tsx`: Supabase email OTP sign-in screen
+- `app/auth/page.tsx`: Supabase dual-mode sign-in screen with Google OAuth and email OTP
 - `app/dashboard/page.tsx`: dashboard with recent applications and payment history
-- `app/dashboard/[applicationId]/page.tsx`: application vault
+- `app/dashboard/[applicationId]/page.tsx`: shared application-vault implementation
+- `app/dashboard/[applicationId]/vault/page.tsx`: canonical application-vault route that re-exports the shared implementation
 
 ### API Routes
 
@@ -85,9 +86,9 @@ This document describes the checked-in implementation state of VisaPilot after t
 
 ## Authentication Model
 
-- Supabase email OTP sign-in is the live authentication flow.
+- Supabase Google OAuth and email OTP are the live authentication flows.
 - Protected routes redirect to `/auth` unless preview mode is active.
-- `app/auth/callback/route.ts` exchanges the OTP code for a session and redirects to the normalized `next` path.
+- `app/auth/callback/route.ts` exchanges the Supabase auth code for a session and redirects to the normalized `next` path for both Google OAuth and email OTP.
 
 ## Database Schema Implemented Today
 
@@ -299,6 +300,7 @@ Implemented mechanisms:
 Observed derived effects include:
 
 - destination prefill from query string or stored context
+- optional initial step and Step 5 tab preselection from query string in preview flows
 - stay duration recalculation
 - sponsor-type mapping from funding source
 - previous-visa summary generation
@@ -341,7 +343,7 @@ Persistence behavior:
 
 ### 1. Sign-In
 
-- Users sign in with email OTP through Supabase.
+- Users sign in through Supabase with either Google OAuth or email OTP.
 
 ### 2. Wizard
 
@@ -360,6 +362,7 @@ Implemented step behavior:
 3. Financials: optional statement extraction, live risk audit, exact statutory-funds gating, and anomaly-aware interview-prep generation.
 4. Accommodations: hotel reference, place of application, accommodation summary, and home-ties evidence.
 5. Document Studio: tabbed Step 5 workspace with bundle preview, AI letters, PDF operations, checklist/stacking guidance, and prep/recovery artifacts.
+	The Print-Ready Visa Packet tab now separates preview download actions from the permanent vault transition through a distinct `Finalize & Go to My Visa Dashboard` CTA.
 
 ### 3. Package Generation
 
@@ -372,7 +375,7 @@ On submit:
 - the user row is upserted
 - the applicant identity is locked
 - the application row is inserted into `applications`
-- the app redirects to `/dashboard/[applicationId]`
+- the app redirects to `/dashboard/[applicationId]/vault`
 
 ### 4. Dashboard and Vault
 
@@ -386,11 +389,16 @@ The dashboard exposes:
 
 The application vault exposes:
 
+- visa progress via a four-step `StatusPipeline`
+- a stateful `VaultActionCenter` for Smart Form Helper launch, operator-lane updates, OTP submission, or replacement upload
 - filled form or worksheet download
 - cover-letter preview and download
 - ZIP package download
 - consulate-ready packet download
+- Smart Form Helper launch
 - supporting-document access
+- preview-mode back navigation into Step 5 Document Studio
+- a rejection-insurance status card derived from the latest successful pricing tier
 - tracking-reference save flow
 - interview-prep and refusal-recovery artifacts
 
@@ -407,7 +415,7 @@ The Step 5 workspace is now a tabbed single-surface shell with extracted present
 
 Implemented tabs:
 
-- Master Bundle
+- Print-Ready Visa Packet
 - AI Cover Letter Studio
 - Advanced PDF Editor
 - VFS Checklist & Stacking Order
@@ -415,12 +423,13 @@ Implemented tabs:
 
 The tab strip is horizontally scrollable on small viewports and only one panel renders at a time.
 
-### Master Bundle
+### Print-Ready Visa Packet
 
 Implemented behavior:
 
 - packet-readiness summary cards
-- bundle download/view actions
+- distinct `Finalize & Go to My Visa Dashboard` primary CTA in Step 5
+- direct preview-mode bundle download plus viewer action
 - sectioned preview experience
 - exact A4 cover-letter preview pages via `A4TextPreview`
 - zoom controls
@@ -490,6 +499,11 @@ Fallback behavior still exists for unmapped destinations through a default VFS-s
 Implemented behavior:
 
 - interview preparation prompts driven by the risk audit
+- interview brief download route in preview and live flows
+- interactive refusal-code selection when no code is attached
+- refusal decoder PDF generation can target the selected refusal code through route query state
+- vault-side copy now explains that interview questions are generated from applicant weak spots such as solo travel, self-employment, or borderline funds
+- vault-side recovery copy now positions the refusal decoder as premium-tier remediation support
 - refusal decoder and reapplication support surfaces
 
 ## PDF Rendering and Generation Engine
@@ -598,6 +612,7 @@ Implemented flow:
 - page counts and metadata are tracked in the client payload
 - files persist to Supabase storage outside preview mode
 - protected route handlers stream files back to authenticated users
+- preview mode exposes generated sample downloads for seeded supporting documents
 
 ### Conversion Pipeline
 

@@ -273,7 +273,7 @@ export function TravelIntentStudio({
                     <select
                       value={entry.stayType}
                       onChange={(event) => updateEntry(entry.id, { stayType: event.target.value })}
-                      className="w-full rounded-[0.9rem] border border-white/14 bg-[rgba(10,18,34,0.56)] px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-300/35"
+                      className="vp-select w-full rounded-[0.9rem] focus:border-cyan-300/35"
                     >
                       <option value="arrival stay">Arrival stay</option>
                       <option value="hotel stay">Hotel stay</option>

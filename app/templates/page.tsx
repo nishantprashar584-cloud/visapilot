@@ -82,7 +82,7 @@ export default async function TemplatesPage() {
                 <li>2. Run npm run inspect:pdf -- public/templates/&lt;file&gt;.pdf.</li>
                 <li>3. If the result is empty, do not ship it as a premium filled form.</li>
                 <li>4. Only map the template for native autofill when real AcroForm fields exist.</li>
-                <li>5. Keep the master VFS bundle as the primary user-facing artifact until then.</li>
+                <li>5. Keep the print-ready visa packet as the primary user-facing artifact until then.</li>
               </ol>
             </div>
           </div>

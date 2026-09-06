@@ -45,7 +45,7 @@ export default function BlogPage() {
         <div className="space-y-6 rounded-[1.2rem] border border-white/10 bg-[#101010] p-5 text-sm leading-7 text-slate-300 sm:text-base">
           <div id="flat-pdf">
             <h2 className="text-xl font-semibold text-white">Why flat embassy PDFs break auto-fill products</h2>
-            <p className="mt-3">A PDF can look like a fillable government form and still expose zero interactive fields. When that happens, overlaying text by coordinates becomes fragile, country-specific, and often visually poor. A worksheet plus master bundle is the more reliable artifact until a true AcroForm version is available.</p>
+            <p className="mt-3">A PDF can look like a fillable government form and still expose zero interactive fields. When that happens, overlaying text by coordinates becomes fragile, country-specific, and often visually poor. A worksheet plus print-ready visa packet is the more reliable artifact until a true AcroForm version is available.</p>
           </div>
           <div id="cover-letter">
             <h2 className="text-xl font-semibold text-white">How to prepare a stronger Schengen tourist cover letter</h2>

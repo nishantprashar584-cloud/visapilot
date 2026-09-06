@@ -12,7 +12,7 @@ const sections = [
     title: "How It Works",
     body: [
       "Applicants move through identity capture, travel details, finances, accommodation and home ties, then final document packaging. The system keeps those fields aligned so the packet tells one consistent tourism story.",
-      "When an embassy PDF is a flat template with no interactive fields, VisaPilot now produces a clean worksheet instead of a misaligned fake overlay, while the master bundle remains the primary print artifact.",
+      "When an embassy PDF is a flat template with no interactive fields, VisaPilot now produces a clean worksheet instead of a misaligned fake overlay, while the print-ready visa packet remains the primary print artifact.",
     ],
   },
   {

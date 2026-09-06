@@ -13,7 +13,7 @@ const sections = [
     title: "What To Include In A Support Request",
     body: [
       "Include the destination country, the page or download that looked wrong, whether you were in preview mode or a live application, and the artifact name you downloaded. That usually makes reproduction much faster.",
-      "For PDF quality issues, mention whether the file was the master bundle, the cover letter PDF, the checklist PDF, or the application worksheet PDF.",
+      "For PDF quality issues, mention whether the file was the print-ready visa packet, the cover letter PDF, the checklist PDF, or the application worksheet PDF.",
     ],
   },
   {

@@ -56,7 +56,7 @@ export function buildApplicationWorksheet(args: {
     `Template reference: ${templateLabel}`,
     `Official guidance: ${portalUrl}`,
     "",
-    "This worksheet replaces the misaligned overlay form for flat embassy templates. Transfer these values into the official blank form only where your jurisdiction requires it, and use the master VFS bundle as the primary packet.",
+    "This worksheet replaces the misaligned overlay form for flat embassy templates. Transfer these values into the official blank form only where your jurisdiction requires it, and use the print-ready visa packet as the primary packet.",
     guidanceMessage ? guidanceMessage : "",
     "",
     "1. Applicant Identity",

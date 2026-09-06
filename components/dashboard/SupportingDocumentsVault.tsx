@@ -1,4 +1,6 @@
 import { FileImage, FileText } from "lucide-react";
+import { DataProvenanceBadge } from "@/components/intelligence/DataProvenanceBadge";
+import { getDocumentProvenanceSummary } from "@/lib/applications/uxState";
 import { buildSupportingDocumentDownloadPath } from "@/lib/documents/supportingDocuments";
 import type { SupportingDocument } from "@/types";
 
@@ -14,13 +16,15 @@ export function SupportingDocumentsVault({
   applicationId,
   documents,
   previewMode,
+  sectionId,
 }: {
   applicationId: string;
   documents: SupportingDocument[];
   previewMode: boolean;
+  sectionId?: string;
 }) {
   return (
-    <div className="glass-panel p-6 shadow-panel sm:p-8">
+    <div id={sectionId} className="glass-panel flex flex-col p-5 shadow-panel sm:p-6">
       <div className="space-y-2">
         <p className="eyebrow">Supporting documents</p>
         <h2 className="text-2xl font-semibold text-white">Saved packet attachments</h2>
@@ -46,18 +50,32 @@ export function SupportingDocumentsVault({
                   <p className="mt-1 text-sm text-slate-400">
                     {document.pageCount} {document.pageCount === 1 ? "page" : "pages"} · {formatBytes(document.sizeBytes)}
                   </p>
+                  {document.evidence ? (
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                      <span className="rounded-full border border-white/12 bg-white/10 px-2 py-1">{document.evidence.category}</span>
+                      <span className="rounded-full border border-white/12 bg-white/10 px-2 py-1">{document.evidence.evidenceType.replaceAll("_", " ")}</span>
+                      <span className="rounded-full border border-white/12 bg-white/10 px-2 py-1">{document.evidence.subjectRole.toLowerCase()}</span>
+                    </div>
+                  ) : null}
+                  {document.evidence?.subjectLabel ? (
+                    <p className="mt-2 text-xs text-slate-400">Assigned to {document.evidence.subjectLabel}</p>
+                  ) : null}
+                  <DataProvenanceBadge labels={getDocumentProvenanceSummary(document)} />
                 </div>
               </div>
               {previewMode ? (
-                <span className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#151515] px-3 py-2 text-xs font-semibold text-slate-300">
-                  Preview sample
-                </span>
+                <a
+                  href={`${buildSupportingDocumentDownloadPath(applicationId, document.id)}?preview=1`}
+                  className="inline-flex w-fit items-center justify-center gap-2 rounded-full border border-white/12 bg-[#151515] px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/35 hover:bg-white/10"
+                >
+                  Download sample
+                </a>
               ) : (
                 <a
                   href={buildSupportingDocumentDownloadPath(applicationId, document.id)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                  className="inline-flex w-fit items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
                 >
                   Open document
                 </a>

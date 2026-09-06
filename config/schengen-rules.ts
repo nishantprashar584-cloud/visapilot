@@ -14,6 +14,7 @@ export const employmentStatusOptions = [
   { label: "Student", value: "student" },
   { label: "Retired", value: "retired" },
   { label: "Unemployed", value: "unemployed" },
+  { label: "Homemaker", value: "homemaker" },
   { label: "Contractor", value: "contractor" },
   { label: "Other", value: "other" },
 ] as const;

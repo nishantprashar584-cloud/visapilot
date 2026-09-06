@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { FolderOpen } from "lucide-react";
 import { redirect } from "next/navigation";
+import { ApplicationHealthCard } from "@/components/intelligence/ApplicationHealthCard";
+import { ApplicationJourney } from "@/components/intelligence/ApplicationJourney";
+import { CaseSnapshotCard } from "@/components/intelligence/CaseSnapshotCard";
+import { NextBestActionCard } from "@/components/intelligence/NextBestActionCard";
 import { ApplicationStatusBadge } from "@/components/dashboard/ApplicationStatusBadge";
 import { ConsularDeepLinks } from "@/components/dashboard/ConsularDeepLinks";
 import { DashboardAutoRefresh } from "@/components/dashboard/DashboardAutoRefresh";
@@ -11,6 +15,8 @@ import { RecoveryTriggerModal } from "@/components/dashboard/RecoveryTriggerModa
 import { RiskAuditCard } from "@/components/dashboard/RiskAuditCard";
 import { TrackingReferenceManager } from "@/components/dashboard/TrackingReferenceManager";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import { getServiceTrackLabel } from "@/lib/applications/workflow";
+import { getApplicationHealth, getApplicationJourney, getCaseSnapshot, getNextBestAction } from "@/lib/applications/uxState";
 import { buildAuthRedirectPath, getAuthenticatedAccount } from "@/lib/auth/session";
 import { previewApplications } from "@/lib/mock/applications";
 import { canReapplyForFree, getPrivacyCountdownDays, getProcessingProgress, runRiskAudit } from "@/lib/riskAudit";
@@ -55,7 +61,7 @@ async function getDashboardData(userId?: string): Promise<{
       .maybeSingle(),
     supabase
       .from("applications")
-      .select("id, status, user_id, applicant_id, vfs_reference_number, applicant_name, applicant_email, destination_country, application_data, cover_letter_markdown, filled_pdf_base64, rejected_at, refusal_reason_code, recovery_status, recovery_claimed_at, privacy_purge_at, created_at, updated_at")
+      .select("id, status, user_id, applicant_id, submission_type, track, tier, vfs_reference_number, vfs_center_location, appointment_date, applicant_name, applicant_email, destination_country, application_data, cover_letter_markdown, filled_pdf_base64, rejected_at, refusal_reason_code, recovery_status, recovery_claimed_at, privacy_purge_at, created_at, updated_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(5),
@@ -77,7 +83,7 @@ async function getDashboardData(userId?: string): Promise<{
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams?: { checkout?: string; tier?: PricingTier; preview?: string };
+  searchParams?: { checkout?: string; tier?: PricingTier; track?: string; preview?: string };
 }) {
   const previewMode = searchParams?.preview === "1";
   const account = await getAuthenticatedAccount();
@@ -94,6 +100,40 @@ export default async function DashboardPage({
   const latestApplication = visibleApplications[0] ?? null;
   const latestAudit = latestApplication ? runRiskAudit(latestApplication.application_data) : null;
   const accountLabel = account?.email ?? "preview@visapilot.app";
+  const latestHealth = latestApplication
+    ? getApplicationHealth({
+        status: getDisplayStatus(latestApplication),
+        applicant: latestApplication.application_data,
+        track: latestApplication.track,
+        readinessAssessment: latestApplication.application_data.caseContext?.readinessAssessment,
+      })
+    : null;
+  const latestJourney = latestApplication
+    ? getApplicationJourney({
+        status: getDisplayStatus(latestApplication),
+        applicant: latestApplication.application_data,
+        track: latestApplication.track,
+        readinessAssessment: latestApplication.application_data.caseContext?.readinessAssessment,
+      })
+    : [];
+  const latestSnapshot = latestApplication
+    ? getCaseSnapshot(latestApplication.application_data, getDisplayStatus(latestApplication), latestApplication.application_data.caseContext?.readinessAssessment)
+    : [];
+  const primaryAction = latestApplication
+    ? getNextBestAction({
+        status: getDisplayStatus(latestApplication),
+        applicant: latestApplication.application_data,
+        track: latestApplication.track,
+        readinessAssessment: latestApplication.application_data.caseContext?.readinessAssessment,
+        appointmentDate: latestApplication.appointment_date,
+        vfsReferenceNumber: latestApplication.vfs_reference_number,
+      })
+    : null;
+  const primaryActionHref = latestApplication && primaryAction
+    ? (primaryAction.destination === "submission_guide"
+        ? previewMode ? `/dashboard/${latestApplication.id}/submission-guide?preview=1` : `/dashboard/${latestApplication.id}/submission-guide`
+        : previewMode ? `/dashboard/${latestApplication.id}/vault?preview=1` : `/dashboard/${latestApplication.id}/vault`)
+    : previewMode ? "/dashboard?preview=1" : "/dashboard";
 
   return (
     <section className="w-full space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
@@ -102,12 +142,14 @@ export default async function DashboardPage({
         <div className="space-y-2">
           <p className="eyebrow">Dashboard</p>
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-            Your visa applications
+            {latestApplication ? "Your latest visa case" : "Your visa applications"}
           </h1>
           <p className="text-sm text-slate-200">
             {previewMode
               ? "Preview mode shows realistic sample applications so you can review the layout before signing in."
-              : `Signed in as ${accountLabel}. This page keeps only the packet, tracking, and next action in view.`}
+              : latestApplication
+                ? `${latestApplication.destination_country} overview for ${accountLabel}.`
+                : `Signed in as ${accountLabel}. This page keeps only the packet, tracking, and next action in view.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -125,6 +167,30 @@ export default async function DashboardPage({
           </Link>
         </div>
       </div>
+
+      {latestApplication && latestHealth && primaryAction ? (
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+            <ApplicationHealthCard
+              health={latestHealth}
+              score={latestApplication.application_data.caseContext?.readinessAssessment?.score ?? null}
+            />
+            <NextBestActionCard
+              action={primaryAction}
+              href={primaryActionHref}
+              secondaryHref={previewMode ? `/dashboard/${latestApplication.id}/vault?preview=1` : `/dashboard/${latestApplication.id}/vault`}
+              secondaryLabel="Open packet vault"
+            />
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <ApplicationJourney stages={latestJourney} />
+            <CaseSnapshotCard
+              items={latestSnapshot}
+              description="A compact view of the case facts VisaPilot is actively using across readiness, packet generation, and submission support."
+            />
+          </div>
+        </div>
+      ) : null}
 
       {paymentSucceeded ? (
         <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/12 px-5 py-4 text-sm font-medium text-emerald-100">
@@ -196,7 +262,7 @@ export default async function DashboardPage({
               </p>
               <Link
                 href={previewMode ? "/apply?preview=1" : "/apply"}
-                className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="vp-btn vp-btn-primary mt-5 px-5"
               >
                 Build first application
               </Link>
@@ -208,8 +274,8 @@ export default async function DashboardPage({
               const processingProgress = getProcessingProgress(application.created_at);
               const privacyCountdownDays = getPrivacyCountdownDays(application.privacy_purge_at);
               const detailsHref = previewMode
-                ? `/dashboard/${application.id}?preview=1`
-                : `/dashboard/${application.id}`;
+                ? `/dashboard/${application.id}/vault?preview=1`
+                : `/dashboard/${application.id}/vault`;
 
               return (
                 <div key={application.id} className="glass-card overflow-hidden p-5">
@@ -226,7 +292,7 @@ export default async function DashboardPage({
                             <CountryFlag country={application.destination_country} />
                             {application.destination_country}
                           </span>
-                          <span>tourist track</span>
+                          <span>{getServiceTrackLabel(application.track)}</span>
                           <span>submitted {new Date(application.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
@@ -264,7 +330,7 @@ export default async function DashboardPage({
                       </div>
                       <div className="rounded-[1rem] border border-white/10 bg-[#111111] px-4 py-3">
                         <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Next action</p>
-                        <p className="mt-1 text-sm font-semibold text-white">{application.vfs_reference_number ? "Track the case" : "Save tracking reference"}</p>
+                        <p className="mt-1 text-sm font-semibold text-white">{getNextBestAction({ status: application.status, applicant: application.application_data, track: application.track }).title}</p>
                       </div>
                     </div>
 

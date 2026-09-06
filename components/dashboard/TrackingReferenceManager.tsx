@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function TrackingReferenceManager({
   applicationId,
@@ -12,9 +12,20 @@ export function TrackingReferenceManager({
   const [referenceNumber, setReferenceNumber] = useState(initialReferenceNumber ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  useEffect(() => {
+    if (saveState !== "saved") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setSaveState("idle"), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [saveState]);
 
   async function handleSave() {
     setIsSaving(true);
+    setSaveState("saving");
     setMessage(null);
 
     try {
@@ -34,8 +45,10 @@ export function TrackingReferenceManager({
 
       setReferenceNumber(payload.referenceNumber ?? referenceNumber);
       setMessage("Tracking reference saved.");
+      setSaveState("saved");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save reference number.");
+      setSaveState("error");
     } finally {
       setIsSaving(false);
     }
@@ -52,7 +65,7 @@ export function TrackingReferenceManager({
         </p>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-4 flex flex-col gap-3">
         <input
           value={referenceNumber}
           onChange={(event) => setReferenceNumber(event.target.value)}
@@ -63,13 +76,13 @@ export function TrackingReferenceManager({
           type="button"
           onClick={handleSave}
           disabled={isSaving || referenceNumber.trim().length < 4}
-          className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand-cyan to-brand-violet px-5 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="vp-btn vp-btn-primary w-fit px-4 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? "Saving..." : "Save reference"}
+          {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save reference"}
         </button>
       </div>
 
-      {message ? <p className="mt-3 text-sm text-slate-300">{message}</p> : null}
+      {message ? <p className={`mt-3 text-sm ${saveState === "error" ? "text-rose-200" : "text-slate-300"}`}>{message}</p> : null}
     </div>
   );
 }

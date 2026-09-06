@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { PricingTier } from "@/types";
+import type { PricingTier, ServiceTrack } from "@/types";
 
 type RazorpayOrderResponse = {
   id: string;
@@ -117,6 +117,7 @@ export function buildRazorpayCheckoutOptions(args: {
   orderId: string;
   amountPaise: number;
   tier: PricingTier;
+  track: ServiceTrack;
   checkoutLabel: string;
   customerName?: string | null;
   customerEmail?: string | null;
@@ -136,6 +137,7 @@ export function buildRazorpayCheckoutOptions(args: {
     },
     notes: {
       pricingTier: args.tier,
+      serviceTrack: args.track,
     },
     theme: {
       color: "#4f46e5",

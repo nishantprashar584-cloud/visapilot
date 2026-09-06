@@ -2,80 +2,103 @@
 
 ## Purpose
 
-This document defines the current intended UI architecture for VisaPilot across the public landing page and the application detail vault experience. It is written as a delivery spec for engineering, design QA, and product review so the interface can be rebuilt consistently without regressing interaction clarity, compliance framing, or visual quality.
+This document describes the UI architecture that is actually implemented in the repository today. It is intended to help engineering, design QA, and product review evaluate the current product without relying on the older single-lane landing-page and vault assumptions.
 
-## Goals
+## Scope
 
-1. Remove stock-looking clutter and replace it with structured, product-grade information design.
-2. Keep static information visually distinct from actions so the user never mistakes status metadata for clickable controls.
-3. Standardize icon treatment across routes with soft-tinted circular badges and consistent semantic color usage.
-4. Preserve existing business logic and route behavior while re-architecting visual hierarchy.
-5. Keep the interface mobile-safe, dense without feeling crowded, and legible in the app's dark visual language.
+The current implementation spans four user-facing surfaces:
 
-## Non-Goals
+1. Landing page at `app/page.tsx`
+2. Dedicated pricing page at `app/pricing/page.tsx`
+3. Five-step application wizard at `app/apply/page.tsx`
+4. Per-application vault at `app/dashboard/[applicationId]/vault/page.tsx`
 
-1. This spec does not redefine the wizard step fields or validation logic.
-2. This spec does not replace the existing audit engine, identity-locking logic, or Razorpay payment flow.
-3. This spec does not specify a new design token system beyond what is needed for route-level consistency.
+The vault route is the canonical user-facing path. `app/dashboard/[applicationId]/page.tsx` currently contains the shared implementation and `app/dashboard/[applicationId]/vault/page.tsx` re-exports it.
+
+## Product Model Implemented
+
+VisaPilot is no longer a single automated lane.
+
+Two service tracks are implemented across pricing, checkout, preview mode, the dashboard, and the vault:
+
+1. `Self-Guided`
+2. `Done-For-You`
+
+Three pricing tiers are implemented for both tracks:
+
+1. Solo
+2. Couple
+3. Family
 
 ## Design Principles
 
-1. Every surface should answer one clear user question.
-2. Status first, actions second, supporting detail third.
-3. Visual contrast should come from spacing, borders, and tinted accents more than from large gradients or decorative media.
-4. Icons should support scanning, not act as decoration.
-5. Hero marketing content should stay compact and conversion-oriented.
+1. Status first, actions second, supporting detail third.
+2. Dark surfaces use spacing, soft borders, and tinted badges instead of flat monochrome blocks.
+3. Human-readable labels are preferred over internal product jargon.
+4. Trust and compliance copy should reduce anxiety without overpowering primary actions.
+5. Preview mode should feel like a real walkthrough, not a disconnected demo shell.
+
+## Shared Terminology
+
+Applicant-facing terminology implemented today:
+
+1. `Self-Guided` replaces the old DIY track naming.
+2. `Done-For-You` replaces the old VIP naming.
+3. `Smart Form Helper` replaces the old submission-helper wording.
+4. `Print-Ready Visa Packet` replaces the old bundle naming.
+5. `AI Document Scanner` replaces the old OCR wording on public surfaces.
+6. `My Visa Dashboard` is the current vault header label.
+7. `My To-Do List` and `Visa progress` are used for post-generation workflow framing.
 
 ## Iconography Standard
 
-Use Lucide icons only. Every important action or information category should use a rounded tinted badge.
+Use Lucide icons only. Important actions and information categories continue to rely on rounded tinted badges.
 
 ### Semantic Badge Mapping
 
 1. Official PDF actions
-Color treatment: `text-red-600 bg-red-50 dark:bg-red-950/40`
 Recommended icons: `FileText`
+Typical usage: filled form or worksheet download
 
-2. ZIP archive packages
-Color treatment: `text-blue-600 bg-blue-50 dark:bg-blue-950/40`
-Recommended icons: `Archive` or `FileArchive`
+2. Packet and archive exports
+Recommended icons: `Archive`, `FileArchive`
+Typical usage: print-ready packet and ZIP package actions
 
-3. AI cover-letter engine
-Color treatment: `text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40`
+3. AI narrative and generation surfaces
 Recommended icons: `Sparkles`
+Typical usage: cover-letter generation and AI writing support
 
-4. Security and purge
-Color treatment: `text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40`
+4. Security, retention, and identity binding
 Recommended icons: `ShieldCheck`, `Lock`
+Typical usage: privacy, identity lock, retention, and encrypted-processing copy
 
-5. Financial audit rules
-Color treatment: `text-amber-600 bg-amber-50 dark:bg-amber-950/40`
-Recommended icons: `AlertTriangle` or `ShieldCheck`
+5. Financial and profile audit state
+Recommended icons: `AlertTriangle`, `ShieldCheck`
+Typical usage: risk status, funds checks, and audit summaries
 
 6. Tracking and external linking
-Color treatment: `text-slate-700 bg-slate-100 dark:bg-slate-900 dark:text-slate-300`
 Recommended icons: `Link2`
+Typical usage: VFS, TLS, and BLS tracking launch actions
 
 ## Clickability Matrix
 
-This interaction rule is mandatory.
-
 ### Must Be Clickable
 
-1. Route navigation links such as `/apply`, `/dashboard`, `/auth`
-2. Download buttons for filled PDFs, full ZIP packets, and cover-letter PDFs
-3. Tracking portal launch actions
-4. Copy-oriented tracking actions embedded in portal buttons
-5. Recovery triggers for refused applications
-6. Pricing selection CTAs
+1. Route navigation links such as `/apply`, `/dashboard`, `/pricing`, and `/auth`
+2. Pricing-plan CTAs
+3. Download buttons for the print-ready packet, ZIP package, worksheet or filled PDF, checklist PDF, and cover-letter PDF
+4. Smart Form Helper launch actions
+5. Tracking portal launch actions
+6. Tracking-reference save actions in live mode
+7. Done-For-You remediation actions such as OTP submission and replacement upload
 
 ### Must Be Non-Clickable
 
-1. Applicant identity metadata once locked
-2. Passport number display inside the identity vault
-3. Privacy countdown labels
-4. Audit status badges and summary indicators
-5. Application metadata labels such as destination and application ID when rendered as status pills
+1. Application metadata pills for application ID, destination, and service track
+2. Privacy countdown badges
+3. Status badges and audit summary indicators
+4. Read-only identity lock fields
+5. Packet snapshot summary cells and financial audit summary cells
 
 ## Route Specification
 
@@ -83,21 +106,43 @@ This interaction rule is mandatory.
 
 Path: `app/page.tsx`
 
-### Section 1: Country and Flag Bar
+### Section 1: Hero Shell
 
-Purpose: Establish jurisdiction focus immediately with a static, high-clarity destination selector.
+Purpose: establish trust, privacy framing, and the primary call to action immediately.
 
-Requirements:
+Implemented structure:
 
-1. Display the top 6 Schengen hubs only: France, Switzerland, Germany, Italy, Spain, Netherlands.
-2. Use static wrapped pills or a compact 2x3 grid with actual flag treatments.
-3. Each destination tile is clickable and routes into the onboarding flow with that destination pre-selected.
-4. Add a final aligned control labeled `Other Schengen Country...` that opens a searchable picker for the remaining destinations.
-5. Store the selected destination in session storage before routing so the onboarding flow can rehydrate the country-specific rules immediately.
-6. No marquee animation and no scrolling ticker behavior.
-7. Preserve clean wrapping on mobile without horizontal overflow bugs.
+1. Security badge using `TintedIconBadge`
+2. Secondary proof badge with factual market-positioning copy
+3. Main headline
+4. One-sentence subhead
+5. Destination selector embedded inside the hero shell
+6. Two CTAs
+7. Three supporting trust cards under the CTAs
 
-Exact content set:
+Current implemented text:
+
+1. Security badge: `Zero-Retention Architecture • 256-Bit Encrypted`
+2. Proof badge: `Built for India-first Schengen tourist visa preparation`
+3. Headline: `The Automated Schengen Tourist Visa Engine`
+4. Subhead: `Prepare a structured Schengen tourist visa packet with form prep, financial review, and multi-city itinerary sync in minutes.`
+5. Primary CTA: `Start Application` -> `/apply`
+6. Secondary CTA: `View Pricing` -> `/pricing`
+
+### Section 2: Destination Selector
+
+Component: `components/MarqueePills.tsx`
+
+Purpose: establish destination context before the user enters the wizard.
+
+Implemented behavior:
+
+1. Six curated destinations render in a 2x3 responsive grid.
+2. Each destination stores the selection and routes into the wizard.
+3. `Other Schengen Country...` opens a searchable modal for the remaining countries.
+4. The selector is static and non-animated.
+
+Current curated set:
 
 1. `France`
 2. `Switzerland`
@@ -107,295 +152,306 @@ Exact content set:
 6. `Netherlands`
 7. `Other Schengen Country...`
 
-### Section 2: Hero
+### Section 3: Three-Phase Explanation
 
-Purpose: Convert quickly with trust, privacy positioning, and one primary next step.
+Purpose: explain the product in one scan.
 
-Required structure:
+Implemented cards:
 
-1. Non-clickable emerald security badge.
-2. Primary headline.
-3. One-sentence subhead.
-4. Two CTAs.
-5. Optional compact supporting feature strip, but not large image cards or stock photography.
+1. `Scan Passport`
+Description: `Our AI document scanner reads your identity details without retaining files.`
 
-Exact text:
+2. `Audit & Generate`
+Description: `Real-time bank sufficiency audit plus an AI consular cover letter.`
 
-1. Badge: `Zero-Retention Architecture • 256-Bit Encrypted`
-2. Headline: `Schengen Visa Applications, Automated & Privacy-First`
-3. Subhead: `Generate official auto-filled PDFs, consular cover letters, and daily financial audit checks in 5 minutes.`
-
-CTA rules:
-
-1. Primary CTA label: `Start Application`
-Destination: `/apply`
-2. Secondary CTA label: `View Pricing`
-Destination: `#pricing`
-
-### Section 3: Three-Step Process
-
-Purpose: Explain the product in one scan.
-
-Layout:
-
-1. Three-card horizontal grid on desktop.
-2. Single-column stack on mobile.
-3. Each card includes a tinted icon badge, step number, short title, and one-sentence explanation.
-
-Exact content:
-
-1. `Step 1: Scan Passport`
-Badge tone: red
-Description: `Ephemeral RAM OCR extracts identity without retaining files.`
-
-2. `Step 2: Audit & Generate`
-Badge tone: indigo
-Description: `Real-time bank sufficiency audit + AI consular cover letter.`
-
-3. `Step 3: Download & Apply`
-Badge tone: blue
+3. `Download & Apply`
 Description: `One-click download of your ready-to-submit embassy package.`
 
-### Section 4: Pricing Grid
+### Section 4: Embedded Pricing Teaser
 
-Purpose: Present the commercial model with zero ambiguity.
+Purpose: preview the commercial model from the landing page while delegating the full selector experience to the dedicated pricing route.
 
-Layout:
+Implemented behavior:
 
-1. Three cards.
-2. Couple card visually highlighted.
-3. One CTA per card.
+1. The landing page includes the same `PricingPlans` component used on `/pricing`.
+2. The section headline is `Choose your visa plan.`
+3. The helper line references both `Self-Guided` and `Done-For-You`.
 
-Required copy:
+## Dedicated Pricing Page
 
-1. Solo `₹1,999`
-Details: `1 Applicant • India-first OCR and cover letter • GST invoice included.`
+Path: `app/pricing/page.tsx`
 
-2. Couple `₹3,299`
-Details: `2 Adults • Shared itinerary • Cross-referenced co-traveler narratives.`
+Purpose: present the full two-track pricing system with trust and anxiety-reduction copy.
 
-3. Family `₹5,599`
-Details: `Up to 4 Applicants • Minor-safe document rules • Shared family bundle.`
+### Pricing Header
 
-CTA label for all cards: `Select Pass`
+Implemented copy:
 
-Routes:
+1. Eyebrow: `Pricing`
+2. Heading: `Choose your visa plan.`
+3. Helper text: `Compare the Self-Guided and Done-For-You options, see the full GST-inclusive price, and pick the plan that fits your trip.`
 
-1. `/apply?tier=solo`
-2. `/apply?tier=couple`
-3. `/apply?tier=family`
+### Pricing Toggle and Banner
 
-Launch constraints:
+Implemented behavior:
 
-1. Phase 1 targets Indian applicants only.
-2. Pricing is displayed in INR.
-3. Checkout and packet generation remain fully automated with no human review lane.
-4. Avoid community chat, appointment-booking bots, multi-language launch work, full flight purchasing, and gamified progress systems.
+1. A trust banner appears above the selector.
+2. The selector is a two-column grid, not a pill carousel.
+3. The active option is emphasized through fill, contrast, and shadow.
+4. Subtitle copy changes by selected track.
 
-## Application Detail Page
+Current banner text:
 
-Path: `app/dashboard/[applicationId]/page.tsx`
+1. `Built around current Schengen tourist form structure and provider checklist guidance.`
+
+Current selector labels:
+
+1. `Self-Guided`
+2. `Done-For-You`
+
+Current dynamic subtitles:
+
+1. Self-Guided: `We give you the smart tools and print-ready files. You fill the forms and book the slot.`
+2. Done-For-You: `Our human experts verify your documents, fill the official forms, and book your VFS slot.`
+
+### Pricing Cards
+
+Implemented behavior:
+
+1. Three cards render per selected track.
+2. The couple card is visually highlighted.
+3. The main amount is shown in INR.
+4. GST is shown as a subtle italic line directly below the main price.
+5. Feature bullets emphasize the first phrase with stronger weight and accent color.
+6. Done-For-You cards add expert-review trust content.
+
+Implemented tier prices:
+
+1. Solo `₹1,999` or `₹5,999` depending on track
+2. Couple `₹3,299` or `₹9,999` depending on track
+3. Family `₹5,599` or `₹14,999` depending on track
+
+Implemented CTA behavior:
+
+1. Each card links to `/apply?track=<TRACK>&tier=<TIER>`
+2. CTA label is `Choose <Tier>`
+
+Done-For-You reassurance implemented today:
+
+1. In-house expert avatars
+2. Final review reassurance
+3. Turnaround SLA copy
+4. Managed-submission language
+
+## Application Wizard
+
+Path: `app/apply/page.tsx`
+
+Purpose: collect applicant data across five structured stages and transition into the vault.
+
+Implemented steps:
+
+1. Identity
+2. Travel
+3. Financials
+4. Accommodations
+5. Document Studio
+
+### Wizard-Level Trust Copy
+
+Implemented trust surfaces include:
+
+1. Identity upload shield text: `DPDP Compliant: Bank-grade encryption. Files automatically delete 30 days after your appointment.`
+2. Financial upload shield text with the same 30-day deletion language
+3. Bank-statement upload CTA with mandatory bank-seal reassurance
+4. Submit-time package-generation checklist during finalization
+
+### Step 5 Document Studio
+
+Purpose: keep the packet preview, writing tools, and PDF utilities in one shell before vault handoff.
+
+Implemented tabs:
+
+1. `Print-Ready Visa Packet`
+2. `AI Cover Letter Studio`
+3. `Advanced PDF Editor`
+4. `VFS Checklist & Stacking Order`
+5. `Interview Prep & Recovery`
+
+Implemented bundle behavior:
+
+1. Primary CTA: `Finalize & Go to My Visa Dashboard`
+2. Secondary actions for packet download and full interactive viewer
+3. Rotating finalization checklist including travel-date, passport, booking-name, and VFS-format checks
+
+## Dashboard
+
+Path: `app/dashboard/page.tsx`
+
+Purpose: show recent applications, payment purchase UI, payment history, and next actions at the account level.
+
+Implemented sections:
+
+1. Top summary shell with account or preview context
+2. Razorpay purchase card in live mode
+3. Recent payment captures in live mode
+4. Preview checklist in preview mode
+5. Recent application package rows
+
+The purchase card now mirrors the two-track model and includes the same service-track terminology as the public pricing page.
+
+## Application Vault
+
+Path: `app/dashboard/[applicationId]/vault/page.tsx`
 
 ### Overall Purpose
 
-This route should behave like a structured vault, not a general dashboard. Every section should either present immutable package state or provide a clear, discrete action.
+This route behaves as `My Visa Dashboard`, not as the older download-only vault concept. It combines packet download, progress framing, helper actions, tracking, and remediation signals.
 
 ### Header Status Bar
 
-Purpose: Provide non-clickable application status context at the top of the page.
+Implemented elements:
 
-Required elements:
+1. Emerald pulse indicator
+2. Eyebrow: `My Visa Dashboard`
+3. Applicant name heading
+4. Static pills for application ID, destination, and service track
+5. Static privacy countdown badge
+6. Status badge and audit badge
+7. Back link to Document Studio in preview mode or Applications in live mode
 
-1. Emerald pulse indicator.
-2. `Document Toolkit & Download Vault` eyebrow.
-3. Applicant name heading.
-4. Static metadata pills for application ID and destination.
-5. Static privacy countdown badge.
-6. Static status badge and static audit badge.
-7. Preview-only builder link when preview mode is active.
+### Preview Walkthrough Banner
 
-Interaction rules:
+Preview mode adds a standalone banner explaining that Step 5 finalization leads into the dashboard and that downloads remain available from the vault.
 
-1. Metadata pills are not buttons.
-2. Countdown remains non-clickable.
-3. Status and audit indicators remain non-clickable.
+### Visa Progress
 
-### Card 1: Official Form PDF
+Component: `components/dashboard/StatusPipeline.tsx`
 
-Purpose: Isolate the core embassy form action.
+Implemented behavior:
 
-Elements:
+1. Eyebrow: `Visa progress`
+2. Heading: `Track what happens next`
+3. One-line progress summary derived from the application status
+4. Four progress cards: Audit Complete, Official Submission, Appointment Booking, Ready for VFS
 
-1. Red tinted PDF badge.
-2. Title: `Schengen Application Form`
-3. Description indicating the form is filled and flattened.
-4. One primary button: `Download Filled PDF`
+### Action Center
 
-Behavior:
+Component: `components/dashboard/VaultActionCenter.tsx`
 
-1. Live mode button downloads from the PDF route.
-2. Preview mode shows a non-clickable placeholder state.
+Implemented states:
 
-### Card 2: AI Cover Letter
+1. `action_required`: replacement upload lane
+2. `otp_pending`: OTP entry lane with countdown
+3. `bundle_ready` on Self-Guided: Smart Form Helper launch lane
+4. Managed Done-For-You lane: operator handoff summary, center, appointment, and mock-interview CTA
 
-Purpose: Separate the narrative artifact from the PDF package.
+Current user-facing labels:
 
-Elements:
+1. `Smart Form Helper ready`
+2. `My to-do list`
 
-1. Indigo AI badge.
-2. Title: `Consular Cover Letter`
-3. Inline preview area.
-4. Action buttons: `View Letter` and `Download PDF`
+### Primary Packet Actions
 
-Behavior:
+Implemented standalone top cards:
 
-1. `View Letter` scrolls to or focuses the inline preview block.
-2. `Download PDF` downloads a generated PDF rendition of the letter.
+1. `Print-Ready Visa Packet`
+2. `Smart Form Helper`
 
-### Card 3: Full Packet Archive
+These cards exist above the larger toolkit grid so the most common next actions are visible first.
 
-Purpose: Present the complete packet export as the primary submission artifact.
+### Main Toolkit Grid
 
-Elements:
+Implemented toolkit sections:
 
-1. Blue ZIP badge.
-2. Title: `Complete Embassy Submission ZIP`
-3. Description of included files.
-4. Hero action button: `Download Full Package (.zip)`
+1. Official form or worksheet card
+2. Cover-letter preview and download card
+3. Submission checklist PDF card
+4. Packet snapshot summary card
+5. Large print-ready packet card with PDF and ZIP actions
+6. Supporting documents vault
+7. Interview rehearsal panel
+8. Refusal decoder panel
+9. Tracking reference and deep-link card
+10. Rejection insurance card
+11. Identity lock vault
+12. Financial and profile audit card
 
-Included contents definition:
+### Live vs Preview Rules
 
-1. Filled Schengen PDF
-2. AI cover letter
-3. Personalized checklist
-4. Insurance verification slip
-5. Saved supporting documents
-
-### Card 4: Tracking Reference
-
-Purpose: Keep post-submission tracking separated from document download.
-
-Elements:
-
-1. Slate link badge.
-2. Title describing VFS, TLS, and BLS tracking.
-3. External link buttons.
-4. Reference input and save flow in live mode.
-
-Behavior:
-
-1. Portal action remains clickable.
-2. Save action remains clickable only in live mode.
-3. Preview mode shows static explanatory state.
-
-### Card 5: Identity Lock Vault
-
-Purpose: Make identity binding visible and unmistakably read-only.
-
-Elements:
-
-1. Emerald lock badge.
-2. Read-only full name field.
-3. Read-only passport number field.
-4. Short explanatory text about binding.
-
-Interaction rule:
-
-1. No action buttons inside this card.
-
-### Card 6: Financial Audit Rules
-
-Purpose: Keep financial and passport compliance visible without turning the vault into a workflow editor.
-
-Elements:
-
-1. Amber audit badge.
-2. Static funds summary.
-3. Static passport validity summary.
-4. Static audit status reference.
-
-Interaction rule:
-
-1. Entire card is informational only.
-
-### Supporting Documents Vault
-
-Purpose: Preserve visibility of uploaded attachments after the main toolkit grid.
-
-Requirements:
-
-1. Keep as a separate lower section.
-2. Open-document buttons remain clickable in live mode.
-3. Preview state remains non-clickable.
-4. Presentation should remain subordinate to the main five-card toolkit.
+1. Preview mode keeps tracking-reference persistence static.
+2. Preview mode still allows packet-oriented walkthrough downloads.
+3. Live mode enables tracking-reference save actions and uses the authenticated application record.
 
 ## Component Responsibilities
 
 ### `components/MarqueePills.tsx`
 
-Current responsibility: render the static country-and-flag bar.
+Current responsibility: render the destination selector and searchable fallback modal.
 
-Rules:
+### `components/pricing/PricingPlans.tsx`
 
-1. No secondary feature ticker.
-2. No motion-heavy marquee behavior.
-3. Must support horizontal overflow on small screens.
+Current responsibility: render the two-track pricing selector, dynamic subtitle, plan cards, tax line, and Done-For-You trust block.
+
+### `components/dashboard/StatusPipeline.tsx`
+
+Current responsibility: map application status into the four-stage visa progress UI.
+
+### `components/dashboard/VaultActionCenter.tsx`
+
+Current responsibility: render status-dependent next actions for Self-Guided and Done-For-You applications.
 
 ### `components/ui/TintedIconBadge.tsx`
 
-Responsibility: shared icon badge system.
-
-Rules:
-
-1. Supports semantic tone variants.
-2. Can render icon-only or icon-plus-label.
-3. Must preserve readable contrast in dark surfaces.
+Current responsibility: provide the shared rounded badge treatment used across marketing, wizard, dashboard, and vault surfaces.
 
 ## Content Strategy
 
-1. Avoid long explanatory paragraphs on the landing page.
-2. Use sentence-case labels in cards and controls.
-3. Use high-signal nouns: `PDF`, `ZIP`, `Cover Letter`, `Tracking`, `Identity Lock`.
-4. Avoid developer-facing wording such as internal model names on public routes.
-5. Keep private-processing language precise and restrained.
+1. Prefer plain-English product labels over internal operational language.
+2. Keep trust copy short, explicit, and adjacent to the action it supports.
+3. Use `Print-Ready Visa Packet`, `Smart Form Helper`, `Visa progress`, and `My Visa Dashboard` as the stable public nouns.
+4. Keep preview-mode explanations visible where route behavior differs from live mode.
+5. Avoid wording that makes static metadata look interactive.
 
 ## Responsive Behavior
 
-1. Landing hero content remains centered on mobile.
-2. Pricing and steps collapse to a single column below desktop breakpoints.
-3. Header metadata wraps cleanly into multiple lines without truncating labels.
-4. Download buttons stack vertically on narrow viewports.
-5. Cover letter preview preserves readable line-height and does not cause horizontal scroll.
+1. Landing page hero content remains centered.
+2. Destination tiles collapse into a two-column grid on narrow viewports.
+3. Pricing cards collapse below desktop breakpoints.
+4. Vault metadata pills wrap cleanly.
+5. Large packet and toolkit cards stack vertically on smaller screens.
+6. Step 5 tab navigation remains horizontally scrollable when space is tight.
 
 ## Accessibility Requirements
 
-1. All clickable items must remain keyboard reachable.
-2. Non-clickable badges must not masquerade as buttons.
-3. Icon-only affordances should include text or nearby labels.
-4. Color must not be the only indicator of meaning; label text must carry the role.
-5. Long preview text should remain selectable.
+1. All route and download actions remain keyboard reachable.
+2. Static pills and badges must not masquerade as buttons.
+3. Selected track state on pricing selectors must be obvious without relying only on color.
+4. Inline cover-letter preview text remains selectable.
+5. Upload, tracking, and OTP inputs remain labeled in the action center and wizard.
 
 ## QA Acceptance Checklist
 
-1. Landing page contains no stock photography, no animated pill marquees, and no extra vault/security card sections beyond the streamlined structure.
-2. The country bar is visible and horizontally scrollable on mobile.
-3. Hero contains exactly two CTAs with the requested destinations.
-4. All process and pricing cards use tinted icon badges consistent with semantic colors.
-5. Dashboard detail page clearly separates static metadata from action buttons.
-6. Cover letter has a real download action, not a placeholder button.
-7. Privacy countdown, audit badge, and identity fields are visually static.
-8. Tracking links and save interactions remain functional in live mode.
-9. Supporting document list remains accessible beneath the main toolkit cards.
-10. Dark-theme contrast stays readable for all labels, helper text, and card boundaries.
+1. Landing page hero shows the current headline, current subhead, destination selector, and `/pricing` secondary CTA.
+2. The destination selector is static and opens a searchable modal for non-featured countries.
+3. Pricing shows `Self-Guided` and `Done-For-You` with a visible selected state.
+4. Pricing shows the guideline trust banner above the track selector.
+5. Pricing shows GST as a subtle italic line directly under the main price.
+6. Done-For-You pricing shows expert-review reassurance and SLA copy.
+7. Wizard upload cards show the current DPDP-compliant trust text and 30-day deletion message.
+8. Step 5 finalization routes into `My Visa Dashboard`.
+9. Vault top sections include `Visa progress`, the action center, `Print-Ready Visa Packet`, and `Smart Form Helper`.
+10. Tracking save actions remain disabled in preview mode and active in live mode.
 
 ## Known External Dependencies
 
-1. The filled PDF action depends on the official template PDFs being present in `public/templates`.
-2. The full ZIP action depends on stored supporting documents being accessible in Supabase Storage.
-3. Cover letter PDF generation depends on application ownership and stored cover-letter content.
+1. Filled-form behavior depends on template support and the worksheet fallback path in `public/templates`.
+2. ZIP and packet routes depend on protected supporting-document access and stored packet artifacts.
+3. Tracking-reference persistence depends on authenticated Supabase-backed application ownership.
+4. Razorpay checkout and verification remain external dependencies for live purchase flows.
 
 ## Suggested Next Extensions
 
-1. Apply the same tinted icon-badge system to `/dashboard` list rows and `/apply` step summaries.
-2. Replace remaining generic button gradients in client components with the structured neutral-plus-accent treatment defined here.
-3. Add visual regression snapshots for the landing page and application vault page.
+1. Bring the same selected-state clarity from `/pricing` into the dashboard purchase card.
+2. Add visual regression snapshots for the landing page, pricing page, wizard Step 3, wizard Step 5, and the application vault.
+3. Resolve the current dev-only `.next-dev` vendor-chunk instability separately from product UI work.

@@ -7,7 +7,8 @@ export async function Navbar() {
   const account = await getAuthenticatedAccount();
   const primaryLinks = [
     { label: "Home", href: "/" },
-    { label: "Pricing", href: "/#pricing" },
+    { label: "Readiness", href: "/readiness" },
+    { label: "Pricing", href: "/pricing" },
     { label: "Preview", href: "/apply?preview=1" },
     { label: "Dashboard", href: "/dashboard" },
   ] as const;
@@ -16,20 +17,20 @@ export async function Navbar() {
     <header className="sticky top-0 z-30 w-full px-4 pt-3 sm:px-6 lg:px-8">
       <div className="editorial-panel mx-auto flex w-full max-w-none items-center justify-between rounded-full px-4 py-2.5 sm:px-5">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-300 via-sky-300 to-indigo-300 text-xs font-semibold text-slate-950 shadow-lg shadow-sky-400/35">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--vp-travel),var(--vp-brand))] text-xs font-semibold text-slate-950 shadow-[0_16px_34px_rgba(34,199,242,0.24)]">
             VP
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">
               VisaPilot
             </p>
-            <p className="truncate text-xs text-slate-300">Schengen tourist packet engine</p>
+            <p className="truncate text-xs text-slate-400">Schengen tourist visa workspace</p>
           </div>
         </Link>
 
         <div className="hidden items-center gap-4 md:flex">
           {primaryLinks.map((link) => (
-            <Link key={link.label} href={link.href} className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 transition hover:text-cyan-200">
+            <Link key={link.label} href={link.href} className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 transition hover:text-white">
               {link.label}
             </Link>
           ))}
@@ -38,23 +39,23 @@ export async function Navbar() {
               {account.email}
             </p>
           ) : null}
-          <div className="rounded-full border border-amber-300/25 bg-amber-400/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-50">
+          <div className="vp-badge vp-badge-attention">
             90-day repair
           </div>
           {account ? (
             <>
               <Link
-                href="/apply"
-                className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
+                href="/readiness"
+                className="vp-btn vp-btn-primary text-xs uppercase tracking-[0.16em]"
               >
-                Start Application
+                Start Free Check
               </Link>
               <SignOutButton />
             </>
           ) : (
             <Link
               href="/auth?next=%2Fdashboard"
-              className="inline-flex items-center justify-center rounded-full bg-indigo-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400"
+              className="vp-btn vp-btn-primary text-xs uppercase tracking-[0.16em]"
             >
               Sign In
             </Link>
@@ -73,8 +74,8 @@ export async function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <Link href="/apply" className="rounded-xl bg-indigo-500/16 px-3 py-2 text-sm font-semibold text-indigo-50 transition hover:bg-indigo-400/22 hover:text-white">
-                Start Application
+              <Link href="/readiness" className="rounded-xl bg-indigo-500/16 px-3 py-2 text-sm font-semibold text-indigo-50 transition hover:bg-indigo-400/22 hover:text-white">
+                Start Free Check
               </Link>
               {account?.email ? (
                 <div className="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs text-slate-300">

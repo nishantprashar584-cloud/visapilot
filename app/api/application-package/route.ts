@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { applicantInfoSchema } from "@/lib/applications/schema";
+import { pricingTierSchema, serviceTrackSchema } from "@/lib/payments/tiers";
 import { generateApplicationPackage } from "@/lib/pdf/generateApplicationPackage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -9,6 +10,8 @@ const applicationPackageRequestSchema = z.union([
   z.object({
     applicant: applicantInfoSchema,
     coverLetterMarkdown: z.string().trim().min(1).optional(),
+    track: serviceTrackSchema.default("APPLY_MYSELF"),
+    tier: pricingTierSchema.default("solo"),
   }),
 ]);
 
@@ -38,16 +41,21 @@ export async function POST(request: Request) {
 
     const applicant = "applicant" in parsedRequest.data ? parsedRequest.data.applicant : parsedRequest.data;
     const coverLetterMarkdown = "applicant" in parsedRequest.data ? parsedRequest.data.coverLetterMarkdown : undefined;
+    const track = "applicant" in parsedRequest.data ? parsedRequest.data.track : "APPLY_MYSELF";
+    const tier = "applicant" in parsedRequest.data ? parsedRequest.data.tier : "solo";
 
     const result = await generateApplicationPackage(supabase, applicant, {
       userId: user.id,
       userEmail: user.email ?? applicant.contact.email,
       coverLetterMarkdown,
+      track,
+      tier,
     });
 
     return NextResponse.json({
       applicationId: result.application.id,
       coverLetterMarkdown: result.coverLetterMarkdown,
+      readinessHandoffKey: result.application.application_data.caseContext?.handoffKey ?? null,
     });
   } catch (error) {
     return NextResponse.json(

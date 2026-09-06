@@ -1,6 +1,12 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { calculateInclusiveGstBreakdown } from "@/lib/payments/gst";
 import { getTierConfig } from "@/lib/payments/tiers";
-import type { PaymentRow } from "@/types";
+import type { PaymentRow, ServiceTrack } from "@/types";
+
+function readPaymentTrack(payment: PaymentRow): ServiceTrack {
+  const track = payment.notes?.track;
+  return track === "VIP_CONCIERGE" ? "VIP_CONCIERGE" : "APPLY_MYSELF";
+}
 
 function formatInr(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -37,20 +43,6 @@ function wrapText(text: string, maxWidth: number, font: Awaited<ReturnType<PDFDo
   return lines;
 }
 
-export function calculateInclusiveGstBreakdown(grossAmountInr: number) {
-  const taxableAmountInr = Number((grossAmountInr / 1.18).toFixed(2));
-  const gstAmountInr = Number((grossAmountInr - taxableAmountInr).toFixed(2));
-  const cgstAmountInr = Number((gstAmountInr / 2).toFixed(2));
-  const sgstAmountInr = Number((gstAmountInr / 2).toFixed(2));
-
-  return {
-    taxableAmountInr,
-    gstAmountInr,
-    cgstAmountInr,
-    sgstAmountInr,
-  };
-}
-
 export async function generateGstInvoicePdf(args: {
   payment: PaymentRow;
   companyName: string;
@@ -65,7 +57,7 @@ export async function generateGstInvoicePdf(args: {
   const page = pdf.addPage([595.28, 841.89]);
   const headingFont = await pdf.embedFont(StandardFonts.HelveticaBold);
   const bodyFont = await pdf.embedFont(StandardFonts.Helvetica);
-  const tierConfig = getTierConfig(args.payment.pricing_tier);
+  const tierConfig = getTierConfig(args.payment.pricing_tier, readPaymentTrack(args.payment));
   const tax = calculateInclusiveGstBreakdown(args.payment.gross_amount_inr);
 
   page.drawRectangle({ x: 0, y: 721, width: 595.28, height: 120, color: rgb(0.08, 0.11, 0.18) });
@@ -106,7 +98,7 @@ export async function generateGstInvoicePdf(args: {
   page.drawText(args.companyEmail, { x: 330, y: 452, size: 10, font: bodyFont, color: rgb(0.22, 0.26, 0.33) });
 
   const rows = [
-    ["Product", tierConfig.label],
+    ["Product", `${trackLabel(readPaymentTrack(args.payment))} ${tierConfig.label}`],
     ["Credits", String(args.payment.requested_credits)],
     ["Taxable value", formatInr(tax.taxableAmountInr)],
     ["CGST 9%", formatInr(tax.cgstAmountInr)],
@@ -123,7 +115,7 @@ export async function generateGstInvoicePdf(args: {
     rowY -= 36;
   });
 
-  page.drawText("This invoice is generated automatically after Razorpay payment capture for VisaPilot application credits.", {
+  page.drawText("This invoice is generated automatically after Razorpay payment capture for your VisaPilot visa plan.", {
     x: 40,
     y: 126,
     size: 10,
@@ -132,4 +124,8 @@ export async function generateGstInvoicePdf(args: {
   });
 
   return Uint8Array.from(await pdf.save());
+}
+
+function trackLabel(track: ServiceTrack) {
+  return track === "VIP_CONCIERGE" ? "Done-For-You" : "Self-Guided";
 }

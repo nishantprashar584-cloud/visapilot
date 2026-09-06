@@ -4,6 +4,16 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export interface AuthenticatedAccount {
   id: string;
   email: string | null;
+  isAdmin: boolean;
+}
+
+function getAdminEmailAllowlist() {
+  return new Set(
+    (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
 }
 
 export function normalizeNextPath(nextPath?: string | null): string {
@@ -37,5 +47,6 @@ export async function getAuthenticatedAccount(): Promise<AuthenticatedAccount | 
   return {
     id: user.id,
     email: user.email ?? null,
+    isAdmin: user.email ? getAdminEmailAllowlist().has(user.email.toLowerCase()) : false,
   };
 }

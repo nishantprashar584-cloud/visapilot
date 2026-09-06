@@ -10,19 +10,19 @@ const sections = [
   {
     title: "Why does the form download say worksheet for some destinations?",
     body: [
-      "Some embassy PDFs are flat templates without interactive AcroForm fields. In those cases, VisaPilot generates a clean application worksheet PDF instead of a visually broken overlay, and points applicants to the master VFS bundle plus official blank-form guidance.",
+      "Some embassy PDFs are flat templates without interactive AcroForm fields. In those cases, VisaPilot generates a clean application worksheet PDF instead of a visually broken overlay, and points applicants to the print-ready visa packet plus official blank-form guidance.",
     ],
   },
   {
-    title: "What is included in the master bundle?",
+    title: "What is included in the print-ready visa packet?",
     body: [
-      "The master bundle includes the normalized application artifact, cover letter, checklist, insurance slip, interview brief, refusal decoder, and saved supporting documents so the printed packet stays consistent across outputs.",
+      "The print-ready visa packet includes the application form or worksheet, cover letter, checklist, insurance slip, interview brief, refusal decoder, and saved supporting documents so your printed packet stays consistent across outputs.",
     ],
   },
   {
     title: "Does VisaPilot review my documents manually?",
     body: [
-      "No human handoff is part of the current product model. The product uses rule-based checks, OCR inputs, document sequencing, and AI-assisted narrative generation without a manual review lane in phase 1.",
+      "No human handoff is part of the current product model. The product uses rule-based checks, AI document scanning, document sequencing, and AI-assisted narrative generation without a manual review lane in phase 1.",
     ],
   },
   {

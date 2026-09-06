@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ApplicantInfo } from "@/types";
+import type { ApplicantInfo, CaseContext } from "@/types";
 
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format.");
 
@@ -12,6 +12,25 @@ const supportingDocumentSchema = z.object({
   sizeBytes: z.number().int().min(1),
   storagePath: z.string().trim().min(1),
   uploadedAt: z.string().trim().min(1),
+  evidence: z.object({
+    category: z.enum(["travel", "financial", "employment", "insurance", "identity", "general"]),
+    evidenceType: z.enum([
+      "passport",
+      "bank_statement",
+      "hotel_booking",
+      "flight_itinerary",
+      "employment_letter",
+      "travel_insurance",
+      "sponsor_letter",
+      "relationship_proof",
+      "minor_consent",
+      "general_support",
+    ]),
+    subjectRole: z.enum(["PRIMARY", "PARTNER", "ADULT", "MINOR", "GROUP", "UNKNOWN"]),
+    subjectTravelerId: z.string().trim().min(1).optional(),
+    subjectLabel: z.string().trim().min(1).optional(),
+    inferredFrom: z.literal("file_name"),
+  }).optional(),
 });
 
 const previousSchengenVisaEntrySchema = z
@@ -32,6 +51,10 @@ const previousSchengenVisaEntrySchema = z
       });
     }
   });
+
+const caseContextSchema = z.custom<CaseContext>(
+  (value) => typeof value === "object" && value !== null,
+);
 
 export const applicantInfoSchema = z
   .object({
@@ -77,6 +100,7 @@ export const applicantInfoSchema = z
         "student",
         "retired",
         "unemployed",
+        "homemaker",
         "contractor",
         "other",
       ]),
@@ -146,6 +170,7 @@ export const applicantInfoSchema = z
       finalDestinationPermitNumber: z.string().trim().optional().or(z.literal("")),
       finalDestinationPermitValidUntil: z.string().trim().optional().or(z.literal("")),
     }),
+    caseContext: caseContextSchema.optional(),
     financialEvidence: z.object({
       closingBalanceEur: z.number().min(0).optional(),
       transitBufferEur: z.number().min(0).optional().default(0),
@@ -297,6 +322,32 @@ export const defaultApplicantInfo: ApplicantInfo = {
     finalDestinationPermitRequired: false,
     finalDestinationPermitNumber: "",
     finalDestinationPermitValidUntil: "",
+  },
+  caseContext: {
+    travelGroup: "solo",
+    travelers: [],
+    sharedContext: {
+      travelingTogether: true,
+      sameDestination: true,
+      sameDates: true,
+      sameAccommodation: true,
+      sameItinerary: true,
+      fundingArrangement: "self_funded",
+      accommodationStatus: "pending",
+      itineraryStatus: "partial",
+      homeTieStrength: "partial",
+      hasFinancialEvidence: false,
+      hasAccommodationEvidence: false,
+      hasSponsorRelationshipEvidence: false,
+      minorConsentStatus: "not_applicable",
+      notes: "",
+    },
+    readinessAssessment: undefined,
+    policyVersion: "",
+    assessmentDate: "",
+    initialReadinessDraft: undefined,
+    handoffKey: "",
+    readinessSource: "FREE_READINESS",
   },
   financialEvidence: {
     transitBufferEur: 0,

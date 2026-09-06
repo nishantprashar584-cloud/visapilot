@@ -14,7 +14,9 @@ import { subscribeToItinerarySync } from "@/lib/applications/moduleSyncBus";
 import { getPreviewApplicationForDestination } from "@/lib/mock/applications";
 import { buildA4TextLayout, generateA4TextPdf, type A4TextLayout } from "@/lib/pdf/a4TextLayout";
 import { generateChecklistPdf } from "@/lib/pdf/generateChecklistPdf";
-import type { ApplicantInfo, SupportingDocument } from "@/types";
+import type { ApplicantInfo, SupportingDocument, SupportingDocumentSubjectRole } from "@/types";
+
+const step5WorkspaceTabs = ["bundle", "cover-letter", "pdf-editor", "checklist", "prep"] as const;
 
 export type CustomLetterDraft = {
   id: string;
@@ -125,9 +127,11 @@ export function Step5Workspace({
   coverLetterMessage,
   onGenerateCoverLetter,
   onGenerateCustomLetter,
+  initialTab = "bundle",
   speechSupported,
   microphonePermission,
   onRequestMicrophoneAccess,
+  onFinalizeAndGoToVault,
 }: {
   applicant: ApplicantInfo;
   coverLetterDraft: string;
@@ -143,14 +147,16 @@ export function Step5Workspace({
   coverLetterMessage: string | null;
   onGenerateCoverLetter: (applicant: ApplicantInfo) => void;
   onGenerateCustomLetter: (letterId: string, applicant: ApplicantInfo) => void;
+  initialTab?: WorkspaceTab;
   speechSupported: boolean;
   microphonePermission: "idle" | "requesting" | "granted" | "denied" | "unsupported";
   onRequestMicrophoneAccess: () => Promise<boolean>;
+  onFinalizeAndGoToVault: () => void;
 }) {
   const customRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptDictationSessionRef = useRef<PromptDictationSession | null>(null);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("bundle");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(step5WorkspaceTabs.includes(initialTab) ? initialTab : "bundle");
   const [previewScale, setPreviewScale] = useState(1);
   const [activeBundlePreviewPage, setActiveBundlePreviewPage] = useState(0);
   const [promptDictationState, setPromptDictationState] = useState<PromptDictationState | null>(null);
@@ -200,6 +206,26 @@ export function Step5Workspace({
       cancelled = true;
     };
   }, [applicant.trip.destinationCountry, coverLetterDraft]);
+
+  const documentTravelerTargets = (() => {
+    const caseTravelers = applicant.caseContext?.travelers;
+
+    if (caseTravelers && caseTravelers.length > 0) {
+      return caseTravelers.map((traveler) => ({
+        id: traveler.id,
+        label: traveler.displayName || traveler.relationshipLabel || traveler.role,
+        role: traveler.role as Exclude<SupportingDocumentSubjectRole, "GROUP" | "UNKNOWN">,
+      }));
+    }
+
+    const fullName = `${applicant.personal.firstName} ${applicant.personal.lastName}`.trim();
+
+    return [{
+      id: "primary",
+      label: fullName || "Primary traveller",
+      role: "PRIMARY" as const,
+    }];
+  })();
 
   function slugify(value: string) {
     return value
@@ -294,6 +320,15 @@ export function Step5Workspace({
       .replace(/'/g, "&#39;");
   }
 
+  function triggerBrowserDownload(downloadPath: string) {
+    const link = document.createElement("a");
+    link.href = downloadPath;
+    link.rel = "noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   async function handleDownloadChecklistPdf() {
     const bytes = await generateChecklistPdf(applicant);
     const browserBytes = new Uint8Array(bytes.length);
@@ -313,6 +348,15 @@ export function Step5Workspace({
       window.open(`/dashboard/${previewApplicationId}/consulate-ready-packet?preview=1`, "_blank", "noopener,noreferrer");
       return;
     }
+  }
+
+  function handleDownloadMasterBundle() {
+    if (!previewMode) {
+      return;
+    }
+
+    const previewApplicationId = getPreviewApplicationForDestination(applicant.trip.destinationCountry)?.id ?? "preview-france-tourism";
+    triggerBrowserDownload(`/dashboard/${previewApplicationId}/consulate-ready-packet?preview=1`);
   }
 
   async function handleDownloadPdf(content: string, label: string) {
@@ -680,7 +724,7 @@ export function Step5Workspace({
       key: "organize-pdf",
       targetId: "reorder",
       label: "Organize PDF",
-      description: "Visually inspect your master packet, extract irrelevant sheets, and drag supporting evidence into the exact physical order required by VFS Global.",
+      description: "Visually inspect your print-ready visa packet, extract irrelevant sheets, and drag supporting evidence into the exact physical order required by VFS Global.",
       icon: Layers3,
       accentClass: "border-violet-300/20 bg-violet-500/10 text-violet-100",
       iconClass: "bg-violet-100 text-violet-600",
@@ -710,7 +754,7 @@ export function Step5Workspace({
     label: string;
     eyebrow: string;
   }> = [
-    { id: "bundle", label: "Master Bundle", eyebrow: "Default landing" },
+    { id: "bundle", label: "Print-Ready Visa Packet", eyebrow: "Default landing" },
     { id: "cover-letter", label: "AI Cover Letter Studio", eyebrow: "Narrative editing" },
     { id: "pdf-editor", label: "Advanced PDF Editor", eyebrow: "Operational toolkit" },
     { id: "checklist", label: "VFS Checklist & Stacking Order", eyebrow: "Appointment prep" },
@@ -1107,6 +1151,8 @@ export function Step5Workspace({
                 onZoomReset={() => adjustPreviewScale("reset")}
                 onZoomIn={() => adjustPreviewScale("in")}
                 onSelectPage={setActiveBundlePreviewPage}
+                onDownloadMasterBundle={handleDownloadMasterBundle}
+                onFinalizeAndGoToVault={onFinalizeAndGoToVault}
                 onOpenConsulateReadyPacket={handleOpenConsulateReadyPacket}
               />
             ) : null}
@@ -1119,6 +1165,7 @@ export function Step5Workspace({
                   previewMode={previewMode}
                   supportingDocuments={supportingDocuments}
                   onSupportingDocumentsChange={onSupportingDocumentsChange}
+                  travelerTargets={documentTravelerTargets}
                   allowedTools={[...advancedPdfEditorTools]}
                   toolCards={[...advancedPdfEditorCards]}
                 />
@@ -1130,7 +1177,16 @@ export function Step5Workspace({
             ) : null}
 
             {activeTab === "prep" ? (
-              <PrepTabPanel applicant={applicant} />
+              <PrepTabPanel
+                applicant={applicant}
+                refusalReasonCode={null}
+                interviewDownloadHref={previewMode
+                  ? `/dashboard/${getPreviewApplicationForDestination(applicant.trip.destinationCountry)?.id ?? "preview-france-tourism"}/interview-simulator?preview=1`
+                  : undefined}
+                refusalDownloadHref={previewMode
+                  ? `/dashboard/${getPreviewApplicationForDestination(applicant.trip.destinationCountry)?.id ?? "preview-france-tourism"}/refusal-decoder?preview=1`
+                  : undefined}
+              />
             ) : null}
           </div>
         </div>

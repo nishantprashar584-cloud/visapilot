@@ -1,14 +1,29 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildSupportingDocumentStoragePath, supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
-import type { SupportingDocument, SupportingDocumentKind } from "@/types";
+import { buildSupportingDocumentStoragePath, mergeSupportingDocumentEvidence, supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
+import type { SupportingDocument, SupportingDocumentEvidenceType, SupportingDocumentKind, SupportingDocumentSubjectRole } from "@/types";
 
 const deletePayloadSchema = z.object({
   storagePath: z.string().trim().min(1),
 });
 
 const uploadDocumentIdSchema = z.string().trim().min(1).optional();
+const uploadEvidenceTypeSchema = z.enum([
+  "passport",
+  "bank_statement",
+  "hotel_booking",
+  "flight_itinerary",
+  "employment_letter",
+  "travel_insurance",
+  "sponsor_letter",
+  "relationship_proof",
+  "minor_consent",
+  "general_support",
+] satisfies [SupportingDocumentEvidenceType, ...SupportingDocumentEvidenceType[]]).optional();
+const uploadSubjectRoleSchema = z.enum(["PRIMARY", "PARTNER", "ADULT", "MINOR", "GROUP", "UNKNOWN"] satisfies [SupportingDocumentSubjectRole, ...SupportingDocumentSubjectRole[]]).optional();
+const uploadSubjectTravelerIdSchema = z.string().trim().min(1).optional();
+const uploadSubjectLabelSchema = z.string().trim().min(1).optional();
 
 function inferDocumentKind(mimeType: string): SupportingDocumentKind {
   return mimeType === "application/pdf" ? "pdf" : "image";
@@ -29,6 +44,10 @@ export async function POST(request: Request) {
     const file = formData.get("file");
     const pageCount = Number(formData.get("pageCount") ?? 1);
     const requestedDocumentId = uploadDocumentIdSchema.parse(formData.get("documentId")?.toString());
+    const selectedEvidenceType = uploadEvidenceTypeSchema.parse(formData.get("evidenceType")?.toString());
+    const selectedSubjectRole = uploadSubjectRoleSchema.parse(formData.get("subjectRole")?.toString());
+    const selectedSubjectTravelerId = uploadSubjectTravelerIdSchema.parse(formData.get("subjectTravelerId")?.toString());
+    const selectedSubjectLabel = uploadSubjectLabelSchema.parse(formData.get("subjectLabel")?.toString());
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Upload a PDF or image file." }, { status: 400 });
@@ -62,6 +81,12 @@ export async function POST(request: Request) {
       sizeBytes: file.size,
       storagePath,
       uploadedAt: new Date().toISOString(),
+      evidence: mergeSupportingDocumentEvidence(file.name, {
+        evidenceType: selectedEvidenceType,
+        subjectRole: selectedSubjectRole,
+        subjectTravelerId: selectedSubjectTravelerId,
+        subjectLabel: selectedSubjectLabel,
+      }),
     };
 
     return NextResponse.json({ document });
@@ -93,7 +118,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Invalid supporting document removal payload." }, { status: 400 });
     }
 
-    if (!parsedPayload.data.storagePath.startsWith(`${user.id}/`)) {
+    if (!parsedPayload.data.storagePath.startsWith(`applicant-documents/${user.id}/`) && !parsedPayload.data.storagePath.startsWith(`${user.id}/`)) {
       return NextResponse.json({ error: "You do not have permission to remove this document." }, { status: 403 });
     }
 

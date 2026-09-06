@@ -43,10 +43,10 @@ test.describe("Step 5 document studio", () => {
 
     await expect(page.getByRole("heading", { name: /^document studio$/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /ai cover letter studio/i }).click();
+    await page.getByRole("tab", { name: /ai cover letter studio/i }).click();
     await expect(page.getByText(/embassy-facing cover letter/i)).toBeVisible();
 
-    await page.getByRole("button", { name: /advanced pdf editor/i }).click();
+    await page.getByRole("tab", { name: /advanced pdf editor/i }).click();
     await expect(page.getByText(/operation-first pdf workspace/i)).toBeVisible();
 
     await page.getByRole("button", { name: /organize pdf/i }).click();
@@ -86,7 +86,7 @@ test.describe("Step 5 document studio", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/reordered\.pdf$/i);
 
-    await page.getByRole("button", { name: /vfs checklist & stacking order/i }).click();
+    await page.getByRole("tab", { name: /vfs checklist & stacking order/i }).click();
     await expect(page.getByText(/interactive stacking visualizer/i)).toBeVisible();
 
     const packetResponse = await page.request.get("/dashboard/preview-france-tourism/consulate-ready-packet?preview=1");

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getTierConfig, pricingTierSchema } from "@/lib/payments/tiers";
+import { calculateInclusiveGstBreakdown } from "@/lib/payments/gst";
+import { getTierConfig, pricingTierSchema, serviceTrackSchema } from "@/lib/payments/tiers";
 import { buildRazorpayCheckoutOptions, createRazorpayOrder } from "@/lib/payments/razorpay";
-import { calculateInclusiveGstBreakdown } from "@/lib/payments/gstInvoice";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const checkoutRequestSchema = z.object({
   tier: pricingTierSchema,
+  track: serviceTrackSchema.default("APPLY_MYSELF"),
   applicationId: z.string().uuid().optional(),
   applicantName: z.string().trim().min(1).max(160).optional(),
 });
@@ -36,11 +37,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { tier, applicationId, applicantName } = parsedRequest.data;
-    const tierConfig = getTierConfig(tier);
+    const { tier, track, applicationId, applicantName } = parsedRequest.data;
+    const tierConfig = getTierConfig(tier, track);
     const successUrl = new URL("/dashboard", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
     successUrl.searchParams.set("checkout", "success");
     successUrl.searchParams.set("tier", tier);
+    successUrl.searchParams.set("track", track);
     const receiptNumber = `vp-${tier}-${Date.now()}`;
     const order = await createRazorpayOrder({
       amountPaise: tierConfig.gstInclusiveAmountInr * 100,
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
       notes: {
         userId: user.id,
         tier,
+        track,
         applicationId: applicationId ?? "",
       },
     });
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
       customer_email: user.email ?? null,
       notes: {
         tierLabel: tierConfig.label,
+        track,
         requestedCredits: tierConfig.requestedCredits,
       },
     });
@@ -85,6 +89,7 @@ export async function POST(request: Request) {
         orderId: order.id,
         amountPaise: tierConfig.gstInclusiveAmountInr * 100,
         tier,
+        track,
         checkoutLabel: tierConfig.checkoutLabel,
         customerName: applicantName ?? null,
         customerEmail: user.email ?? null,

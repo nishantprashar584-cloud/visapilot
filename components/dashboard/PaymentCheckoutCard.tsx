@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { LoaderCircle, Wallet } from "lucide-react";
-import { pricingTierConfig } from "@/lib/payments/tiers";
-import type { PricingTier } from "@/types";
+import { LoaderCircle, Lock, ShieldCheck, Wallet } from "lucide-react";
+import { getDefaultServiceTrack, getPricingMatrixForTrack, serviceTrackLabel } from "@/lib/payments/tiers";
+import type { PricingTier, ServiceTrack } from "@/types";
 
 declare global {
   interface Window {
@@ -31,8 +31,10 @@ async function loadRazorpayCheckoutScript() {
 }
 
 export function PaymentCheckoutCard() {
+  const [activeTrack, setActiveTrack] = useState<ServiceTrack>(getDefaultServiceTrack());
   const [activeTier, setActiveTier] = useState<PricingTier | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const visiblePricing = getPricingMatrixForTrack(activeTrack);
 
   async function handleCheckout(tier: PricingTier) {
     setActiveTier(tier);
@@ -45,7 +47,7 @@ export function PaymentCheckoutCard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ tier }),
+        body: JSON.stringify({ tier, track: activeTrack }),
       });
       const checkoutPayload = (await checkoutResponse.json()) as {
         checkoutOptions?: Record<string, unknown>;
@@ -110,8 +112,8 @@ export function PaymentCheckoutCard() {
     <div className="glass-panel p-6 sm:p-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="eyebrow">Credits</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Buy application credits with UPI or local cards</h2>
+          <p className="eyebrow">Plans</p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Buy your visa plan with UPI or local cards</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">
             Razorpay checkout prioritizes UPI intent, Indian card routing, and instant GST invoice generation after capture.
           </p>
@@ -123,11 +125,34 @@ export function PaymentCheckoutCard() {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {(Object.entries(pricingTierConfig) as Array<[PricingTier, (typeof pricingTierConfig)[PricingTier]]>).map(([tier, config]) => (
+        <div className="md:col-span-3 rounded-[1rem] border border-white/12 bg-white/6 px-4 py-3 text-sm text-slate-200">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+            <span>Built around current Schengen tourist form structure and provider checklist guidance.</span>
+          </div>
+        </div>
+        <div className="md:col-span-3 grid gap-2 sm:grid-cols-2 rounded-[1.15rem] border border-white/12 bg-white/6 p-2">
+          {(["APPLY_MYSELF", "VIP_CONCIERGE"] as const).map((track) => (
+            <button
+              key={track}
+              type="button"
+              onClick={() => setActiveTrack(track)}
+              className={activeTrack === track
+                ? "rounded-[0.95rem] border border-cyan-300/40 bg-cyan-300/16 px-4 py-3 text-sm font-semibold text-cyan-50"
+                : "rounded-[0.95rem] border border-white/14 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"}
+            >
+              {serviceTrackLabel[track]}
+            </button>
+          ))}
+        </div>
+        {(Object.entries(visiblePricing) as Array<[PricingTier, (typeof visiblePricing)[PricingTier]]>).map(([tier, config]) => (
           <div key={tier} className="rounded-[1.2rem] border border-white/14 bg-white/10 p-5 backdrop-blur-sm">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">{config.label}</p>
             <p className="mt-3 text-3xl font-semibold text-white">₹{config.gstInclusiveAmountInr.toLocaleString("en-IN")}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{config.requestedCredits} application credit{config.requestedCredits === 1 ? "" : "s"} with 18% GST invoice.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">{config.description}</p>
+            {activeTrack === "VIP_CONCIERGE" ? (
+              <p className="mt-2 text-sm leading-6 text-emerald-200">Nothing is submitted to the embassy until you approve the final review.</p>
+            ) : null}
             <button
               type="button"
               onClick={() => void handleCheckout(tier)}
@@ -137,6 +162,10 @@ export function PaymentCheckoutCard() {
               {activeTier === tier ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
               {activeTier === tier ? "Opening checkout..." : `Buy ${config.label}`}
             </button>
+            <p className="mt-3 flex items-start gap-2 text-xs text-slate-300">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Secure 256-bit encryption. 18% GST included. Zero hidden VisaPilot processing fees.</span>
+            </p>
           </div>
         ))}
       </div>

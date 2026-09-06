@@ -38,7 +38,7 @@ export function A4TextPreview({
                   <text
                     key={`${lineIndex}-${line.y}`}
                     x={line.x}
-                    y={line.y}
+                    y={layout.pageHeight - line.y}
                     fontSize={line.fontSize}
                     fontFamily="Helvetica, Arial, sans-serif"
                     fill="#1b2430"

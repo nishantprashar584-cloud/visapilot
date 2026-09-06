@@ -1,13 +1,48 @@
 import { NextResponse } from "next/server";
+import { getPreviewApplication } from "@/lib/mock/applications";
+import { generateTextPdf } from "@/lib/pdf/generateTextPdf";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supportingDocumentsBucket } from "@/lib/documents/supportingDocuments";
 import type { ApplicationRow } from "@/types";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { applicationId: string; documentId: string } },
 ) {
   try {
+    const previewMode = new URL(request.url).searchParams.get("preview") === "1";
+
+    if (previewMode) {
+      const previewApplication = getPreviewApplication(params.applicationId);
+      const previewDocument = previewApplication?.application_data.supportingDocuments?.find((item) => item.id === params.documentId);
+
+      if (!previewApplication || !previewDocument) {
+        return NextResponse.json({ error: "Supporting document not found." }, { status: 404 });
+      }
+
+      const previewBytes = await generateTextPdf([
+        `Sample supporting document: ${previewDocument.fileName}`,
+        "",
+        `Destination: ${previewApplication.destination_country}`,
+        `Document type: ${previewDocument.kind.toUpperCase()}`,
+        `Mime type: ${previewDocument.mimeType}`,
+        `Pages: ${previewDocument.pageCount}`,
+        `File size: ${previewDocument.sizeBytes} bytes`,
+        `Uploaded at: ${new Date(previewDocument.uploadedAt).toLocaleString("en-IN", { hour12: false })}`,
+        "",
+        "Preview mode ships generated sample attachments instead of stored private files.",
+      ].join("\n"));
+      const responseBytes = new Uint8Array(previewBytes.length);
+      responseBytes.set(previewBytes);
+
+      return new Response(responseBytes, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${previewDocument.fileName.replace(/\.[^.]+$/, "")}-sample.pdf"`,
+        },
+      });
+    }
+
     const supabase = createSupabaseServerClient();
     const {
       data: { user },

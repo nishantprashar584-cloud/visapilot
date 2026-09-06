@@ -1,9 +1,19 @@
 import { MessageSquareText, RotateCcw } from "lucide-react";
 import { ConsularInterviewPanel } from "@/components/insights/ConsularInterviewPanel";
 import { RefusalDecoderPanel } from "@/components/insights/RefusalDecoderPanel";
-import type { ApplicantInfo } from "@/types";
+import type { ApplicantInfo, RefusalReasonCode } from "@/types";
 
-export function PrepTabPanel({ applicant }: { applicant: ApplicantInfo }) {
+export function PrepTabPanel({
+  applicant,
+  refusalReasonCode,
+  interviewDownloadHref,
+  refusalDownloadHref,
+}: {
+  applicant: ApplicantInfo;
+  refusalReasonCode: RefusalReasonCode | null;
+  interviewDownloadHref?: string;
+  refusalDownloadHref?: string;
+}) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
@@ -30,8 +40,8 @@ export function PrepTabPanel({ applicant }: { applicant: ApplicantInfo }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ConsularInterviewPanel applicant={applicant} />
-        <RefusalDecoderPanel refusalReasonCode={null} />
+        <ConsularInterviewPanel applicant={applicant} downloadHref={interviewDownloadHref} />
+        <RefusalDecoderPanel refusalReasonCode={refusalReasonCode} downloadHref={refusalDownloadHref} />
       </div>
     </div>
   );
